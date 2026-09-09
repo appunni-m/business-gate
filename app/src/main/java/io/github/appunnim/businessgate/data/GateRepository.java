@@ -247,7 +247,11 @@ public final class GateRepository {
     }
     public void attention(long[] durations) {
         String day=java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
-        transaction(db -> db.execSQL("INSERT INTO attention_daily(day_utc,management_ms,occupancy_ms,union_ms) VALUES(?,?,?,?) ON CONFLICT(day_utc) DO UPDATE SET management_ms=management_ms+excluded.management_ms,occupancy_ms=occupancy_ms+excluded.occupancy_ms,union_ms=union_ms+excluded.union_ms",new Object[]{day,durations[0],durations[1],durations[2]}),null);
+        transaction(db -> {
+            // Two statements in one transaction also support the baseline platform SQLite.
+            db.execSQL("INSERT OR IGNORE INTO attention_daily(day_utc) VALUES(?)",new Object[]{day});
+            db.execSQL("UPDATE attention_daily SET management_ms=management_ms+?,occupancy_ms=occupancy_ms+?,union_ms=union_ms+? WHERE day_utc=?",new Object[]{durations[0],durations[1],durations[2],day});
+        },null);
     }
     private void prune(SQLiteDatabase db) {
         long now=System.currentTimeMillis();
