@@ -1,5 +1,14 @@
 plugins { id 'com.android.application' }
 
+def gateCode = providers.gradleProperty('gateVersionCode').getOrElse('1').toInteger()
+def gateName = providers.gradleProperty('gateVersionName').getOrElse('0.1.0')
+if (gateCode < 1 || gateCode > 2100000000) {
+    throw new GradleException('gateVersionCode must be between 1 and 2100000000')
+}
+if (!(gateName ==~ /[0-9A-Za-z.+-]{1,80}/)) {
+    throw new GradleException('gateVersionName contains invalid characters')
+}
+
 android {
     namespace 'io.github.appunnim.businessgate'
     compileSdk 36
@@ -8,8 +17,8 @@ android {
         applicationId 'io.github.appunnim.businessgate'
         minSdk 29
         targetSdk 36
-        versionCode 1
-        versionName '0.1.0'
+        versionCode gateCode
+        versionName gateName
         testInstrumentationRunner 'io.github.appunnim.businessgate.GateInstrumentation'
     }
     compileOptions {

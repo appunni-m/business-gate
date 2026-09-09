@@ -10,3 +10,5 @@ output/
 tmp/
 *.hprof
 *.log
+.signing/
+__pycache__/

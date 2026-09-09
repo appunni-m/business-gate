@@ -8,6 +8,12 @@ A native Android app for managing exact-number business blocking choices, based 
 
 ## Try the native interface
 
+[**Download the latest installable APK**](https://github.com/appunni-m/business-gate/releases/download/development/business-gate.apk) · [All builds and checksums](https://github.com/appunni-m/business-gate/releases) · [Build status](https://github.com/appunni-m/business-gate/actions/workflows/android.yml)
+
+Requires **Android 10 or newer**. Open the APK and allow installation from your browser or file manager when Android asks. No GitHub login is needed to download. Each successful `main` build publishes a signed development APK; later downloads install as updates and preserve local choices. Connected-app actions remain disabled.
+
+To build locally:
+
 Use JDK 17, Android SDK Platform 36 and Build Tools 35.0.0. The verified wrapper pins Gradle 8.13; the build pins Android Gradle Plugin 8.13.2. Set `JAVA_HOME` and `ANDROID_HOME` to your installations.
 
 ```sh
@@ -38,7 +44,9 @@ scripts/device-tests.sh
 
 The device script deliberately rejects physical device serials because it resets local app data and inserts fictional test records. It checks actual process-restart recovery as well as policy persistence and rendered UI. The pure suite does not require Android or a network connection.
 
-Release APK/AAB files are **unsigned**, pending the publisher's signing setup. Debug artifacts use the local Android debug signing key. No signing keys are committed. CI builds and retains development artifacts; it does not publish a store release.
+The delivery workflow signs the verified release APK with a private publisher key stored in an encrypted repository secret. It verifies the signature and installation before publishing a versioned GitHub prerelease and updating the continuous download link. The release includes checksums and source/build metadata. Pull requests only verify code. Signing keys are never committed.
+
+Local Gradle release APK/AAB files remain unsigned; debug artifacts use the local Android debug key and a separate application ID. These are development distributions, not store releases. See [delivery and signing](docs/delivery.md) for the one-time setup, automatic checks, updates, and failure recovery.
 
 ## What the screen does
 

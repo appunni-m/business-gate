@@ -11,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 RESTRICTED = {"ec8202b6f9fb16f9e26b66367afa4e037752f3c09a18cefab426165e06a424b1"}
-SKIP = {'.git', '.gradle', 'build', 'output', 'tmp', '__pycache__'}
+SKIP = {'.git', '.gradle', '.signing', 'build', 'output', 'tmp', '__pycache__'}
 failures = []
 
 def check(label, data):
