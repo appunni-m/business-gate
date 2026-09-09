@@ -8,12 +8,14 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4.0.1
       - name: Install pinned SDK components
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - name: Verify wrapper checksum
@@ -21,12 +23,19 @@ jobs:
       - name: Pure safety, schema and independent-branding rules
         run: scripts/test.sh
       - name: Compile and lint
-        run: ./gradlew :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:bundleRelease
+        run: |
+          if ! ./gradlew :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:bundleRelease; then
+            for report in app/build/intermediates/lint_intermediate_text_report/*/lintReport*/lint-results-*.txt; do
+              if [ -f "$report" ]; then cat "$report"; fi
+            done
+            exit 1
+          fi
       - name: Audit release contents
         run: python3 scripts/audit_artifact.py app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Enforce artifact naming rule
         run: python3 scripts/check_brand.py app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/bundle/release/app-release.aab
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
         with:
           name: business-gate-development-build
           path: |

@@ -2,4 +2,7 @@
     <!-- The source specification intentionally pins this reproducibility baseline.
          Toolchain upgrades are reviewed changes, not automatically adopted releases. -->
     <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <!-- SDK 36 is the explicit design/test baseline. A newer SDK on a CI runner
+         is not evidence that its changed behavior has been qualified. -->
+    <issue id="OldTargetApi" severity="ignore" />
 </lint>
