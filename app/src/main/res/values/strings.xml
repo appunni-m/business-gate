@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Business Gate</string>
+    <string name="accessibility_description">Business Gate uses screen access for supported account information and Block or Unblock controls. It stores your exact-number choices locally. Connected-app actions require a qualified integration, consent, and a visible stoppable session. Chat contents are not saved.</string>
+    <string name="access_disclosure">Business Gate uses Android Accessibility to inspect supported account information and press Block or Unblock according to your choices. This may stop messages and calls from those numbers. Screen access can expose text shown in the connected app. We do not save chat contents or send them to a server. Actions run only in supported visible screens and can be stopped. You choose when to start a scan that opens chats.</string>
+    <string name="notification_disclosure">Notification access helps notice new senders. Android may make notifications from other apps accessible too; Business Gate ignores them. We do not save notification messages. Without this permission, discovery is limited to supported screens you open.</string>
+    <string name="sales_disclosure">Briefly checks new notification text from the connected app on this device for sales wording. Text is not saved or uploaded. Hints can be wrong. They never block anyone automatically.</string>
+    <string name="activation_disclosure">Business accounts you have not enabled will be blocked when they can be checked safely. This may include delivery updates, appointment reminders, support replies and authentication messages. Messages sent while blocked may not arrive after you enable the number again. Personal and uncertain accounts are not automatically blocked. A wanted person who uses a business account needs an exact-number exception too. Enable a number here or pause the rule to keep it unblocked after changing it in the connected app.</string>
+    <string name="scan_disclosure">This scan may open selected chats and mark messages as read. It will not send, delete, archive or report anything. Only use it when you are comfortable with that. You can stop at any time.</string>
+    <plurals name="pending_actions"><item quantity="one">Apply %d pending action</item><item quantity="other">Apply %d pending actions</item></plurals>
+    <plurals name="waiting_actions"><item quantity="one">%d action waiting</item><item quantity="other">%d actions waiting</item></plurals>
+    <plurals name="review_count"><item quantity="one">Review · %d sender</item><item quantity="other">Review · %d senders</item></plurals>
+    <string name="session_stop">Business Gate · Stop</string>
+    <string name="reminder_title">Your optional review is ready</string>
+    <string name="reminder_detail">New senders are left alone. Review your choices when it suits you.</string>
+</resources>

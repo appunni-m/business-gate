@@ -1,0 +1,5 @@
+<lint>
+    <!-- The source specification intentionally pins this reproducibility baseline.
+         Toolchain upgrades are reviewed changes, not automatically adopted releases. -->
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+</lint>

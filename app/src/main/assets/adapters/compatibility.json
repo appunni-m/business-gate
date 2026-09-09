@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "status": "awaiting-physical-qualification",
+  "adapters": [],
+  "reason": "No measured receiving-account binding, screen recipe, signing lineage or physical mutation evidence has been supplied. Connected-app actions stay unavailable."
+}

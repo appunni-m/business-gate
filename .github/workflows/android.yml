@@ -1,0 +1,36 @@
+name: Android verification
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned SDK components
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Verify wrapper checksum
+        run: python3 scripts/check_wrapper.py
+      - name: Pure safety, schema and independent-branding rules
+        run: scripts/test.sh
+      - name: Compile and lint
+        run: ./gradlew :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:bundleRelease
+      - name: Audit release contents
+        run: python3 scripts/audit_artifact.py app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Enforce artifact naming rule
+        run: python3 scripts/check_brand.py app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/bundle/release/app-release.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: business-gate-development-build
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+            app/build/reports/lint-results-*.html
