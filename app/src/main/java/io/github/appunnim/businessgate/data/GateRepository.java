@@ -42,7 +42,7 @@ public final class GateRepository {
     private final java.util.concurrent.ConcurrentHashMap<String,Long> optionVetoes = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile boolean consentVeto;
     private volatile long consentCommand;
-    private final AtomicLong commandSequence = new AtomicLong(), dataEpoch = new AtomicLong();
+    private final AtomicLong commandSequence = new AtomicLong(), dataEpoch = new AtomicLong(), metricsEpoch=new AtomicLong();
     private final AuthorityEpoch authority = new AuthorityEpoch();
     private volatile String failure = "", installation = "";
     private record Stamp(long namespace, long data) {}
@@ -58,6 +58,7 @@ public final class GateRepository {
         return switch(field){case "digest"->current().digest();case "discovery"->current().discovery();case "sales_hints"->current().salesHints();default->false;};
     }
     public long epoch() { return authority.current(); }
+    public long metricsEpoch(){return metricsEpoch.get();}
     public String installation() { return installation; }
     public boolean vetoed(long id) { return vetoes.containsKey(id); }
     public void reload(Runnable success) { transaction(stamp(), db -> {}, success); }
@@ -324,7 +325,7 @@ public final class GateRepository {
         });
     }
     public void reset(Runnable success) {
-        emergencyStop();long owner=dataEpoch.incrementAndGet();vetoes.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
+        emergencyStop();metricsEpoch.incrementAndGet();long owner=dataEpoch.incrementAndGet();vetoes.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
         writer.execute(()->{
             try{
                 if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
@@ -424,9 +425,19 @@ public final class GateRepository {
     }
     public void attention(String day,long[] durations) {
         if(durations.length!=3||durations[0]<0||durations[1]<0||durations[2]<0||durations[2]>durations[0]+durations[1])throw new IllegalArgumentException("INVALID_INTERVAL");
-        java.time.LocalDate.parse(day);long[] copy=durations.clone();transaction(stamp(),db->{
-            db.execSQL("INSERT OR IGNORE INTO attention_daily(day_utc) VALUES(?)",new Object[]{day});db.execSQL("UPDATE attention_daily SET management_ms=management_ms+?,occupancy_ms=occupancy_ms+?,union_ms=union_ms+? WHERE day_utc=?",new Object[]{copy[0],copy[1],copy[2],day});
-        },null);
+        java.time.LocalDate.parse(day);long[] copy=durations.clone();long owner=metricsEpoch.get();
+        writer.execute(()->{
+            try{
+                if(owner!=metricsEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    if(owner!=metricsEpoch.get())throw new Stale();
+                    db.execSQL("INSERT OR IGNORE INTO attention_daily(day_utc) VALUES(?)",new Object[]{day});
+                    db.execSQL("UPDATE attention_daily SET management_ms=management_ms+?,occupancy_ms=occupancy_ms+?,union_ms=union_ms+? WHERE day_utc=?",new Object[]{copy[0],copy[1],copy[2],day});
+                    db.execSQL("DELETE FROM attention_daily WHERE day_utc<?",new Object[]{java.time.LocalDate.now(java.time.ZoneOffset.UTC).minusDays(35).toString()});db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                // Metric-only checkpoints do not reload fifty thousand accounts or move UI rows.
+            }catch(Stale ignored){/* Reset owns subsequent metrics. */}catch(Exception error){fail();}
+        });
     }
     public void attention(long[] durations) { attention(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(),durations); }
     private void prune(SQLiteDatabase db) {

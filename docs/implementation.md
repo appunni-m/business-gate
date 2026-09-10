@@ -42,6 +42,10 @@ On an isolated emulator, set `GATE_TEST_SERIAL` and run `scripts/device-tests.sh
 
 The separate `release-probe` module is not a dependency of the application. `scripts/release-upgrade-test.sh` installs the probe on a dedicated emulator, seeds a fictional ALLOW choice through the previous signed app's own UI, installs the new signed APK with `adb install -r`, and verifies the choice. It removes the probe afterward. It never inspects the connected app or receives publisher credentials.
 
+Recovery now counts entry attempts durably, enforces later-opportunity backoffs, and records uncertainty without replacing a newer command. Explicit Retry preserves an existing unblock nonce and its expiry; an unblock-only session does not turn on the business rule. An identity/structure circuit survives reload and requires a separate observe-only compatibility check. The Android harness verifies these repository transitions. Real event attribution and external compensation still require measured integration work.
+
+Effort tracking checkpoints only while management or a session is visible. It does not schedule an alarm or resume a previous interval after restart. Checkpoints update only the metric table and remain a lower bound when the process or a write is interrupted. The native harness separately terminates the process at entry/confirmation recovery boundaries and during an observed effort interval.
+
 ## Remaining implementation and evidence
 
 The integration is still incomplete. Measured receiver/profile/dialog contracts, reliable own-action versus user-interaction handling, full navigation/batching/scanning, notification provenance and scoring integration, safe recovery/compensation across real external transitions, and physical block/unblock outcomes are not qualified. Some of these still require implementation once the actual interface is measured; JSON metadata alone cannot complete them.

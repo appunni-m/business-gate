@@ -13,6 +13,9 @@ public final class AttentionLedger {
     private final Map<String,long[]> days=new LinkedHashMap<>();
     public synchronized void management(long elapsed,long wall,boolean active){advance(elapsed,wall);managing=active;}
     public synchronized void session(long elapsed,long wall,boolean active){advance(elapsed,wall);applying=active;}
+    public synchronized boolean active(){return managing||applying;}
+    /** Clear pre-reset duration while continuing to observe any currently visible interval. */
+    public synchronized void reset(long elapsed,long wall){days.clear();last=elapsed;lastWall=wall;}
     private void advance(long elapsed,long wall){
         if(last>=0&&elapsed>=last&&(managing||applying)){
             long duration=elapsed-last;

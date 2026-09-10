@@ -140,6 +140,12 @@ public final class CoreSuite {
         return new Account(a.id(),a.namespace(),a.phone(),a.name(),a.kind(),a.choice(),a.blockState(),a.gateOwned(),a.revision(),a.everBusiness(),a.review(),a.hintBits(),a.dismissedUntil(),a.checkedAt(),a.lastSeen(),JobState.REINSPECT,a.jobAction(),a.nonce(),a.grantCreatedAt(),count,updated,"RESULT_UNVERIFIED");
     }
     private static void retries(){
+        AttentionLedger attention=new AttentionLedger();long wall=java.time.Instant.parse("2026-09-10T12:00:00Z").toEpochMilli();
+        attention.management(0,wall,true);attention.session(1000,wall+1000,true);attention.reset(2000,wall+2000);
+        check(attention.active(),"reset continues measuring current visible work");
+        long[] totals=attention.drain(5000,wall+5000).get("2026-09-10");
+        check(totals[0]==3000&&totals[1]==3000&&totals[2]==3000,"reset discards only pre-reset effort and preserves interval union");
+        check(attention.drain(5000,wall+5000).isEmpty(),"checkpoint drain never duplicates committed intervals");
         equals(RetryPolicy.eligibility(0,0,NOW),RetryPolicy.Eligibility.READY,"initial attempt available");
         equals(RetryPolicy.eligibility(1,NOW,NOW+29_999),RetryPolicy.Eligibility.WAIT,"first retry waits thirty seconds");
         equals(RetryPolicy.eligibility(1,NOW,NOW+30_000),RetryPolicy.Eligibility.READY,"first later opportunity");

@@ -37,11 +37,18 @@ public final class GateInstrumentation extends Instrumentation {
         try{
             GateApplication app=(GateApplication)getTargetContext().getApplicationContext();until(()->app.repository()!=null);repository=app.repository();until(()->repository.current().loaded());
             String mode=arguments.getString("mode","all");
-            if(mode.equals("verify-recovery")){
+            if(mode.equals("verify-attention")){
+                long saved=effortTotal();check(saved>=4500,"visible interval checkpoint survives actual process death");
+                Thread.sleep(5500);check(effortTotal()==saved,"startup does not resume an old attention interval or background checkpoint");
+            }else if(mode.equals("prepare-attention")){
+                committed(repository::reset);Activity activity=launch();until(()->hasText(activity,"Business Gate"));
+                until(()->effortTotal()>=4500);check(effortTotal()>=4500,"visible activity persists effort before it closes");
+            }else if(mode.startsWith("verify-recovery")){
                 check(repository.current().accounts().stream().anyMatch(a->a.jobState()==JobState.REINSPECT),"interrupted work re-inspected after actual process restart");
                 check(repository.disarmed(),"startup is disarmed");
-            }else if(mode.equals("prepare-recovery")){
-                seed();try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET state='ACTION_INTENT' WHERE account_id=4");}
+                check(repository.current().account(4).attempts()==3,"process restart preserves consumed attempt budget");
+            }else if(mode.startsWith("prepare-recovery")){
+                seed();try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET state=?,attempts=3 WHERE account_id=4",new Object[]{mode.endsWith("confirm")?"VERIFYING":"ACTION_INTENT"});}
             }else if(mode.equals("performance")){
                 performance();
             }else if(mode.equals("setup")){
@@ -168,8 +175,9 @@ public final class GateInstrumentation extends Instrumentation {
         CountDownLatch heldReset=new CountDownLatch(1),releaseReset=new CountDownLatch(1),resetDone=new CountDownLatch(1);
         writer.execute(()->{heldReset.countDown();try{releaseReset.await(10,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
         check(heldReset.await(10,TimeUnit.SECONDS),"writer held before reset");
-        runOnMainSync(()->{repository.enableNumber("+12025550109","Superseded",()->{});repository.reset(resetDone::countDown);});releaseReset.countDown();
+        runOnMainSync(()->{repository.enableNumber("+12025550109","Superseded",()->{});repository.attention(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(),new long[]{400,0,400});repository.reset(resetDone::countDown);});releaseReset.countDown();
         check(resetDone.await(10,TimeUnit.SECONDS),"reset commits");writerBarrier();check(repository.current().accounts().isEmpty(),"queued old choice cannot repopulate reset");
+        check(effortTotal()==0,"queued pre-reset metrics cannot repopulate cleared totals");
         android.content.Context isolated=new android.content.ContextWrapper(getTargetContext()){
             @Override public java.io.File getDatabasePath(String name){return super.getDatabasePath("migration-test.db");}
             @Override public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory){return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name),factory);}
@@ -208,6 +216,9 @@ public final class GateInstrumentation extends Instrumentation {
         }finally{SQLiteDatabase.deleteDatabase(path);}
     }
     private Activity launch(){return startActivitySync(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
+    private long effortTotal(){
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext());var cursor=helper.getReadableDatabase().rawQuery("SELECT COALESCE(sum(union_ms),0) FROM attention_daily",null)){cursor.moveToFirst();return cursor.getLong(0);}
+    }
     private Readiness readiness(){Snapshot s=repository.current();return new Readiness(s.namespace(),s.globalRevision(),repository.epoch(),android.os.SystemClock.elapsedRealtime(),s.binding());}
     private AutomationController.Plan plan(long id,long generation,AutomationController.Control control){
         Snapshot s=repository.current();Account a=s.account(id);
@@ -269,6 +280,8 @@ public final class GateInstrumentation extends Instrumentation {
         committed(repository::reload);check(repository.current().circuitOpen(),"reload does not silently close circuit");
         runOnMainSync(()->repository.arm(readiness(),()->{}));writerBarrier();check(repository.disarmed(),"Resume cannot clear a circuit implicitly");
         committed(cb->repository.compatibilityChecked(readiness(),cb));check(!repository.current().circuitOpen()&&repository.disarmed(),"explicit compatibility check clears circuit without activating actions");
+        committed(cb->{repository.localChoices(cb);repository.attention(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(),new long[]{100,0,100});});writerBarrier();
+        check(effortTotal()==100,"receiver switch does not discard already observed global effort");
     }
     private void seed()throws Exception{
         committed(cb->repository.reset(cb));
