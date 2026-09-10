@@ -80,7 +80,9 @@ def environment():
             'runnerImage': os.environ.get('ImageOS', platform.system()), 'runnerVersion': os.environ.get('ImageVersion', ''),
             'hostArchitecture': platform.machine(), 'java': command([str(Path(os.environ['JAVA_HOME']) / 'bin/java'), '-version']),
             'gradle': command(['./gradlew', '--version']), 'adb': command([str(sdk / 'platform-tools/adb'), 'version']),
-            'emulator': command([str(sdk / 'emulator/emulator'), '-version']),
+            # The version command loads desktop shared libraries even on a headless runner.
+            # Record the installed package revision, as for the other SDK components.
+            'emulator': (sdk / 'emulator/source.properties').read_text(),
             'buildTools': (sdk / 'build-tools/35.0.0/source.properties').read_text(),
             'systemImage': image, 'systemImageRevision': image_revision, 'device': device,
             'scope': 'Owned synthetic emulator evidence. No physical or connected-app qualification.'}

@@ -128,6 +128,19 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'timed out after 30 seconds: emulator -version'):
                 evidence.command(['emulator', '-version'])
 
+    def test_headless_environment_reads_installed_emulator_metadata_without_launching_desktop_binary(self):
+        sdk = self.root / 'synthetic-sdk'
+        for component in ('emulator', 'build-tools/35.0.0'):
+            (sdk / component).mkdir(parents=True)
+            (sdk / component / 'source.properties').write_text('Pkg.Desc=Synthetic test package\nPkg.Revision=1.0.0\n')
+        with patch.dict(os.environ, {'ANDROID_HOME': str(sdk), 'GATE_TEST_SERIAL': 'emulator-5554',
+                                    'JAVA_HOME': '/synthetic-java', 'GATE_SYSTEM_IMAGE': ''}), \
+                patch.object(evidence, 'command', return_value='synthetic command output') as command:
+            result = evidence.environment()
+        self.assertEqual(result['emulator'], 'Pkg.Desc=Synthetic test package\nPkg.Revision=1.0.0\n')
+        self.assertFalse(any(call.args[0][0] == str(sdk / 'emulator/emulator') for call in command.call_args_list))
+        self.assertTrue(any(call.args[0][-2:] == ['getprop', 'ro.build.fingerprint'] for call in command.call_args_list))
+
     def test_environment_failure_is_publicly_actionable_and_cannot_leave_a_pass(self):
         previous = Path.cwd()
         with tempfile.TemporaryDirectory(prefix='business-gate-environment-error-') as directory:
