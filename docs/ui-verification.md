@@ -26,7 +26,11 @@ ANDROID_HOME=/path/to/android-sdk GATE_TEST_SERIAL=emulator-5554 scripts/device-
 ANDROID_HOME=/path/to/android-sdk GATE_TEST_SERIAL=emulator-5554 scripts/ui-layout-tests.sh
 ```
 
-The local API 36 arm64 run passed all 24 configurations (252 assertions) and produced 72 validated PNGs at 1080×2400/2400×1080 pixels and 420/525 dpi. The IME was closed. The 20 restoration checks, full 252-check core harness, 80 performance/capacity checks, restart stages and all build gates passed. CI repeats the matrix on its exact source commit before signed delivery. These results cover the declared owned views, not every dialog or the remaining accessibility/lifecycle matrix.
+The local API 36 arm64 run passed all 24 configurations (252 assertions) and produced 72 validated PNGs at 1080×2400/2400×1080 pixels and 420/525 dpi. The IME was closed. The 20 restoration checks, full 253-check core harness, 80 performance/capacity checks, restart stages and all build gates passed. CI repeats the matrix on its exact source commit before signed delivery. These results cover the declared owned views, not every dialog or the remaining accessibility/lifecycle matrix.
+
+## CI search-anchor regression
+
+[Run 17](https://github.com/appunni-m/business-gate/actions/runs/34449903447) failed after core assertion 174, before the layout matrix or signed delivery. A local 1080×1920 reproduction reached the same timeout. The legacy test expected the first business after clearing search, although the updated UI correctly restores the previously scrolled position. The core test now selects the pending account by its stable fixture ID and checks the saved row and pixel offset after clearing search. It passes 253 assertions at both 1080×2400 and 1080×1920. The complete 24-case layout matrix also passes at 1080×1920/1920×1080 with 252 assertions and 72 validated renderings; original size, density, font and night mode were restored. The runner retains eight recent check labels on failure; an optional `trace` argument exposes the full owned assertion sequence. No wait or performance threshold was increased.
 
 ## Still required
 

@@ -22,10 +22,11 @@ import java.util.function.BooleanSupplier;
 public final class GateInstrumentation extends Instrumentation {
     private Bundle arguments;
     private int assertions;
+    private final java.util.ArrayDeque<String> recentChecks=new java.util.ArrayDeque<>();
     private String metrics="";
     private GateRepository repository;
     @Override public void onCreate(Bundle args){arguments=args==null?new Bundle():args;super.onCreate(args);start();}
-    private void check(boolean value,String name){assertions++;if(!value)throw new AssertionError(name);}
+    private void check(boolean value,String name){assertions++;recentChecks.add(assertions+": "+name);if(recentChecks.size()>8)recentChecks.remove();if(arguments!=null&&arguments.getString("trace","false").equals("true"))metrics+="TRACE "+assertions+": "+name+"\n";if(!value)throw new AssertionError(name);}
     private void until(BooleanSupplier predicate)throws Exception{
         long deadline=android.os.SystemClock.elapsedRealtime()+10000;
         while(!predicate.getAsBoolean()){if(android.os.SystemClock.elapsedRealtime()>deadline)throw new AssertionError("Timed out waiting for committed state");Thread.sleep(20);}
@@ -78,16 +79,18 @@ public final class GateInstrumentation extends Instrumentation {
                 committed(cb->repository.choose(first.id(),Choice.ALLOW,cb));String nonce=repository.current().account(first.id()).nonce();check(!nonce.isEmpty(),"explicit enable grants nonce");
                 runOnMainSync(repository::pause);until(()->repository.current().accounts().stream().allMatch(a->a.nonce().isEmpty()));check(repository.current().account(first.id()).choice()==Choice.ALLOW,"pause cancels authority but retains choice");
                 foundationRegressions();recoveryRegressions();seed();Activity activity=launch();
-                until(()->hasText(activity,"Harbor Clinic"));check(hasText(activity,"Paused · compatibility check needed"),"unsupported status visible");runOnMainSync(()->find(activity.getWindow().getDecorView(),android.widget.ListView.class).setSelection(6));until(()->hasText(activity,"Block pending"));check(hasText(activity,"Block pending"),"pending subtitle visible after scrolling");
+                until(()->hasText(activity,"Harbor Clinic"));check(hasText(activity,"Paused · compatibility check needed"),"unsupported status visible");scrollTo(activity,4,0);until(()->hasText(activity,"Block pending"));check(hasText(activity,"Block pending"),"pending subtitle visible after scrolling");
+                long beforeSearchRow=visibleRow(activity);int beforeSearchTop=visibleTop(activity);
                 runOnMainSync(()->{EditText search=find(activity.getWindow().getDecorView(),EditText.class);search.setText("+12025550102");});
                 until(()->hasText(activity,"Parcel Desk")&&!hasText(activity,"Harbor Clinic"));check(!hasText(activity,"Harbor Clinic"),"search excludes other exact number");
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("No such local account"));until(()->hasText(activity,"No matching accounts"));check(hasText(activity,"Enable a number"),"empty search offers explicit number entry");
-                runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText(""));until(()->hasText(activity,"Harbor Clinic"));
+                runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText(""));until(()->visibleRow(activity)==beforeSearchRow);
+                check(Math.abs(visibleTop(activity)-beforeSearchTop)<=1,"clearing an empty search restores the pre-search row and offset");
                 check(repository.current().accounts().size()==6,"UI search does not mutate repository");
                 storageFailureRegressions(activity);choiceScopeRegressions();
             }
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
-        }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
+        }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"; recent="+recentChecks+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
     private void storageFailureRegressions(Activity activity)throws Exception{
         committed(cb->repository.enableNumber("+12025550196","MÁYA 10%_",cb));
