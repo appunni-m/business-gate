@@ -32,6 +32,10 @@ The local API 36 arm64 run passed all 24 configurations (252 assertions) and pro
 
 [Run 17](https://github.com/appunni-m/business-gate/actions/runs/34449903447) failed after core assertion 174, before the layout matrix or signed delivery. A local 1080×1920 reproduction reached the same timeout. The legacy test expected the first business after clearing search, although the updated UI correctly restores the previously scrolled position. The core test now selects the pending account by its stable fixture ID and checks the saved row and pixel offset after clearing search. It passes 253 assertions at both 1080×2400 and 1080×1920. The complete 24-case layout matrix also passes at 1080×1920/1920×1080 with 252 assertions and 72 validated renderings; original size, density, font and night mode were restored. The runner retains eight recent check labels on failure; an optional `trace` argument exposes the full owned assertion sequence. No wait or performance threshold was increased.
 
+[Run 18](https://github.com/appunni-m/business-gate/actions/runs/34451758306) passed the 253 core assertions, then failed the `ui` mode after assertion 18. Its reset check assumed the saved-list empty card was visible below setup. The same timeout was reproduced at 1080×1920 and 525 dpi. The test now waits for the owned empty row by stable ID and scrolls it into view before checking its text. The corrected 20-check mode passes that compact configuration. Delivery was skipped for both failed runs.
+
+The [storage-boundary follow-up](storage-boundary-verification.md) also clears prior presentation while the current data cannot be established, and distinguishes unavailable data from an empty saved list.
+
 ## Still required
 
 - Real TalkBack traversal, stable keyboard/accessibility focus when rows move or recycle, and completion announcement behavior.

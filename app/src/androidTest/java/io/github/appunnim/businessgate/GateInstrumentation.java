@@ -56,6 +56,8 @@ public final class GateInstrumentation extends Instrumentation {
                 seed();layoutRegressions();
             }else if(mode.equals("ui")){
                 seed();uiRegressions();
+            }else if(mode.equals("privacy-boundary")){
+                seed();publicationBoundaryRegressions();
             }else if(mode.equals("performance")){
                 performance();
             }else if(mode.equals("setup")){
@@ -91,6 +93,66 @@ public final class GateInstrumentation extends Instrumentation {
             }
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"; recent="+recentChecks+"\n");finish(Activity.RESULT_CANCELED,result);}
+    }
+    private void publicationBoundaryRegressions()throws Exception{
+        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic"));
+        clickOwn(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&v.getContentDescription().toString().endsWith("Show details"));
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
+            SQLiteDatabase db=helper.getWritableDatabase();
+            // Owned fault: reset commits, but its subsequent identity read cannot publish the replacement.
+            db.execSQL("CREATE TRIGGER remove_reset_identity AFTER INSERT ON app_meta WHEN NEW.key='ui_data_identity' BEGIN DELETE FROM app_meta WHERE key=NEW.key; END");
+            try{
+                java.util.concurrent.atomic.AtomicBoolean acknowledged=new java.util.concurrent.atomic.AtomicBoolean();
+                runOnMainSync(()->repository.reset(()->acknowledged.set(true)));until(()->!repository.current().error().isEmpty());writerBarrier();
+                int durableRows;try(var cursor=db.rawQuery("SELECT count(*) FROM account",null)){cursor.moveToFirst();durableRows=cursor.getInt(0);}
+                CountDownLatch searched=new CountDownLatch(1);java.util.concurrent.atomic.AtomicInteger found=new java.util.concurrent.atomic.AtomicInteger(-1);
+                repository.search("",rows->{found.set(rows.size());searched.countDown();});check(searched.await(10,TimeUnit.SECONDS),"search after committed reset fault completes");
+                metrics+="METRIC committed_reset_rows="+durableRows+" snapshot_rows="+repository.current().accounts().size()+" search_rows="+found.get()+"\n";
+                check(durableRows==0,"reset deletion committed before the injected publication fault");
+                check(repository.current().accounts().isEmpty()&&found.get()==0,"committed reset cannot retain deleted choices in snapshot or search");
+                until(()->ownsView(activity,v->v instanceof EditText e&&e.getText().toString().isEmpty()));
+                check(!ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details")),"failed reset publication clears old exact-number presentation");
+                until(()->hasRow(activity,-17));check(!hasRow(activity,-14)&&!repository.current().loaded(),"unknown storage shows an unavailable state without claiming an empty saved list");
+                check(repository.disarmed()&&!acknowledged.get(),"failed reset publication never resumes or reports complete recovery");
+            }finally{db.execSQL("DROP TRIGGER remove_reset_identity");committed(repository::reset);runOnMainSync(activity::finish);}
+        }
+        resetRollbackRegressions();receiverPublicationRegressions();
+    }
+    private void resetRollbackRegressions()throws Exception{
+        seed();Activity activity=launch();
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
+            SQLiteDatabase db=helper.getWritableDatabase();db.execSQL("CREATE TRIGGER reject_reset BEFORE DELETE ON account BEGIN SELECT RAISE(ABORT,'OWNED_RESET_ABORT'); END");
+            try{
+                runOnMainSync(()->repository.reset(()->{}));until(()->!repository.current().error().isEmpty());writerBarrier();
+                try(var cursor=db.rawQuery("SELECT count(*),sum(choice='ALLOW') FROM account",null)){cursor.moveToFirst();check(cursor.getInt(0)==6&&cursor.getInt(1)==2,"failed reset rolls back without deleting durable exact-number choices");}
+                check(!repository.current().loaded()&&repository.current().accounts().isEmpty()&&repository.disarmed(),"uncertain reset projection remains hidden and disarmed until checked");
+            }finally{db.execSQL("DROP TRIGGER reject_reset");}
+            check(result(repository::retryStorage)==GateRepository.StorageResult.RECOVERED,"explicit check recovers the rolled-back reset");
+            check(repository.current().loaded()&&repository.current().accounts().size()==6&&repository.current().account(1).choice()==Choice.ALLOW&&repository.current().account(2).choice()==Choice.ALLOW&&repository.disarmed(),"storage check restores durable choices without replaying a reset or resuming");
+        }finally{runOnMainSync(activity::finish);}
+    }
+    private void receiverPublicationRegressions()throws Exception{
+        seed();long previousNamespace=repository.current().namespace();
+        String digest=io.github.appunnim.businessgate.automation.AdapterRegistry.sha256("owned publication namespace fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Binding receiver=new Binding(repository.installation(),digest,"synthetic-profile","+12025550009","synthetic-publication");
+        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic"));
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
+            SQLiteDatabase db=helper.getWritableDatabase();db.execSQL("CREATE TRIGGER remove_receiver_identity AFTER UPDATE OF active ON namespace WHEN NEW.active=1 BEGIN DELETE FROM app_meta WHERE key='ui_data_identity'; END");
+            long active;
+            try{
+                runOnMainSync(()->repository.bindReceiver(receiver,()->{}));until(()->!repository.current().error().isEmpty());writerBarrier();
+                try(var cursor=db.rawQuery("SELECT id FROM namespace WHERE active=1",null)){cursor.moveToFirst();active=cursor.getLong(0);}
+                check(active!=previousNamespace,"receiver transition commits before the injected publication fault");
+                check(!repository.current().loaded()&&repository.current().accounts().isEmpty()&&repository.current().binding().equals(Binding.empty()),"failed receiver publication cannot expose the old receiver or choices");
+                CountDownLatch searched=new CountDownLatch(1);java.util.concurrent.atomic.AtomicInteger found=new java.util.concurrent.atomic.AtomicInteger(-1);
+                repository.search("",rows->{found.set(rows.size());searched.countDown();});check(searched.await(10,TimeUnit.SECONDS)&&found.get()==0,"failed receiver publication cannot search the previous receiver's records");
+                until(()->ownsView(activity,v->v instanceof EditText e&&e.getText().toString().isEmpty()));
+                check(repository.disarmed(),"receiver publication fault remains disarmed");
+            }finally{db.execSQL("DROP TRIGGER remove_receiver_identity");}
+            check(result(repository::retryStorage)==GateRepository.StorageResult.RECOVERED,"explicit check loads the committed receiver after publication failure");
+            check(repository.current().namespace()==active&&repository.current().binding().equals(receiver)&&repository.current().accounts().isEmpty()&&repository.disarmed(),"recovery loads only the committed receiving namespace");
+            committed(repository::localChoices);check(repository.current().namespace()==previousNamespace&&repository.current().accounts().size()==6&&repository.current().account(1).choice()==Choice.ALLOW,"original namespace choices remain durable and require an explicit return");
+        }finally{committed(repository::reset);runOnMainSync(activity::finish);}
     }
     private void storageFailureRegressions(Activity activity)throws Exception{
         committed(cb->repository.enableNumber("+12025550196","MÁYA 10%_",cb));
@@ -286,6 +348,7 @@ public final class GateInstrumentation extends Instrumentation {
     }
     private long visibleRow(Activity activity){long[] id={Long.MIN_VALUE};runOnMainSync(()->{android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);id[0]=list.getAdapter().getItemId(list.getFirstVisiblePosition());});return id[0];}
     private int visibleTop(Activity activity){int[] top={0};runOnMainSync(()->{android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);if(list.getChildCount()>0)top[0]=list.getChildAt(0).getTop();});return top[0];}
+    private boolean hasRow(Activity activity,long id){return ownsView(activity,v->{if(!(v instanceof android.widget.ListView list))return false;for(int i=0;i<list.getCount();i++)if(list.getAdapter().getItemId(i)==id)return true;return false;});}
     private void scrollTo(Activity activity,long id,int top){runOnMainSync(()->{android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);for(int i=0;i<list.getCount();i++)if(list.getAdapter().getItemId(i)==id){list.setSelectionFromTop(i,top);return;}throw new AssertionError("owned target row exists");});}
     private void uiRegressions()throws Exception{
         insertSyntheticAccounts(0,40);
@@ -316,7 +379,7 @@ public final class GateInstrumentation extends Instrumentation {
         String beforeReset=repository.dataIdentity();committed(repository::reset);
         until(()->ownsView(scrolled,v->v instanceof EditText e&&e.getText().toString().isEmpty()));
         check(!beforeReset.equals(repository.dataIdentity()),"reset replaces persistent presentation identity");
-        Activity cleared=recreate(scrolled);until(()->hasText(cleared,"No businesses found yet"));
+        Activity cleared=recreate(scrolled);until(()->hasRow(cleared,-14));scrollTo(cleared,-14,0);until(()->hasText(cleared,"No businesses found yet"));
         check(ownsView(cleared,v->v instanceof EditText e&&e.getText().toString().isEmpty())&&!ownsView(cleared,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details")),"reset cannot restore prior query or expanded number");
         check(repository.current().accounts().isEmpty()&&repository.disarmed(),"restoring UI after reset cannot restore data or authority");
     }

@@ -40,8 +40,8 @@ public final class GateRepository {
     private final Context context;
     private final ExecutorService writer = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final AtomicReference<Snapshot> snapshot = new AtomicReference<>(Snapshot.empty());
-    private AccountSearch searchIndex=new AccountSearch(List.of()); // Serial writer owns this projection.
+    private record Published(Snapshot snapshot,AccountSearch search,String identity) {}
+    private final AtomicReference<Published> published = new AtomicReference<>(new Published(Snapshot.empty(),new AccountSearch(List.of()),""));
     private final Set<Runnable> listeners = new CopyOnWriteArraySet<>();
     private final PendingChoices pendingChoices=new PendingChoices();
     private final java.util.concurrent.ConcurrentHashMap<String,Long> optionVetoes = new java.util.concurrent.ConcurrentHashMap<>();
@@ -59,7 +59,7 @@ public final class GateRepository {
     public record ChoiceScope(long namespace,long epoch) {}
     public ChoiceScope choiceScope(){return new ChoiceScope(current().namespace(),dataEpoch.get());}
     public GateRepository(Context context) { this.context=context.getApplicationContext();helper = new GateDbHelper(context); initialize(context); }
-    public Snapshot current() { return snapshot.get(); }
+    public Snapshot current() { return published.get().snapshot(); }
     public boolean disarmed() { return !authority.armed() || !failure.isEmpty() || pendingChoices.any(current().namespace()); }
     public boolean consented(){return current().consent()&&!consentVeto;}
     public boolean optionEnabled(String field){
@@ -68,8 +68,7 @@ public final class GateRepository {
     }
     public long epoch() { return authority.current(); }
     public long metricsEpoch(){return metricsEpoch.get();}
-    private volatile String dataIdentity="";
-    public String dataIdentity(){return dataIdentity;}
+    public String dataIdentity(){return published.get().identity();}
     public String installation() { return installation; }
     public boolean vetoed(long id) { Account account=current().account(id);return account!=null&&pendingChoices.get(account.namespace(),account.phone())!=null; }
     public List<Pending> pendingChoices(){return pendingChoices.list(current().namespace());}
@@ -106,6 +105,7 @@ public final class GateRepository {
                 sameInstallation = c.moveToFirst() && installation.equals(c.getString(0));
             }
             if (!sameInstallation) {
+                clearPublished();
                 db.execSQL("UPDATE namespace SET active=0,enabled=0,paused=1,global_revision=global_revision+1");
                 db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL");
                 db.execSQL("INSERT INTO namespace(installation,active) VALUES(?,1)", new Object[]{installation});
@@ -155,12 +155,17 @@ public final class GateRepository {
     }
     private void fail() { fail("Could not save. No new blocks will run."); }
     private void fail(String message) {
-        authority.revoke(); failure = message; Snapshot s = current();
-        snapshot.set(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure,s.binding(),s.circuitOpen()));
+        authority.revoke(); failure = message;
+        published.updateAndGet(previous->{Snapshot s=previous.snapshot();return new Published(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure,s.binding(),s.circuitOpen()),previous.search(),previous.identity());});
+        notifyChanged();
+    }
+    /** A data-boundary command hides the old projection until storage establishes its current identity. */
+    private void clearPublished(){
+        published.set(new Published(new Snapshot(-1,0,false,false,true,false,false,false,false,"WELCOME",List.of(),""),new AccountSearch(List.of()),""));
         notifyChanged();
     }
     private void publish(SQLiteDatabase db) {
-        long id = activeId(db);
+        long id = activeId(db);String dataIdentity;
         try(Cursor identity=db.rawQuery("SELECT value FROM app_meta WHERE key='ui_data_identity'",null)){
             if(!identity.moveToFirst()||identity.getString(0).isEmpty())throw new IllegalStateException("DATA_IDENTITY_MISSING");
             dataIdentity=identity.getString(0);
@@ -174,10 +179,10 @@ public final class GateRepository {
             }
             List<Account> accounts=readAccounts(db,id,"",new String[0]);
             AccountSearch index=new AccountSearch(accounts);
-            snapshot.set(new Snapshot(id,number(n,"global_revision"),true,number(n,"enabled")==1,number(n,"paused")==1,
+            Snapshot state=new Snapshot(id,number(n,"global_revision"),true,number(n,"enabled")==1,number(n,"paused")==1,
                 CONSENT_VERSION.equals(string(n,"consent_version")),number(n,"sales_hints")==1,number(n,"discovery")==1,number(n,"digest")==1,
-                string(n,"setup"),accounts,failure,binding,circuit));
-            searchIndex=index;
+                string(n,"setup"),accounts,failure,binding,circuit);
+            published.set(new Published(state,index,dataIdentity));
         }
         notifyChanged();
     }
@@ -200,7 +205,7 @@ public final class GateRepository {
             // Search the last committed projection. Writes replace it before notifying the UI.
             // This avoids repeated SQLite scans and remains available during storage failure.
             if(stamp.data()!=dataEpoch.get()||current().namespace()!=stamp.namespace())return;
-            List<Account> rows=searchIndex.find(query);
+            List<Account> rows=published.get().search().find(query);
             main.post(()->{if(stamp.data()==dataEpoch.get()&&current().namespace()==stamp.namespace())result.accept(rows);});
         });
     }
@@ -391,7 +396,7 @@ public final class GateRepository {
         emergencyStop();long owner=dataEpoch.incrementAndGet();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
         writer.execute(()->{
             try{
-                if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                if(owner!=dataEpoch.get())return;clearPublished();SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
                 try{
                     db.execSQL("UPDATE namespace SET active=0,paused=1,global_revision=global_revision+1");db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK'");
                     long id=-1;
@@ -407,7 +412,7 @@ public final class GateRepository {
         emergencyStop();metricsEpoch.incrementAndGet();long owner=dataEpoch.incrementAndGet();pendingChoices.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
         writer.execute(()->{
             try{
-                if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                if(owner!=dataEpoch.get())return;clearPublished();SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
                 try{
                     for(String table:new String[]{"action_job","action_event","account","attention_daily","app_meta","namespace"})db.delete(table,null,null);
                     db.execSQL("INSERT INTO namespace(id,installation,active) VALUES(1,?,1)",new Object[]{installation});

@@ -169,7 +169,7 @@ public final class MainActivity extends Activity {
     private void refresh(){
         if(!started)return;for(Runnable binding:settingsBindings)binding.run();Snapshot s=repository.current();
         if(s.loaded())restorePresentation(s);
-        if(s.loaded()&&(renderNamespace!=s.namespace()||!renderDataIdentity.equals(repository.dataIdentity()))){
+        if(renderNamespace!=s.namespace()||!renderDataIdentity.equals(repository.dataIdentity())){
             renderNamespace=s.namespace();renderDataIdentity=repository.dataIdentity();matches=java.util.Collections.emptyList();matchesReady=false;
             expanded=-1;reviewExpanded=false;peopleExpanded=false;preSearchAnchor=START;pendingAnchor=START;
             restoring=true;search.setText("");restoring=false;render();
@@ -205,6 +205,10 @@ public final class MainActivity extends Activity {
         Anchor anchor=pendingAnchor!=null&&matchesReady?pendingAnchor:captureAnchor();
         rows.clear();Snapshot s=repository.current();boolean searching=!search.getText().toString().trim().isEmpty();
         if(!s.error().isEmpty()||!repository.pendingChoices().isEmpty())rows.add(new Row(-16,"storage","",null));
+        if(!s.loaded()){
+            rows.add(new Row(-17,"waiting",s.error().isEmpty()?"Loading your choices…":"Check storage to load your saved choices.",null));
+            adapter.notifyDataSetChanged();return;
+        }
         if(!searching){
             if(!s.consent())rows.add(new Row(-1,"setup","",null));
             else if(!app.registry().available()||!GateAccessibilityService.connected())rows.add(new Row(-2,"compatibility","",null));
@@ -408,6 +412,7 @@ public final class MainActivity extends Activity {
             box.removeAllViews();box.setBackgroundColor(getColor(R.color.background));box.setPadding(0,0,0,0);box.setOnClickListener(null);box.setClickable(false);box.setContentDescription(null);box.setAccessibilityHeading(false);
             switch(r.type()){
                 case "section"->{TextView t=Ui.text(MainActivity.this,r.title(),12,R.color.muted,true);Ui.pad(t,16,12);t.setAccessibilityHeading(true);box.addView(t);}
+                case "waiting"->{TextView t=Ui.text(MainActivity.this,r.title(),14,R.color.muted,false);Ui.pad(t,16,20);box.addView(t);}
                 case "storage"->storageCard(box);
                 case "setup"->setupCard(box);
                 case "compatibility"->compatibilityCard(box);
@@ -438,7 +443,8 @@ public final class MainActivity extends Activity {
     }
     private void storageCard(LinearLayout parent){
         LinearLayout c=card(parent,R.color.amber_surface);c.addView(Ui.text(this,"Actions are paused",19,R.color.amber,true));Ui.gap(c,8);
-        c.addView(Ui.text(this,repository.current().error().isEmpty()?"Finish saving your choices before starting a session. Unsaved changes can be lost if the app stops.":"The last saved choices remain on this phone. Check storage before trying an unsaved change again. Unsaved changes can be lost if the app stops.",14,R.color.amber,false));Ui.gap(c,12);
+        Snapshot state=repository.current();String detail=!state.loaded()?"Storage could not confirm the current local data. Check storage before reviewing choices. Actions remain paused.":state.error().isEmpty()?"Finish saving your choices before starting a session. Unsaved changes can be lost if the app stops.":"The last saved choices remain on this phone. Check storage before trying an unsaved change again. Unsaved changes can be lost if the app stops.";
+        c.addView(Ui.text(this,detail,14,R.color.amber,false));Ui.gap(c,12);
         c.addView(Ui.button(this,"Check storage",false,this::storageHelp));
         if(!repository.pendingChoices().isEmpty())c.addView(Ui.button(this,"Review unsaved changes",false,this::reviewUnsaved));
     }
@@ -450,7 +456,7 @@ public final class MainActivity extends Activity {
                     switch(result){
                         case RECOVERED->announce("Storage is available. Actions remain paused; review your choices before starting a session.");
                         case UNSAVED_CHOICES->{announce("Storage is available. Review and retry your unsaved choices.");reviewUnsaved();}
-                        case FAILED->announce("Storage is still unavailable. Saved data was not deleted. Free space and try again.");
+                        case FAILED->announce("Storage is still unavailable. This check did not delete data. Free space and try again.");
                         case STALE->announce("The receiving account or local data changed. Review the current page.");
                     }
                 });
