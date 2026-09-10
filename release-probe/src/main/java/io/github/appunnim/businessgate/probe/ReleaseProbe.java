@@ -39,12 +39,13 @@ public final class ReleaseProbe extends Instrumentation {
             AccessibilityNodeInfo choice=waitFor(node->"android.widget.Switch".contentEquals(node.getClassName()==null?"":node.getClassName())&&description(node).contains(PHONE),"correct number switch");
             check(choice.isChecked(),"ALLOW survives signed upgrade");
             check(find(node->text(node).startsWith("Rule on"))==null,"test install never silently activates rule");
+            int previousWindow=choice.getWindowId();
             getContext().startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW)
                 .setComponent(new android.content.ComponentName(PACKAGE,PACKAGE+".ui.MainActivity"))
                 .setData(android.net.Uri.parse("businessgate://block?number="+PHONE))
                 .putExtra("block_number",PHONE).putExtra("screen_consent",true).putExtra("activate_rule",true)
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK|android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP));
-            waitFor(node->"Business Gate".contentEquals(text(node)),"external intent opens management only");
+            waitFor(node->node.getWindowId()!=previousWindow&&"Business Gate".contentEquals(text(node)),"external intent replacement window is ready");
             setText("Search local accounts by name or number",PHONE);
             AccessibilityNodeInfo retained=waitFor(node->"android.widget.Switch".contentEquals(node.getClassName()==null?"":node.getClassName())&&description(node).contains(PHONE),"choice after external intent");
             check(retained.isChecked(),"another UID cannot replace ALLOW through intent extras");
@@ -88,5 +89,6 @@ public final class ReleaseProbe extends Instrumentation {
         AccessibilityNodeInfo node=waitFor(n->description.contentEquals(description(n)),"own input available");
         Bundle args=new Bundle();args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,value);
         check(node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,args),"own input accepted");
+        waitFor(n->description.contentEquals(description(n))&&value.contentEquals(text(n)),"own input value applied");
     }
 }

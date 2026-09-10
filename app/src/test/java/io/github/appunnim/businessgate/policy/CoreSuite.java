@@ -18,7 +18,7 @@ public final class CoreSuite {
     private static RuleEngine.Context context(int guards){return new RuleEngine.Context(guards,100,NOW,8,4,3,1000);}
     private static void check(boolean condition,String label){assertions++;if(!condition)throw new AssertionError(label);}
     private static void equals(Object actual,Object expected,String label){check(java.util.Objects.equals(actual,expected),label+" expected "+expected+", got "+actual);}
-    public static void main(String[] args){identity();rules();hints();attention();budgets();epochs();controllerRegressions();controller();retries();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
+    public static void main(String[] args){identity();rules();hints();attention();budgets();epochs();controllerRegressions();controller();retries();finalDispatch();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
     private static void identity(){
         equals(Identity.canonicalPhone("+1 (202) 555-0101"),"+12025550101","canonical identity");
         for(String bad:new String[]{"2025550101","+01234567","+123","+1234567890123456","+1 202 555 0101 ext 2","+١٢٠٢٥٥٥٠١٠١","+12025550101\u202e","+12025550101,+12025550102","++12025550101","+1202\t5550101","+1202\u200b5550101"}){
@@ -165,6 +165,32 @@ public final class CoreSuite {
         Account a=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");Snapshot normal=snapshot(a,true,false);
         Snapshot circuit=new Snapshot(normal.namespace(),normal.globalRevision(),true,true,false,true,false,false,false,"READY",normal.accounts(),"",normal.binding(),true);
         equals(engine.evaluate(circuit,a,evidence(Kind.BUSINESS_CONFIRMED,BlockState.UNBLOCKED),context(RuleEngine.ALL_GUARDS)).action(),Action.NONE,"persisted circuit blocks optimistic guard input");
+    }
+    private static void finalDispatch(){
+        Account a=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");Snapshot s=snapshot(a,true,false);
+        var before=new AutomationController.Frame(AutomationController.Screen.PROFILE,evidence(Kind.BUSINESS_CONFIRMED,BlockState.UNBLOCKED),context(RuleEngine.ALL_GUARDS),true);
+        check(io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.BLOCK_ENTRY,before,before,s,a.id()),"fresh matching dispatch frame permits intended block");
+        for(Kind kind:new Kind[]{Kind.REGULAR_PROFILE_OBSERVED,Kind.UNKNOWN,Kind.AMBIGUOUS,Kind.NON_DIRECT}){
+            var replaced=new AutomationController.Frame(before.screen(),evidence(kind,BlockState.UNBLOCKED),before.context(),true);
+            check(!io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.BLOCK_ENTRY,before,replaced,s,a.id()),"last acquisition classification replacement cancels block");
+        }
+        for(int change=0;change<8;change++){
+            Evidence e=before.evidence();RuleEngine.Context c=before.context();
+            Evidence changed=new Evidence(change==0?2:e.namespace(),change==1?"+12025550102":e.phone(),e.kind(),e.blockState(),e.observedElapsed(),e.generation(),change==2?3:e.windowId(),change==3?"receiver-b":e.receiver(),change==4?"other-adapter":e.adapter(),true,true);
+            RuleEngine.Context revised=new RuleEngine.Context(c.guards(),c.elapsedNow(),c.wallNow(),change==5?9:c.generation(),change==6?5:c.expectedGlobal(),change==7?4:c.expectedAccount(),c.deadline());
+            var replaced=new AutomationController.Frame(before.screen(),changed,revised,true);
+            check(!io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.BLOCK_ENTRY,before,replaced,s,a.id()),"fresh dispatch remains pinned to checked identity and revisions");
+        }
+        Account allow=account(Kind.BUSINESS_CONFIRMED,Choice.ALLOW,BlockState.BLOCKED,"newer-grant");
+        check(!io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.BLOCK_ENTRY,before,before,snapshot(allow,true,false),a.id()),"late ALLOW prevents dispatch");
+        var duplicate=new AutomationController.Frame(before.screen(),before.evidence(),before.context(),false);
+        check(!io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.BLOCK_ENTRY,before,duplicate,s,a.id()),"fresh duplicate control prevents dispatch");
+        check(!io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.UNBLOCK_ENTRY,before,before,s,a.id()),"different action cannot borrow block authority");
+        check(!io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.CONFIRM_BLOCK,before,before,s,a.id()),"confirmation requires its current dialog");
+        for(int bit=0;bit<RuleEngine.GUARD_COUNT;bit++){
+            var denied=new AutomationController.Frame(before.screen(),before.evidence(),context(RuleEngine.ALL_GUARDS&~(1<<bit)),true);
+            check(!io.github.appunnim.businessgate.automation.FinalDispatch.allowed(AutomationController.Control.BLOCK_ENTRY,before,denied,s,a.id()),"every renewed dispatch guard is mandatory");
+        }
     }
     private static final class Fake implements AutomationController.Port{
         Account account=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");

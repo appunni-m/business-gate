@@ -46,6 +46,8 @@ Recovery now counts entry attempts durably, enforces later-opportunity backoffs,
 
 Effort tracking checkpoints only while management or a session is visible. It does not schedule an alarm or resume a previous interval after restart. Checkpoints update only the metric table and remain a lower bound when the process or a write is interrupted. The native harness separately terminates the process at entry/confirmation recovery boundaries and during an observed effort interval.
 
+Screen inspection now owns and releases its root and every acquired descendant. Exact path prefixes share a cache within one inspection, and all inspections in a service callback share a 250-node ceiling. Unrelated subtrees are never searched. The final dispatch gate checks the latest durable policy against the same freshly acquired screen that supplies the action node; a changed personal/unknown/group context, receiver, number, window, revision or guard cancels the action. Owned structural tests establish these engineering boundaries without qualifying a connected interface.
+
 ## Remaining implementation and evidence
 
 The integration is still incomplete. Measured receiver/profile/dialog contracts, reliable own-action versus user-interaction handling, full navigation/batching/scanning, notification provenance and scoring integration, safe recovery/compensation across real external transitions, and physical block/unblock outcomes are not qualified. Some of these still require implementation once the actual interface is measured; JSON metadata alone cannot complete them.

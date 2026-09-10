@@ -17,6 +17,8 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import io.github.appunnim.businessgate.GateApplication;
 import io.github.appunnim.businessgate.automation.AdapterRegistry;
+import io.github.appunnim.businessgate.automation.BoundedNodes;
+import io.github.appunnim.businessgate.automation.FinalDispatch;
 import io.github.appunnim.businessgate.automation.AutomationController;
 import io.github.appunnim.businessgate.automation.QualifiedAdapter;
 import io.github.appunnim.businessgate.data.GateRepository;
@@ -39,7 +41,12 @@ public final class GateAccessibilityService extends AccessibilityService {
     private Binding candidate;
     private boolean requested,arming,checkingCompatibility,activatingRule;
     private Readiness sessionScope;
-    private final Runnable repositoryChanged=()->{
+    private BoundedNodes.Budget callbackBudget;
+    private void callback(Runnable work){
+        boolean owner=callbackBudget==null;if(owner)callbackBudget=new BoundedNodes.Budget();
+        try{work.run();}finally{if(owner)callbackBudget=null;}
+    }
+    private final Runnable repositoryChanged=()->callback(()->{
         if(repository==null)return;
         if(!repository.consented()){
             candidate=null;
@@ -50,7 +57,7 @@ public final class GateAccessibilityService extends AccessibilityService {
         }
         if(activeAccount>=0&&(repository.disarmed()||repository.vetoed(activeAccount)))stop();
         else if(requested&&!arming)inspectIdleProfile();
-    };
+    });
     private final BroadcastReceiver screenOff=new BroadcastReceiver(){@Override public void onReceive(Context context,Intent intent){stop();}};
     public static boolean connected(){return connected!=null;}
     public static void stopNow(){if(connected!=null)connected.stop();}
@@ -92,7 +99,8 @@ public final class GateAccessibilityService extends AccessibilityService {
             if(owner==generation&&(requested||activeAccount>=0))handler.postDelayed(this,250);
         }},250);return true;
     }
-    @Override public void onAccessibilityEvent(AccessibilityEvent event){
+    @Override public void onAccessibilityEvent(AccessibilityEvent event){callback(()->handleEvent(event));}
+    private void handleEvent(AccessibilityEvent event){
         if(repository==null||!repository.consented()||event.getPackageName()==null)return;
         if(!targetPackage.contentEquals(event.getPackageName())){if(activeAccount!=-1)stop();return;}
         QualifiedAdapter adapter=app().registry().resolve(this,targetPackage);
@@ -107,34 +115,37 @@ public final class GateAccessibilityService extends AccessibilityService {
     private void inspectIdleProfile(){
         if(repository==null||!repository.consented()||targetPackage.isEmpty())return;
         QualifiedAdapter adapter=app().registry().resolve(this,targetPackage);if(adapter==null)return;
-        AccessibilityNodeInfo root=getRootInActiveWindow();QualifiedAdapter.Reading read=adapter.inspect(root,targetPackage);
-        if(read==null||read.screen()!=AutomationController.Screen.PROFILE)return;
-        candidate=new Binding(repository.installation(),AdapterRegistry.sha256(targetPackage.getBytes(StandardCharsets.UTF_8)),"user-"+android.os.Process.myUserHandle().hashCode(),read.receiver(),adapter.id());
-        candidateAt=SystemClock.elapsedRealtime();
-        if(!candidate.equals(repository.current().binding())){if(requested)stop();reason="RECEIVER_REVIEW_REQUIRED";return;}
-        if(requested&&!arming){
-            if(!requestedPhone.isEmpty()&&!requestedPhone.equals(read.phone())){reason="OPEN_REQUESTED_NUMBER";return;}
-            if(SystemClock.elapsedRealtime()>=deadline){stop();return;}
-            Account account=repository.current().accounts().stream().filter(a->a.phone().equals(read.phone())).findFirst().orElse(null);
-            if(account==null){
-                reason="CHECKING_PROFILE";
-                if(!pendingObservation.equals(read.phone())){pendingObservation=read.phone();repository.observe(evidence(read,adapter,root),read.name());}
-                return;
-            }
-            long owner=generation;arming=true;
-            Readiness ready=new Readiness(repository.current().namespace(),repository.current().globalRevision(),repository.epoch(),SystemClock.elapsedRealtime(),candidate);
-            if(checkingCompatibility){
-                AutomationController.Frame frame=inspect(account);
-                int required=RuleEngine.ALL_GUARDS&~(1<<Guard.NO_STOP.ordinal())&~(1<<Guard.CIRCUIT.ordinal());
-                if(frame==null||(frame.context().guards()&required)!=required){arming=false;reason="CHECK_NEEDS_SAFE_PROFILE";return;}
-                repository.compatibilityChecked(ready,()->{if(owner!=generation)return;finishSession();reason="COMPATIBILITY_CHECK_PASSED";});return;
-            }
-            repository.arm(ready,activatingRule,()->{
-                arming=false;if(owner!=generation||!requested||SystemClock.elapsedRealtime()>=deadline){repository.emergencyStop();return;}
-                if(!account.pending()){String completedReason=activatingRule?"RULE_READY":"NO_PENDING_ACTION";finishSession();reason=completedReason;return;}
-                activeAccount=account.id();requested=false;reason="APPLYING";controller.start(activeAccount,SystemClock.elapsedRealtime(),generation);controller.onEvent(port);
-            });
-        }else if(!requested)repository.observe(evidence(read,adapter,root),read.name());
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        try(QualifiedAdapter.Inspection inspection=adapter.open(root,targetPackage,callbackBudget)){
+            QualifiedAdapter.Reading read=inspection.reading();
+            if(read==null||read.screen()!=AutomationController.Screen.PROFILE)return;
+            candidate=new Binding(repository.installation(),AdapterRegistry.sha256(targetPackage.getBytes(StandardCharsets.UTF_8)),"user-"+android.os.Process.myUserHandle().hashCode(),read.receiver(),adapter.id());
+            candidateAt=SystemClock.elapsedRealtime();
+            if(!candidate.equals(repository.current().binding())){if(requested)stop();reason="RECEIVER_REVIEW_REQUIRED";return;}
+            if(requested&&!arming){
+                if(!requestedPhone.isEmpty()&&!requestedPhone.equals(read.phone())){reason="OPEN_REQUESTED_NUMBER";return;}
+                if(SystemClock.elapsedRealtime()>=deadline){stop();return;}
+                Account account=repository.current().accounts().stream().filter(a->a.phone().equals(read.phone())).findFirst().orElse(null);
+                if(account==null){
+                    reason="CHECKING_PROFILE";
+                    if(!pendingObservation.equals(read.phone())){pendingObservation=read.phone();repository.observe(evidence(read,adapter,root),read.name());}
+                    return;
+                }
+                long owner=generation;arming=true;
+                Readiness ready=new Readiness(repository.current().namespace(),repository.current().globalRevision(),repository.epoch(),SystemClock.elapsedRealtime(),candidate);
+                if(checkingCompatibility){
+                    AutomationController.Frame frame=inspect(account);
+                    int required=RuleEngine.ALL_GUARDS&~(1<<Guard.NO_STOP.ordinal())&~(1<<Guard.CIRCUIT.ordinal());
+                    if(frame==null||(frame.context().guards()&required)!=required){arming=false;reason="CHECK_NEEDS_SAFE_PROFILE";return;}
+                    repository.compatibilityChecked(ready,()->{if(owner!=generation)return;finishSession();reason="COMPATIBILITY_CHECK_PASSED";});return;
+                }
+                repository.arm(ready,activatingRule,()->callback(()->{
+                    arming=false;if(owner!=generation||!requested||SystemClock.elapsedRealtime()>=deadline){repository.emergencyStop();return;}
+                    if(!account.pending()){String completedReason=activatingRule?"RULE_READY":"NO_PENDING_ACTION";finishSession();reason=completedReason;return;}
+                    activeAccount=account.id();requested=false;reason="APPLYING";controller.start(activeAccount,SystemClock.elapsedRealtime(),generation);controller.onEvent(port);
+                }));
+            }else if(!requested)repository.observe(evidence(read,adapter,root),read.name());
+        }
     }
     private Evidence evidence(QualifiedAdapter.Reading reading,QualifiedAdapter adapter,AccessibilityNodeInfo root){
         return new Evidence(repository.current().namespace(),reading.phone(),reading.kind(),reading.blockState(),SystemClock.elapsedRealtime(),generation,
@@ -147,7 +158,13 @@ public final class GateAccessibilityService extends AccessibilityService {
         if(account==null||!repository.consented())return null;
         Snapshot s=repository.current();
         QualifiedAdapter adapter=app().registry().resolve(this,targetPackage);if(adapter==null)return null;
-        AccessibilityNodeInfo root=getRootInActiveWindow();QualifiedAdapter.Reading read=adapter.inspect(root,targetPackage);if(read==null)return null;
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        try(QualifiedAdapter.Inspection inspection=adapter.open(root,targetPackage,callbackBudget)){
+            return frame(account,s,adapter,root,inspection);
+        }
+    }
+    private AutomationController.Frame frame(Account account,Snapshot s,QualifiedAdapter adapter,AccessibilityNodeInfo root,QualifiedAdapter.Inspection inspection){
+        QualifiedAdapter.Reading read=inspection.reading();if(read==null)return null;
         boolean foreground=false,windowSafe=true;Rect target=new Rect();root.getBoundsInScreen(target);
         for(var window:getWindows()){
             if(window.getId()==root.getWindowId())foreground=window.isActive()&&window.isFocused();
@@ -157,31 +174,28 @@ public final class GateAccessibilityService extends AccessibilityService {
             &&s.binding().installation().equals(repository.installation())&&s.binding().packageDigest().equals(AdapterRegistry.sha256(targetPackage.getBytes(StandardCharsets.UTF_8)));
         GuardFacts facts=new GuardFacts().record(Guard.CONNECTED,connected==this)
             .record(Guard.SIGNATURE,app().registry().resolve(this,targetPackage)!=null).record(Guard.BUILD,adapter!=null)
-            .record(Guard.LANGUAGE,adapter.languageMatches(root,targetPackage,read)).record(Guard.FOREGROUND,foreground&&targetPackage.contentEquals(root.getPackageName()==null?"":root.getPackageName()))
+            .record(Guard.LANGUAGE,inspection.languageMatches()).record(Guard.FOREGROUND,foreground&&targetPackage.contentEquals(root.getPackageName()==null?"":root.getPackageName()))
             .record(Guard.INTERACTIVE,getSystemService(PowerManager.class).isInteractive()).record(Guard.UNLOCKED,!getSystemService(KeyguardManager.class).isKeyguardLocked())
             .record(Guard.RECEIVER,receiver).record(Guard.PROFILE,account.phone().equals(read.phone())&&account.namespace()==s.namespace())
-            .record(Guard.WINDOW,windowSafe&&root.isVisibleToUser()).record(Guard.OVERLAY,overlay.clearOf(adapter.actionBounds(root,targetPackage,read))&&overlay.clearOf(adapter.identityBounds(root,targetPackage,read)))
+            .record(Guard.WINDOW,windowSafe&&root.isVisibleToUser()).record(Guard.OVERLAY,overlay.clearOf(inspection.actionBounds())&&overlay.clearOf(inspection.identityBounds()))
             .record(Guard.NO_STOP,!repository.disarmed()).record(Guard.NO_ALLOW_VETO,!repository.vetoed(account.id()))
             .record(Guard.CIRCUIT,!s.circuitOpen()).record(Guard.LEASE,SystemClock.elapsedRealtime()<deadline)
             .record(Guard.STORAGE,s.loaded()&&s.error().isEmpty());
-        return new AutomationController.Frame(read.screen(),evidence(read,adapter,root),new RuleEngine.Context(facts.bits(),SystemClock.elapsedRealtime(),System.currentTimeMillis(),generation,s.globalRevision(),account.revision(),deadline),adapter.actionable(root,targetPackage,read));
+        return new AutomationController.Frame(read.screen(),evidence(read,adapter,root),new RuleEngine.Context(facts.bits(),SystemClock.elapsedRealtime(),System.currentTimeMillis(),generation,s.globalRevision(),account.revision(),deadline),inspection.actionable());
     }
     private final AutomationController.Port port=new AutomationController.Port(){
         @Override public Snapshot policy(){return repository.current();}
         @Override public AutomationController.Frame inspect(){return GateAccessibilityService.this.inspect();}
-        @Override public void journal(AutomationController.Plan plan,Runnable success,Runnable failed){repository.journal(plan,success,failed);}
+        @Override public void journal(AutomationController.Plan plan,Runnable success,Runnable failed){repository.journal(plan,()->callback(success),()->callback(failed));}
         @Override public boolean click(AutomationController.Control control,AutomationController.Frame checked){
-            AutomationController.Frame fresh=inspect();Snapshot s=repository.current();Account account=s.account(activeAccount);
-            if(fresh==null||account==null||fresh.screen()!=checked.screen()||fresh.evidence().windowId()!=checked.evidence().windowId()
-                ||!fresh.evidence().phone().equals(checked.evidence().phone())||!fresh.evidence().receiver().equals(checked.evidence().receiver())
-                ||!fresh.evidence().adapter().equals(checked.evidence().adapter())||fresh.context().expectedAccount()!=checked.context().expectedAccount()
-                ||fresh.context().expectedGlobal()!=checked.context().expectedGlobal()||fresh.context().generation()!=checked.context().generation()
-                ||new RuleEngine().evaluate(s,account,fresh.evidence(),fresh.context()).action()==Action.NONE)return false;
+            Snapshot s=repository.current();Account account=s.account(activeAccount);if(account==null||!repository.consented())return false;
             QualifiedAdapter adapter=app().registry().resolve(GateAccessibilityService.this,targetPackage);if(adapter==null)return false;
-            AccessibilityNodeInfo root=getRootInActiveWindow();QualifiedAdapter.Reading reading=adapter.inspect(root,targetPackage);
-            return reading!=null&&reading.screen()==fresh.screen()&&root.getWindowId()==fresh.evidence().windowId()&&reading.phone().equals(account.phone())
-                &&reading.receiver().equals(s.binding().receiver())&&overlay.clearOf(adapter.actionBounds(root,targetPackage,reading))&&overlay.clearOf(adapter.identityBounds(root,targetPackage,reading))
-                &&!repository.disarmed()&&!repository.vetoed(activeAccount)&&adapter.click(root,targetPackage,reading,control);
+            AccessibilityNodeInfo root=getRootInActiveWindow();
+            try(QualifiedAdapter.Inspection inspection=adapter.open(root,targetPackage,callbackBudget)){
+                AutomationController.Frame fresh=frame(account,s,adapter,root,inspection);
+                return !repository.disarmed()&&!repository.vetoed(activeAccount)
+                    &&FinalDispatch.allowed(control,checked,fresh,repository.current(),activeAccount)&&inspection.click(control);
+            }
         }
         @Override public void verified(AutomationController.Plan plan,Evidence evidence,java.util.function.Consumer<AutomationController.CommitResult> result){repository.verified(plan,evidence,result);}
         @Override public void completed(){finishSession();reason="VERIFIED";}

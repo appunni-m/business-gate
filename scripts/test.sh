@@ -7,8 +7,11 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 "${java_bin}javac" -encoding UTF-8 -d "$test_dir" \
  app/src/main/java/io/github/appunnim/businessgate/policy/*.java \
  app/src/main/java/io/github/appunnim/businessgate/automation/AutomationController.java \
- app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java
+ app/src/main/java/io/github/appunnim/businessgate/automation/BoundedNodes.java \
+ app/src/main/java/io/github/appunnim/businessgate/automation/FinalDispatch.java \
+ app/src/test/java/io/github/appunnim/businessgate/policy/*.java
 "${java_bin}java" -cp "$test_dir" io.github.appunnim.businessgate.policy.CoreSuite
+"${java_bin}java" -cp "$test_dir" io.github.appunnim.businessgate.policy.StructuralSuite
 python3 scripts/check_schema.py
 python3 scripts/check_registry.py
 python3 scripts/check_traceability.py
