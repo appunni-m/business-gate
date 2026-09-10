@@ -2,10 +2,14 @@
 """Evidence completeness regressions using explicitly synthetic reports and image headers."""
 import json
 import copy
+import contextlib
+import io
 import os
 from pathlib import Path
 import struct
 import sys
+import subprocess
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -112,6 +116,51 @@ class EvidenceTests(unittest.TestCase):
                 self.assertTrue(result['environment']['missing'])
             finally:
                 os.chdir(previous)
+
+    def test_environment_command_failure_names_command_and_bounded_output(self):
+        failed = subprocess.CalledProcessError(9, ['adb', 'version'], output='SDK detail ', stderr='synthetic failure')
+        with patch.object(subprocess, 'run', side_effect=failed):
+            with self.assertRaisesRegex(RuntimeError, 'adb version exited 9: SDK detail synthetic failure'):
+                evidence.command(['adb', 'version'])
+
+    def test_environment_command_timeout_is_identifiable(self):
+        with patch.object(subprocess, 'run', side_effect=subprocess.TimeoutExpired(['emulator', '-version'], 30)):
+            with self.assertRaisesRegex(RuntimeError, 'timed out after 30 seconds: emulator -version'):
+                evidence.command(['emulator', '-version'])
+
+    def test_environment_failure_is_publicly_actionable_and_cannot_leave_a_pass(self):
+        previous = Path.cwd()
+        with tempfile.TemporaryDirectory(prefix='business-gate-environment-error-') as directory:
+            try:
+                os.chdir(directory)
+                output = io.StringIO()
+                with patch.object(sys, 'argv', ['verification_evidence.py', 'environment']), patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}), patch.object(evidence, 'environment', side_effect=RuntimeError('synthetic 20% failure\nsecond line')), contextlib.redirect_stdout(output):
+                    with self.assertRaises(RuntimeError):
+                        evidence.main()
+                result = json.loads(Path('output/verification/environment.json').read_text())
+                self.assertTrue(result['missing'])
+                self.assertIn('::error title=Owned verification environment::RuntimeError: synthetic 20%25 failure%0Asecond line', output.getvalue())
+            finally:
+                os.chdir(previous)
+
+    def test_failed_adb_keeps_context_and_cannot_pass_after_a_partial_success_line(self):
+        project = self.root / 'isolated-project'
+        scripts = project / 'scripts'
+        scripts.mkdir(parents=True)
+        original = Path(__file__).resolve().parent
+        for name in ('device-tests.sh', 'assert_instrumentation.py', 'verification_evidence.py'):
+            shutil.copy2(original / name, scripts / name)
+        adb = self.root / 'synthetic-sdk/platform-tools/adb'
+        adb.parent.mkdir(parents=True)
+        adb.write_text('#!' + sys.executable + '\nimport sys\nif "instrument" in sys.argv:\n print("PASS 1 synthetic assertion; mode=all")\n print("synthetic transport failure", file=sys.stderr)\n sys.exit(17)\n')
+        adb.chmod(0o700)
+        result = subprocess.run(['/bin/sh', 'scripts/device-tests.sh'], cwd=project, env=dict(os.environ,
+            ANDROID_HOME=str(adb.parent.parent), GATE_TEST_SERIAL='emulator-9876', GATE_TEST_REPORTS='device-tests', GITHUB_ACTIONS='true'),
+            capture_output=True, text=True, timeout=15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('::error title=Android all::FAIL Android instrumentation command exited 17', result.stdout)
+        self.assertIn('synthetic transport failure', result.stdout.split('::error title=Android all::')[-1])
+        self.assertIn('FAIL Android instrumentation command exited 17', (project / 'output/device-tests/all.txt').read_text())
 
     def test_reset_removes_previous_case_files_but_preserves_other_outputs(self):
         previous = Path.cwd()

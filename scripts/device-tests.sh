@@ -9,6 +9,11 @@ adb_bin="$ANDROID_HOME/platform-tools/adb"
 "$adb_bin" -s "$GATE_TEST_SERIAL" install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 for test_mode in $(python3 scripts/verification_evidence.py native-modes); do
     "$adb_bin" -s "$GATE_TEST_SERIAL" shell am force-stop io.github.appunnim.businessgate.debug
-    test_result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e mode "$test_mode" io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation)
+    command_result=0
+    test_result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e mode "$test_mode" io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation 2>&1) || command_result=$?
+    if [ "$command_result" -ne 0 ]; then
+        test_result="$test_result
+FAIL Android instrumentation command exited $command_result"
+    fi
     printf '%s\n' "$test_result" | python3 scripts/assert_instrumentation.py "$test_mode"
 done

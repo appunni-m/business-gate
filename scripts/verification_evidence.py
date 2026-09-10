@@ -45,7 +45,13 @@ def valid_navigation(value, api, commit, run_id=None):
 
 
 def command(args):
-    result = subprocess.run(args, capture_output=True, text=True, timeout=30, check=True)
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, timeout=30, check=True)
+    except subprocess.CalledProcessError as error:
+        detail = ((error.stdout or '') + (error.stderr or '')).strip()[-2000:]
+        raise RuntimeError('Environment command ' + ' '.join(args) + f' exited {error.returncode}: ' + detail) from error
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError('Environment command timed out after 30 seconds: ' + ' '.join(args)) from error
     return (result.stdout + result.stderr).strip()[:8000]
 
 
@@ -131,7 +137,18 @@ def main():
             (directory / name).unlink(missing_ok=True)
         return
     if sys.argv[1:] == ['environment']:
-        (directory / 'environment.json').write_text(json.dumps(environment(), indent=2) + '\n')
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            print('::notice title=Owned verification environment::Collecting the installed toolchain and emulator context', flush=True)
+        try:
+            value = environment()
+        except (OSError, RuntimeError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            message = (type(error).__name__ + ': ' + str(error))[:2400]
+            (directory / 'environment.json').write_text(json.dumps({'missing': True, 'failure': message}, indent=2) + '\n')
+            if os.environ.get('GITHUB_ACTIONS') == 'true':
+                escaped = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                print('::error title=Owned verification environment::' + escaped, flush=True)
+            raise
+        (directory / 'environment.json').write_text(json.dumps(value, indent=2) + '\n')
         return
     if sys.argv[1:] == ['native-modes']:
         print(' '.join(NATIVE))

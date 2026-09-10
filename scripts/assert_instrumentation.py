@@ -21,6 +21,8 @@ if os.environ.get('GITHUB_ACTIONS') == 'true':
 passed = len(report)<=64_000 and success is not None and 'FAIL' not in report
 if not passed:
     failure = next((line for line in report.splitlines() if 'FAIL' in line), 'No passing instrumentation result')
+    if failure.startswith('FAIL Android instrumentation command exited '):
+        failure += '\n' + report.replace(failure, '').strip()[:1600]
     if os.environ.get('GITHUB_ACTIONS') == 'true':
         escaped = failure[:2000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
         print(f'::error title=Android {mode}::{escaped}')
