@@ -6,17 +6,22 @@ import java.util.List;
 
 /** Immutable search projection of one committed account snapshot, in repository order. */
 public final class AccountSearch {
-    private record Entry(Account account,String nameKey) {}
-    private final List<Entry> entries;
-    public AccountSearch(List<Account> accounts){
-        List<Entry> rows=new ArrayList<>(accounts.size());
-        for(Account account:accounts)rows.add(new Entry(account,account.searchKey()));
-        entries=List.copyOf(rows);
+    private final List<Account> all;
+    private final Account[] accounts;
+    private final String[] keys;
+    public AccountSearch(List<Account> source){
+        all=List.copyOf(source);accounts=source.toArray(new Account[0]);keys=new String[accounts.length];
+        for(int i=0;i<accounts.length;i++)keys[i]=accounts[i].searchKey();
     }
     public List<Account> find(String input){
-        String query=Identity.query(input),key=Identity.searchKey(query),digits=query.replaceAll("[ +()\\-]", "");
+        String query=Identity.query(input);if(query.isEmpty())return all;
+        String key=Identity.searchKey(query),digits=query.replaceAll("[ +()\\-]", "");
         boolean number=!digits.isEmpty()&&digits.matches("[0-9]+");List<Account> result=new ArrayList<>();
-        for(Entry entry:entries)if(query.isEmpty()||entry.nameKey().contains(key)||(number&&entry.account().phone().contains(digits)))result.add(entry.account());
+        if(number){
+            for(int i=0;i<accounts.length;i++)if(keys[i].indexOf(key)>=0||accounts[i].phone().indexOf(digits)>=0)result.add(accounts[i]);
+        }else{
+            for(int i=0;i<accounts.length;i++)if(keys[i].indexOf(key)>=0)result.add(accounts[i]);
+        }
         return List.copyOf(result);
     }
 }

@@ -112,15 +112,20 @@ public final class GateInstrumentation extends Instrumentation {
     private void performance()throws Exception{
         committed(repository::reset);insertSyntheticAccounts(0,10_000);committed(repository::reload);
         check(repository.current().accounts().size()==10_000,"ten thousand records loaded");
-        long[] samples=new long[20];
+        long[] samples=new long[20],workerCpu=new long[20],workerWall=new long[20],workerQueue=new long[20];
+        java.util.concurrent.ExecutorService executor=writer();
         for(int i=0;i<samples.length;i++){
             CountDownLatch done=new CountDownLatch(1);int index=i;long start=android.os.SystemClock.elapsedRealtimeNanos();
+            long[] began=new long[2];CountDownLatch measured=new CountDownLatch(1);
+            executor.execute(()->{began[0]=android.os.SystemClock.elapsedRealtimeNanos();began[1]=android.os.Debug.threadCpuTimeNanos();workerQueue[index]=began[0]-start;});
             repository.search("account "+(9000+i),rows->{check(rows.size()==1,"large-database query identity");samples[index]=android.os.SystemClock.elapsedRealtimeNanos()-start;done.countDown();});
-            check(done.await(10,TimeUnit.SECONDS),"bounded search callback");
+            executor.execute(()->{workerWall[index]=android.os.SystemClock.elapsedRealtimeNanos()-began[0];workerCpu[index]=android.os.Debug.threadCpuTimeNanos()-began[1];measured.countDown();});
+            check(done.await(10,TimeUnit.SECONDS),"bounded search callback");check(measured.await(10,TimeUnit.SECONDS),"bounded worker timing probe");
         }
-        java.util.Arrays.sort(samples);long p95=samples[18]/1_000_000;
+        java.util.Arrays.sort(samples);java.util.Arrays.sort(workerCpu);java.util.Arrays.sort(workerWall);java.util.Arrays.sort(workerQueue);long p95=samples[18]/1_000_000;
         java.io.File database=getTargetContext().getDatabasePath("gate.db");long bytes=database.length()+new java.io.File(database.getPath()+"-wal").length();
         metrics="METRIC records=10000 query_p95_ms="+p95+" database_and_wal_bytes="+bytes+"\n";
+        metrics+="METRIC writer_cpu_p95_ms="+workerCpu[18]/1_000_000+" writer_wall_p95_ms="+workerWall[18]/1_000_000+" writer_queue_p95_ms="+workerQueue[18]/1_000_000+"\n";
         check(p95<=100,"declared emulator query target");check(bytes<20L*1024*1024,"ten-thousand-record storage target");
         insertSyntheticAccounts(10_000,40_000);long loadStarted=android.os.SystemClock.elapsedRealtime();
         CountDownLatch loaded=new CountDownLatch(1);runOnMainSync(()->repository.reload(loaded::countDown));
@@ -154,9 +159,11 @@ public final class GateInstrumentation extends Instrumentation {
             }finally{db.endTransaction();}
         }
     }
+    private java.util.concurrent.ExecutorService writer()throws Exception{
+        java.lang.reflect.Field field=GateRepository.class.getDeclaredField("writer");field.setAccessible(true);return (java.util.concurrent.ExecutorService)field.get(repository);
+    }
     private void writerBarrier()throws Exception{
-        java.lang.reflect.Field field=GateRepository.class.getDeclaredField("writer");field.setAccessible(true);
-        CountDownLatch done=new CountDownLatch(1);((java.util.concurrent.ExecutorService)field.get(repository)).execute(done::countDown);
+        CountDownLatch done=new CountDownLatch(1);writer().execute(done::countDown);
         check(done.await(10,TimeUnit.SECONDS),"writer drained");waitForIdleSync();
     }
     private void foundationRegressions()throws Exception{

@@ -163,7 +163,7 @@
       "id": "full:T006",
       "source": "docs/design/Business_Gate_Full_PRD_Design.md",
       "sourceLine": 2730,
-      "scenario": "Same name as enabled company, different number New independent identity; no permission inheritance. ## Source page 53 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 53 ID Setup / trigger Required result",
+      "scenario": "Same name as enabled company, different number New independent identity; no permission inheritance. ## Source page 53 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 \u00b7 Implementation specification 53 ID Setup / trigger Required result",
       "requirements": [
         "BG-001"
       ],
@@ -225,7 +225,7 @@
       "id": "full:T008",
       "source": "docs/design/Business_Gate_Full_PRD_Design.md",
       "sourceLine": 2748,
-      "scenario": "Sender name contains “Business account” No official type classification from name.",
+      "scenario": "Sender name contains \u201cBusiness account\u201d No official type classification from name.",
       "requirements": [
         "BG-001"
       ],
@@ -256,7 +256,7 @@
       "id": "full:T009",
       "source": "docs/design/Business_Gate_Full_PRD_Design.md",
       "sourceLine": 2751,
-      "scenario": "Message/profile description contains “Block” No control click from sender text.",
+      "scenario": "Message/profile description contains \u201cBlock\u201d No control click from sender text.",
       "requirements": [
         "BG-001"
       ],
@@ -746,7 +746,7 @@
       "id": "full:T029",
       "source": "docs/design/Business_Gate_Full_PRD_Design.md",
       "sourceLine": 2823,
-      "scenario": "URL and price without sales/CTA combination No promoted flag. ## Source page 54 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 54 ID Setup / trigger Required result",
+      "scenario": "URL and price without sales/CTA combination No promoted flag. ## Source page 54 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 \u00b7 Implementation specification 54 ID Setup / trigger Required result",
       "requirements": [
         "BG-003",
         "BG-030"
@@ -1163,9 +1163,14 @@
         "F15",
         "F16"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/StructuralSuite.java",
+          "method": "main"
+        }
+      ],
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T049",
@@ -1184,9 +1189,18 @@
         "F15",
         "F16"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/StructuralSuite.java",
+          "method": "main"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "finalDispatch"
+        }
+      ],
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T050",
@@ -1205,9 +1219,14 @@
         "F15",
         "F16"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/StructuralSuite.java",
+          "method": "main"
+        }
+      ],
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T051",
@@ -1255,7 +1274,7 @@
       "id": "full:T053",
       "source": "docs/design/Business_Gate_Full_PRD_Design.md",
       "sourceLine": 2916,
-      "scenario": "User changes chat while profile is resolving Generation invalidated; wrong chat untouched. ## Source page 55 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 55 ID Setup / trigger Required result",
+      "scenario": "User changes chat while profile is resolving Generation invalidated; wrong chat untouched. ## Source page 55 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 \u00b7 Implementation specification 55 ID Setup / trigger Required result",
       "requirements": [
         "BG-001"
       ],
@@ -1268,9 +1287,14 @@
         "F15",
         "F16"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "finalDispatch"
+        }
+      ],
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T054",
@@ -1320,9 +1344,13 @@
         {
           "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
           "method": "controllerRegressions"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "finalDispatch"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T056",
@@ -1351,9 +1379,13 @@
         {
           "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
           "method": "controllerRegressions"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "finalDispatch"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T057",
@@ -1395,9 +1427,14 @@
         "F15",
         "F16"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "storageFailureRegressions"
+        }
+      ],
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T059",
@@ -1417,9 +1454,18 @@
         "F15",
         "F16"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "onStart"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "recoveryRegressions"
+        }
+      ],
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T060",
@@ -1448,9 +1494,13 @@
         {
           "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
           "method": "controllerRegressions"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "retries"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T061",
@@ -1481,7 +1531,7 @@
           "method": "controllerRegressions"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T062",
@@ -1510,9 +1560,13 @@
         {
           "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
           "method": "controllerRegressions"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "retries"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T063",
@@ -1834,7 +1888,7 @@
       "id": "full:T076",
       "source": "docs/design/Business_Gate_Full_PRD_Design.md",
       "sourceLine": 3008,
-      "scenario": "Toggle and stale completion interleave Newer choice/job not overwritten. ## Source page 56 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 56 ID Setup / trigger Required result",
+      "scenario": "Toggle and stale completion interleave Newer choice/job not overwritten. ## Source page 56 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 \u00b7 Implementation specification 56 ID Setup / trigger Required result",
       "requirements": [
         "BG-020",
         "BG-021"
@@ -1888,9 +1942,17 @@
         {
           "path": "scripts/check_schema.py",
           "method": ""
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "migrationQuota"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "storageFailureRegressions"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T078",
@@ -1919,9 +1981,13 @@
         {
           "path": "scripts/check_schema.py",
           "method": ""
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "onStart"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T079",
@@ -2098,9 +2164,17 @@
         {
           "path": "scripts/check_schema.py",
           "method": ""
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "search"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "onStart"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T086",
@@ -2141,9 +2215,14 @@
         "F24",
         "F25"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "performance"
+        }
+      ],
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T088",
@@ -2269,7 +2348,7 @@
       "id": "full:T094",
       "source": "docs/design/Business_Gate_Full_PRD_Design.md",
       "sourceLine": 3078,
-      "scenario": "External intent attempts “block number” command No untrusted mutation authority.",
+      "scenario": "External intent attempts \u201cblock number\u201d command No untrusted mutation authority.",
       "requirements": [
         "BG-004"
       ],
@@ -2287,9 +2366,13 @@
         {
           "path": "scripts/audit_artifact.py",
           "method": ""
+        },
+        {
+          "path": "release-probe/src/main/java/io/github/appunnim/businessgate/probe/ReleaseProbe.java",
+          "method": "onStart"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
     },
     {
       "id": "full:T095",
@@ -2567,7 +2650,7 @@
       "id": "companion:T014",
       "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
       "sourceLine": 2476,
-      "scenario": "Phone has bidi controls, invalid characters or over 15 digits Reject identity; sanitize display only, never silently normalize ambiguity. ## Source page 50 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 50 D.2 Personal-cache protection ID / requirement Scenario Required result",
+      "scenario": "Phone has bidi controls, invalid characters or over 15 digits Reject identity; sanitize display only, never silently normalize ambiguity. ## Source page 50 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 \u00b7 Implementation specification 50 D.2 Personal-cache protection ID / requirement Scenario Required result",
       "requirements": [
         "companion requirement retained; full design governs conflicts"
       ],
@@ -2737,7 +2820,7 @@
       "id": "companion:T024",
       "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
       "sourceLine": 2535,
-      "scenario": "R15 Adapter update or reinstall invalidates personal evidence UNKNOWN/STALE, not BUSINESS; no automatic deny from invalidation. ## Source page 51 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 51 D.3 Policy, blocking and explicit unblocking ID / requirement Scenario Required result",
+      "scenario": "R15 Adapter update or reinstall invalidates personal evidence UNKNOWN/STALE, not BUSINESS; no automatic deny from invalidation. ## Source page 51 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 \u00b7 Implementation specification 51 D.3 Policy, blocking and explicit unblocking ID / requirement Scenario Required result",
       "requirements": [
         "companion requirement retained; full design governs conflicts"
       ],
@@ -2975,7 +3058,7 @@
       "id": "companion:T038",
       "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
       "sourceLine": 2617,
-      "scenario": "Offline UI shows blocked Label as connected messenger UI observation; test actual sender behavior after reconnection separately. ## Source page 52 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 52 D.4 No-read discovery and interruption ID / requirement Scenario Required result",
+      "scenario": "Offline UI shows blocked Label as connected messenger UI observation; test actual sender behavior after reconnection separately. ## Source page 52 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 \u00b7 Implementation specification 52 D.4 No-read discovery and interruption ID / requirement Scenario Required result",
       "requirements": [
         "companion requirement retained; full design governs conflicts"
       ],
@@ -3196,7 +3279,7 @@
       "id": "companion:T051",
       "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
       "sourceLine": 2691,
-      "scenario": "R15 Overlay would cover the required confirmation control Reposition only through qualified layout; otherwise abort. ## Source page 53 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 53 D.5 Automation, lifecycle and adversarial UI ID / requirement Scenario Required result",
+      "scenario": "R15 Overlay would cover the required confirmation control Reposition only through qualified layout; otherwise abort. ## Source page 53 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 \u00b7 Implementation specification 53 D.5 Automation, lifecycle and adversarial UI ID / requirement Scenario Required result",
       "requirements": [
         "companion requirement retained; full design governs conflicts"
       ],
@@ -3417,7 +3500,7 @@
       "id": "companion:T064",
       "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
       "sourceLine": 2765,
-      "scenario": "Malicious intent/deep link requests a block or enable Reject; exported Activity accepts navigation only, not mutation commands. ## Source page 54 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 54 D.6 Notifications, privacy and storage ID / requirement Scenario Required result",
+      "scenario": "Malicious intent/deep link requests a block or enable Reject; exported Activity accepts navigation only, not mutation commands. ## Source page 54 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 \u00b7 Implementation specification 54 D.6 Notifications, privacy and storage ID / requirement Scenario Required result",
       "requirements": [
         "companion requirement retained; full design governs conflicts"
       ],
@@ -3638,7 +3721,7 @@
       "id": "companion:T077",
       "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
       "sourceLine": 2838,
-      "scenario": "Privacy or support link opened Use external browser; no implicit account/diagnostic upload. ## Source page 55 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 55 D.7 One-page UI and low-attention experience ID / requirement Scenario Required result",
+      "scenario": "Privacy or support link opened Use external browser; no implicit account/diagnostic upload. ## Source page 55 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 \u00b7 Implementation specification 55 D.7 One-page UI and low-attention experience ID / requirement Scenario Required result",
       "requirements": [
         "companion requirement retained; full design governs conflicts"
       ],
@@ -3876,7 +3959,7 @@
       "id": "companion:T091",
       "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
       "sourceLine": 2916,
-      "scenario": "Thirty-day real-user pilot Report p50/p95 effort and all-case coverage, false blocks, faults and unsupported users. ## Source page 56 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 56 D.8 Release and commercial completeness ID / requirement Scenario Required result",
+      "scenario": "Thirty-day real-user pilot Report p50/p95 effort and all-case coverage, false blocks, faults and unsupported users. ## Source page 56 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 \u00b7 Implementation specification 56 D.8 Release and commercial completeness ID / requirement Scenario Required result",
       "requirements": [
         "companion requirement retained; full design governs conflicts"
       ],
