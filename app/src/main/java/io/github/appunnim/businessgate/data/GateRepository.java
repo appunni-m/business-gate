@@ -6,8 +6,12 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
+import io.github.appunnim.businessgate.policy.AuthorityEpoch;
 import io.github.appunnim.businessgate.policy.Identity;
 import io.github.appunnim.businessgate.policy.Model.*;
+import io.github.appunnim.businessgate.policy.RuleEngine;
+import io.github.appunnim.businessgate.automation.AutomationController.CommitResult;
 import io.github.appunnim.businessgate.automation.AutomationController.Plan;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -19,250 +23,356 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-/** One serial writer. UI decisions are published only after successful transactions. */
+/** One serial writer; commands capture namespace and cancellation ownership before queuing. */
 public final class GateRepository {
     public static final String CONSENT_VERSION = "screen-v1";
+    private static final int ACCOUNT_LIMIT = 50_000;
     private final GateDbHelper helper;
-    private final Context context;
     private final ExecutorService writer = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AtomicReference<Snapshot> snapshot = new AtomicReference<>(Snapshot.empty());
     private final Set<Runnable> listeners = new CopyOnWriteArraySet<>();
     private final java.util.concurrent.ConcurrentHashMap<Long,Long> vetoes = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.atomic.AtomicLong commandSequence = new java.util.concurrent.atomic.AtomicLong();
-    private volatile boolean disarmed = true;
-    private volatile String failure = "";
-    public GateRepository(Context context) { this.context = context; helper = new GateDbHelper(context); initialize(); }
+    private final java.util.concurrent.ConcurrentHashMap<String,Long> optionVetoes = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile boolean consentVeto;
+    private volatile long consentCommand;
+    private final AtomicLong commandSequence = new AtomicLong(), dataEpoch = new AtomicLong();
+    private final AuthorityEpoch authority = new AuthorityEpoch();
+    private volatile String failure = "", installation = "";
+    private record Stamp(long namespace, long data) {}
+    private static final class Stale extends RuntimeException {}
+    private static final class Capacity extends RuntimeException {}
+    public GateRepository(Context context) { helper = new GateDbHelper(context); initialize(context); }
     public Snapshot current() { return snapshot.get(); }
-    public boolean disarmed() { return disarmed || !failure.isEmpty(); }
+    public boolean disarmed() { return !authority.armed() || !failure.isEmpty(); }
+    public boolean consented(){return current().consent()&&!consentVeto;}
+    public boolean optionEnabled(String field){
+        if(!consented()||optionVetoes.containsKey(field))return false;
+        return switch(field){case "digest"->current().digest();case "discovery"->current().discovery();case "sales_hints"->current().salesHints();default->false;};
+    }
+    public long epoch() { return authority.current(); }
+    public String installation() { return installation; }
     public boolean vetoed(long id) { return vetoes.containsKey(id); }
-    public void reload(Runnable success) { transaction(db -> {}, success); }
+    public void reload(Runnable success) { transaction(stamp(), db -> {}, success); }
     public void addListener(Runnable listener) { listeners.add(listener); }
     public void removeListener(Runnable listener) { listeners.remove(listener); }
     private void notifyChanged() { main.post(() -> listeners.forEach(Runnable::run)); }
-    private void initialize() {
+    private Stamp stamp() { return new Stamp(current().namespace(), dataEpoch.get()); }
+    private void require(SQLiteDatabase db, Stamp stamp) {
+        if (stamp.data() != dataEpoch.get() || activeId(db) != stamp.namespace()) throw new Stale();
+    }
+    private static long activeId(SQLiteDatabase db) {
+        try (Cursor c = db.rawQuery("SELECT id FROM namespace WHERE active=1", null)) {
+            if (!c.moveToFirst()) throw new IllegalStateException("NAMESPACE_MISSING");
+            return c.getLong(0);
+        }
+    }
+    private void initialize(Context context) {
         writer.execute(() -> {
             try {
                 File marker = new File(context.getNoBackupFilesDir(), "installation");
                 if (!marker.exists()) Files.write(marker.toPath(), UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
-                String installation = new String(Files.readAllBytes(marker.toPath()), StandardCharsets.UTF_8);
-                SQLiteDatabase db = helper.getWritableDatabase();
-                db.beginTransaction();
+                installation = new String(Files.readAllBytes(marker.toPath()), StandardCharsets.UTF_8);
+                SQLiteDatabase db = helper.getWritableDatabase(); db.beginTransaction();
                 try {
-                    db.execSQL("INSERT OR IGNORE INTO namespace(id,installation) VALUES(1,?)", new Object[]{installation});
-                    try (Cursor c = db.rawQuery("SELECT installation FROM namespace WHERE id=1", null)) {
-                        if (!c.moveToFirst()) throw new IllegalStateException("NAMESPACE_MISSING");
-                        if (!installation.equals(c.getString(0))) {
-                            db.execSQL("UPDATE namespace SET installation=?,enabled=0,paused=1,consent_version='',setup='WELCOME',global_revision=global_revision+1", new Object[]{installation});
-                            db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL");
-                            event(db, null, "RECOVERY", "INSTALLATION_CHANGED");
-                        }
+                    boolean sameInstallation;
+                    try (Cursor c = db.rawQuery("SELECT installation FROM namespace WHERE active=1", null)) {
+                        sameInstallation = c.moveToFirst() && installation.equals(c.getString(0));
                     }
+                    if (!sameInstallation) {
+                        db.execSQL("UPDATE namespace SET active=0,enabled=0,paused=1,global_revision=global_revision+1");
+                        db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL");
+                        db.execSQL("INSERT INTO namespace(installation,active) VALUES(?,1)", new Object[]{installation});
+                        event(db, null, "RECOVERY", "INSTALLATION_CHANGED");
+                    }
+                    db.execSQL("UPDATE namespace SET paused=1");
                     db.execSQL("UPDATE action_job SET state='REINSPECT',reason='PROCESS_RESTART' WHERE state IN ('ACTION_INTENT','VERIFYING')");
-                    prune(db);
-                    db.setTransactionSuccessful();
+                    prune(db); db.setTransactionSuccessful();
                 } finally { db.endTransaction(); }
                 publish(db);
             } catch (Exception error) { fail(); }
         });
     }
     private interface Write { void run(SQLiteDatabase db); }
-    private void transaction(Write operation, Runnable success) {
+    private void transaction(Stamp stamp, Write operation, Runnable success) {
         writer.execute(() -> {
             try {
-                SQLiteDatabase db = helper.getWritableDatabase();
-                db.beginTransaction();
-                try { operation.run(db); db.setTransactionSuccessful(); }
+                SQLiteDatabase db = helper.getWritableDatabase(); db.beginTransaction();
+                try { require(db, stamp); operation.run(db); prune(db); db.setTransactionSuccessful(); }
                 finally { db.endTransaction(); }
                 publish(db);
-                if (success != null) main.post(success);
-            } catch (Exception error) { fail(); }
+                if (success != null) main.post(() -> { if (stamp.data() == dataEpoch.get() && current().namespace() == stamp.namespace()) success.run(); });
+            } catch (Stale ignored) { /* Superseded command has no authority over its replacement. */ }
+            catch (Capacity full) { fail("Local account storage is full. Existing choices are safe; no new blocks will run."); }
+            catch (Exception error) { fail(); }
         });
     }
-    private void fail() { disarmed = true; failure = "Could not save. No new blocks will run."; Snapshot s = current();
-        snapshot.set(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure)); notifyChanged(); }
+    private void fail() { fail("Could not save. No new blocks will run."); }
+    private void fail(String message) {
+        authority.revoke(); failure = message; Snapshot s = current();
+        snapshot.set(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure,s.binding()));
+        notifyChanged();
+    }
     private void publish(SQLiteDatabase db) {
-        try (Cursor n = db.rawQuery("SELECT * FROM namespace WHERE id=1", null)) {
+        long id = activeId(db);
+        try (Cursor n = db.rawQuery("SELECT * FROM namespace WHERE id=?", new String[]{""+id})) {
             if (!n.moveToFirst()) throw new IllegalStateException("NAMESPACE_MISSING");
-            Snapshot next = new Snapshot(1, number(n,"global_revision"),true,number(n,"enabled")==1,number(n,"paused")==1,
-                CONSENT_VERSION.equals(string(n,"consent_version")), number(n,"sales_hints")==1,number(n,"discovery")==1,number(n,"digest")==1,
-                string(n,"setup"),readAccounts(db,"",new String[0]),failure);
-            snapshot.set(next);
+            Binding binding = new Binding(string(n,"installation"),string(n,"package_digest"),string(n,"profile_key"),string(n,"receiver_binding"),string(n,"qualification_id"));
+            snapshot.set(new Snapshot(id,number(n,"global_revision"),true,number(n,"enabled")==1,number(n,"paused")==1,
+                CONSENT_VERSION.equals(string(n,"consent_version")),number(n,"sales_hints")==1,number(n,"discovery")==1,number(n,"digest")==1,
+                string(n,"setup"),readAccounts(db,id,"",new String[0]),failure,binding));
         }
         notifyChanged();
     }
-    private List<Account> readAccounts(SQLiteDatabase db, String extra, String[] args) {
-        List<Account> rows = new ArrayList<>();
-        try (Cursor c = db.rawQuery("SELECT a.*, j.state AS job_state,j.action AS job_action,j.nonce,j.grant_created_at FROM account a LEFT JOIN action_job j ON a.id=j.account_id WHERE a.namespace_id=1 " + extra + " ORDER BY a.search_key,a.phone,a.id", args)) {
-            while (c.moveToNext()) rows.add(new Account(number(c,"id"),1,string(c,"phone"),string(c,"name"),Kind.valueOf(string(c,"kind")),Choice.valueOf(string(c,"choice")),
-                BlockState.valueOf(string(c,"observed_state")),number(c,"gate_owned")==1,number(c,"revision"),number(c,"ever_business")==1,
-                Review.valueOf(string(c,"review")),(int)number(c,"hint_bits"),number(c,"dismissed_until"),number(c,"checked_at"),number(c,"last_seen"),
-                c.isNull(c.getColumnIndexOrThrow("job_state")) ? JobState.NONE : JobState.valueOf(string(c,"job_state")),
-                c.isNull(c.getColumnIndexOrThrow("job_action")) ? Action.NONE : Action.valueOf(string(c,"job_action")),string(c,"nonce"),number(c,"grant_created_at")));
+    private List<Account> readAccounts(SQLiteDatabase db, long namespace, String extra, String[] args) {
+        List<Account> rows = new ArrayList<>(); String[] bound = new String[args.length+1]; bound[0]=""+namespace; System.arraycopy(args,0,bound,1,args.length);
+        try (Cursor c = db.rawQuery("SELECT a.*,j.state AS job_state,j.action AS job_action,j.nonce,j.grant_created_at FROM account a LEFT JOIN action_job j ON a.id=j.account_id WHERE a.namespace_id=? " + extra + " ORDER BY a.search_key,a.phone,a.id",bound)) {
+            while(c.moveToNext()) rows.add(new Account(number(c,"id"),namespace,string(c,"phone"),string(c,"name"),Kind.valueOf(string(c,"kind")),Choice.valueOf(string(c,"choice")),
+                BlockState.valueOf(string(c,"observed_state")),number(c,"gate_owned")==1,number(c,"revision"),number(c,"ever_business")==1,Review.valueOf(string(c,"review")),
+                (int)number(c,"hint_bits"),number(c,"dismissed_until"),number(c,"checked_at"),number(c,"last_seen"),
+                c.isNull(c.getColumnIndexOrThrow("job_state"))?JobState.NONE:JobState.valueOf(string(c,"job_state")),
+                c.isNull(c.getColumnIndexOrThrow("job_action"))?Action.NONE:Action.valueOf(string(c,"job_action")),string(c,"nonce"),number(c,"grant_created_at")));
         }
         return rows;
     }
     public void search(String input, Consumer<List<Account>> result) {
-        String q = Identity.query(input);
+        String q=Identity.query(input); Stamp stamp=stamp();
         writer.execute(() -> {
             try {
-                String normalized = Identity.likeLiteral(Identity.searchKey(q));
-                String digits = q.replaceAll("[ +()\\-]", "");
-                boolean isDigits = !digits.isEmpty() && digits.matches("[0-9]+");
-                String clause = q.isEmpty() ? "" : "AND (a.search_key LIKE ? ESCAPE '\\'" + (isDigits ? " OR a.phone LIKE ?" : "") + ")";
-                String[] args = q.isEmpty() ? new String[0] : isDigits ? new String[]{"%"+normalized+"%","%"+digits+"%"} : new String[]{"%"+normalized+"%"};
-                List<Account> rows = readAccounts(helper.getReadableDatabase(),clause,args);
-                main.post(() -> result.accept(rows));
-            } catch (Exception error) { fail(); }
+                SQLiteDatabase db=helper.getReadableDatabase(); require(db,stamp);
+                String normalized=Identity.likeLiteral(Identity.searchKey(q)); String digits=q.replaceAll("[ +()\\-]", "");
+                boolean isDigits=!digits.isEmpty()&&digits.matches("[0-9]+");
+                String clause=q.isEmpty()?"":"AND (a.search_key LIKE ? ESCAPE '\\'"+(isDigits?" OR a.phone LIKE ?":"")+")";
+                String[] args=q.isEmpty()?new String[0]:isDigits?new String[]{"%"+normalized+"%","%"+digits+"%"}:new String[]{"%"+normalized+"%"};
+                List<Account> rows=readAccounts(db,stamp.namespace(),clause,args);
+                main.post(() -> { if(stamp.data()==dataEpoch.get()&&current().namespace()==stamp.namespace())result.accept(rows); });
+            } catch(Stale ignored) { /* Namespace switched during search. */ } catch(Exception error) { fail(); }
         });
     }
-    public void enableNumber(String rawPhone, String label, Runnable success) {
-        String phone = Identity.canonicalPhone(rawPhone); String name = Identity.label(label);
-        // Adding an existing number must revoke authority before the write is queued.
-        long sequence=commandSequence.incrementAndGet();
-        current().accounts().stream().filter(a -> a.phone().equals(phone)).forEach(a -> vetoes.put(a.id(),sequence));
-        transaction(db -> {
-            long now = System.currentTimeMillis();
-            db.execSQL("INSERT OR IGNORE INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) VALUES(1,?,?,?,?,?)",new Object[]{phone,name,Identity.searchKey(name),now,now});
-            try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=1 AND phone=?",new String[]{phone})) {
-                if(!c.moveToFirst()) throw new IllegalStateException("ACCOUNT_MISSING");
-                choose(db,c.getLong(0),Choice.ALLOW);
+    public void enableNumber(String rawPhone,String label,Runnable success) {
+        String phone=Identity.canonicalPhone(rawPhone),name=Identity.label(label); Stamp stamp=stamp(); long sequence=commandSequence.incrementAndGet();
+        current().accounts().stream().filter(a->a.phone().equals(phone)).forEach(a->vetoes.put(a.id(),sequence));
+        transaction(stamp,db->{
+            long now=System.currentTimeMillis();
+            try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=? AND phone=?",new String[]{""+stamp.namespace(),phone})) {
+                if(!c.moveToFirst()) { ensureCapacity(db); db.execSQL("INSERT INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) VALUES(?,?,?,?,?,?)",new Object[]{stamp.namespace(),phone,name,Identity.searchKey(name),now,now}); }
             }
-        }, () -> { current().accounts().stream().filter(a -> a.phone().equals(phone)).forEach(a -> vetoes.remove(a.id(),sequence)); if(success!=null)success.run(); });
+            try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=? AND phone=?",new String[]{""+stamp.namespace(),phone})) {
+                if(!c.moveToFirst())throw new IllegalStateException("ACCOUNT_MISSING"); choose(db,stamp.namespace(),c.getLong(0),Choice.ALLOW);
+            }
+        },()->{vetoes.entrySet().removeIf(e->e.getValue()==sequence);if(success!=null)success.run();});
     }
-    public void choose(long id, Choice choice, Runnable success) {
-        long sequence=commandSequence.incrementAndGet();
-        if(choice==Choice.ALLOW) vetoes.put(id,sequence);
-        transaction(db -> choose(db,id,choice), () -> { vetoes.remove(id,sequence); if(success!=null)success.run(); });
+    private static void ensureCapacity(SQLiteDatabase db) {
+        try(Cursor c=db.rawQuery("SELECT count(*) FROM account",null)){
+            c.moveToFirst();if(c.getLong(0)<ACCOUNT_LIMIT)return;
+        }
+        int removed=db.delete("account","id IN (SELECT id FROM account WHERE choice='DEFAULT' AND ever_business=0 AND review='NONE' AND id NOT IN (SELECT account_id FROM action_job) ORDER BY last_seen,id LIMIT 1)",null);
+        if(removed!=1)throw new Capacity();
     }
-    private void choose(SQLiteDatabase db,long id,Choice choice) {
+    public void choose(long id,Choice choice,Runnable success) {
+        Stamp stamp=stamp();long sequence=commandSequence.incrementAndGet();if(choice==Choice.ALLOW)vetoes.put(id,sequence);
+        transaction(stamp,db->choose(db,stamp.namespace(),id,choice),()->{vetoes.remove(id,sequence);if(success!=null)success.run();});
+    }
+    private void choose(SQLiteDatabase db,long namespace,long id,Choice choice) {
         long now=System.currentTimeMillis();
-        db.execSQL("UPDATE account SET choice=?,revision=revision+1,review='NONE',hint_bits=0,dismissed_until=0 WHERE id=? AND namespace_id=1",new Object[]{choice.name(),id});
-        db.delete("action_job","account_id=?",new String[]{Long.toString(id)});
-        try(Cursor c=db.rawQuery("SELECT revision,kind,observed_state FROM account WHERE id=? AND namespace_id=1",new String[]{Long.toString(id)})) {
-            if(!c.moveToFirst()) throw new IllegalArgumentException("ACCOUNT_MISSING");
-            boolean allow=choice==Choice.ALLOW;
-            if(allow || choice==Choice.DENY_MANUAL || c.getString(1).equals(Kind.BUSINESS_CONFIRMED.name())) {
-                db.execSQL("INSERT INTO action_job(account_id,action,state,global_revision,account_revision,nonce,grant_created_at,created_at,updated_at) SELECT ?,?,'PENDING',global_revision,?,?,?,?,? FROM namespace WHERE id=1",
-                    new Object[]{id,allow?"UNBLOCK":"BLOCK",c.getLong(0),allow?UUID.randomUUID().toString():null,allow?now:0,now,now});
-            }
+        db.execSQL("UPDATE account SET choice=?,revision=revision+1,review='NONE',hint_bits=0,dismissed_until=0 WHERE id=? AND namespace_id=?",new Object[]{choice.name(),id,namespace});
+        try(Cursor c=db.rawQuery("SELECT revision,kind FROM account WHERE id=? AND namespace_id=?",new String[]{""+id,""+namespace})) {
+            if(!c.moveToFirst())throw new Stale(); db.delete("action_job","account_id=?",new String[]{""+id}); boolean allow=choice==Choice.ALLOW;
+            if(allow||choice==Choice.DENY_MANUAL||c.getString(1).equals(Kind.BUSINESS_CONFIRMED.name()))
+                db.execSQL("INSERT INTO action_job(account_id,action,state,global_revision,account_revision,nonce,grant_created_at,created_at,updated_at) SELECT ?,?,'PENDING',global_revision,?,?,?,?,? FROM namespace WHERE id=?",
+                    new Object[]{id,allow?"UNBLOCK":"BLOCK",c.getLong(0),allow?UUID.randomUUID().toString():null,allow?now:0,now,now,namespace});
         }
         event(db,id,"POLICY","USER_CHOICE");
     }
     public void dismiss(long id) {
-        transaction(db -> { db.execSQL("UPDATE account SET dismissed_until=? WHERE id=?", new Object[]{System.currentTimeMillis()+30L*86400000,id}); event(db,id,"POLICY","HINT_DISMISSED"); },null);
+        Stamp stamp=stamp();transaction(stamp,db->{db.execSQL("UPDATE account SET dismissed_until=? WHERE id=? AND namespace_id=?",new Object[]{System.currentTimeMillis()+30L*86400000,id,stamp.namespace()});event(db,id,"POLICY","HINT_DISMISSED");},null);
     }
-    public void updateSetup(String step, boolean consent, Runnable success) {
-        Set<String> steps=new java.util.HashSet<>(java.util.Arrays.asList("WELCOME","ACCESS","CAPABILITY","DISCOVERY","REVIEW","READY"));
-        if(!steps.contains(step)) throw new IllegalArgumentException("INVALID_STEP");
-        transaction(db -> db.execSQL("UPDATE namespace SET setup=?,consent_version=?,consent_at=?,global_revision=global_revision+1 WHERE id=1",new Object[]{step,consent?CONSENT_VERSION:"",System.currentTimeMillis()}),success);
+    public void updateSetup(String step,boolean consent,Runnable success) {
+        if(!set("WELCOME","ACCESS","CAPABILITY","DISCOVERY","REVIEW","READY").contains(step))throw new IllegalArgumentException("INVALID_STEP");
+        emergencyStop();long command=commandSequence.incrementAndGet();consentCommand=command;consentVeto=true;
+        if(!consent){withdrawConsent(command,success);return;}
+        Stamp stamp=stamp();
+        transaction(stamp,db->{
+            db.execSQL("UPDATE namespace SET setup=?,consent_version=?,consent_at=?,paused=1,global_revision=global_revision+1 WHERE id=?",new Object[]{step,CONSENT_VERSION,System.currentTimeMillis(),stamp.namespace()});
+        },()->{if(consentCommand==command){consentVeto=false;notifyChanged();if(success!=null)success.run();}});
     }
-    public void setting(String field, boolean value) {
-        if(!new java.util.HashSet<>(java.util.Arrays.asList("sales_hints","discovery","digest")).contains(field)) throw new IllegalArgumentException("INVALID_SETTING");
-        transaction(db -> { db.execSQL("UPDATE namespace SET "+field+"=? WHERE id=1",new Object[]{value?1:0});
-            if(field.equals("sales_hints")&&!value) db.execSQL("UPDATE account SET hint_bits=0,review='NEW_SENDER' WHERE review='POSSIBLE_COMMERCIAL' AND choice='DEFAULT'");
-        },null);
-    }
-    public void pause() {
-        disarmed=true;
-        transaction(db -> { db.execSQL("UPDATE namespace SET paused=1,global_revision=global_revision+1 WHERE id=1");
-            db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK'");
-            db.execSQL("UPDATE action_job SET state='REINSPECT' WHERE state IN ('ACTION_INTENT','VERIFYING')");
-            event(db,null,"STOPPED","USER_STOP"); },null);
-    }
-    public void arm(boolean qualified, Runnable success) {
-        if(!qualified || !current().consent() || !failure.isEmpty()) return;
-        transaction(db -> { db.execSQL("UPDATE namespace SET enabled=1,paused=0,setup='READY',global_revision=global_revision+1 WHERE id=1");
-            db.execSQL("UPDATE action_job SET global_revision=(SELECT global_revision FROM namespace WHERE id=1) WHERE action='BLOCK'");
-        }, () -> { disarmed=false; if(success!=null)success.run(); });
-    }
-    public void emergencyStop() { disarmed=true; }
-    public void reset(Runnable success) {
-        disarmed=true; vetoes.clear();
-        transaction(db -> { db.delete("action_job",null,null); db.delete("action_event",null,null); db.delete("account",null,null); db.delete("attention_daily",null,null); db.delete("app_meta",null,null);
-            db.execSQL("UPDATE namespace SET enabled=0,paused=1,consent_version='',consent_at=0,setup='WELCOME',sales_hints=0,discovery=0,digest=0,receiver_binding='',qualification_id='',global_revision=global_revision+1");
-        }, success);
-    }
-    public void observe(Evidence e,String name,boolean qualified) {
-        if(!qualified || !current().consent() || e.namespace()!=current().namespace() || !e.completeProfile()) return;
-        String phone=Identity.canonicalPhone(e.phone());
-        transaction(db -> {
-            long now=System.currentTimeMillis();
-            db.execSQL("INSERT OR IGNORE INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) SELECT 1,?,?,?,?,? WHERE (SELECT count(*) FROM account)<50000",new Object[]{phone,Identity.label(name),Identity.searchKey(name),now,now});
-            db.execSQL("UPDATE account SET kind=?,observed_state=?,ever_business=MAX(ever_business,?),checked_at=?,last_seen=? WHERE namespace_id=1 AND phone=?",new Object[]{e.kind().name(),e.blockState().name(),e.kind()==Kind.BUSINESS_CONFIRMED?1:0,now,now,phone});
-            db.execSQL("INSERT OR IGNORE INTO action_job(account_id,action,state,global_revision,account_revision,created_at,updated_at) SELECT a.id,'BLOCK','PENDING',n.global_revision,a.revision,?,? FROM account a JOIN namespace n ON n.id=a.namespace_id WHERE a.phone=? AND n.id=1 AND a.choice<>'ALLOW' AND (a.kind='BUSINESS_CONFIRMED' OR a.choice='DENY_MANUAL') AND a.observed_state<>'BLOCKED'",new Object[]{now,now,phone});
-            db.execSQL("UPDATE action_job SET state='DONE',nonce=NULL WHERE account_id IN (SELECT id FROM account WHERE namespace_id=1 AND phone=?) AND ((action='BLOCK' AND ?='BLOCKED') OR (action='UNBLOCK' AND ?='UNBLOCKED'))",new Object[]{phone,e.blockState().name(),e.blockState().name()});
-        },null);
-    }
-    public void journal(Plan p,Runnable success,Runnable failed) {
-        writer.execute(() -> {
-            try {
-                SQLiteDatabase db=helper.getWritableDatabase(); db.beginTransaction();
-                try {
-                    ContentValues values=new ContentValues(); values.put("state","ACTION_INTENT"); values.put("generation",p.generation()); values.put("updated_at",System.currentTimeMillis());
-                    int changed=db.update("action_job",values,"account_id=? AND account_revision=? AND global_revision=? AND state NOT IN ('CANCELED','DONE')",new String[]{""+p.accountId(),""+p.accountRevision(),""+p.globalRevision()});
-                    if(changed!=1) throw new IllegalStateException("STALE_JOB");
-                    event(db,p.accountId(),"INTENT","ACTION_INTENT"); db.setTransactionSuccessful();
-                } finally { db.endTransaction(); }
-                publish(db); main.post(success);
-            } catch(Exception error) { disarmed=true; main.post(failed); }
+    private void withdrawConsent(long command,Runnable success){
+        writer.execute(()->{
+            try{
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    // Screen consent withdrawal is global even if a receiver switch was queued first.
+                    db.execSQL("UPDATE namespace SET consent_version='',consent_at=0,setup='WELCOME',paused=1,discovery=0,sales_hints=0,digest=0,global_revision=global_revision+1");
+                    db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK'");
+                    db.execSQL("UPDATE account SET hint_bits=0,review='NEW_SENDER' WHERE review='POSSIBLE_COMMERCIAL' AND choice='DEFAULT'");
+                    db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                publish(db);main.post(()->{if(consentCommand==command){consentVeto=true;notifyChanged();if(success!=null)success.run();}});
+            }catch(Exception error){fail();}
         });
     }
-    public void verified(Plan p,Evidence e) {
-        transaction(db -> {
-            try(Cursor c=db.rawQuery("SELECT a.revision,j.generation,n.global_revision FROM account a JOIN action_job j ON j.account_id=a.id JOIN namespace n ON n.id=a.namespace_id WHERE a.id=?",new String[]{""+p.accountId()})) {
-                if(!c.moveToFirst() || c.getLong(0)!=p.accountRevision() || c.getLong(1)!=p.generation() || c.getLong(2)!=p.globalRevision())return;
-            }
-            db.execSQL("UPDATE account SET observed_state=?,gate_owned=?,checked_at=? WHERE id=? AND phone=?",new Object[]{e.blockState().name(),e.blockState()==BlockState.BLOCKED?1:0,System.currentTimeMillis(),p.accountId(),e.phone()});
-            db.execSQL("UPDATE action_job SET state='DONE',nonce=NULL WHERE account_id=?",new Object[]{p.accountId()});
-            event(db,p.accountId(),"VERIFIED","VERIFIED");
+    private static void clearHints(SQLiteDatabase db,long namespace) { db.execSQL("UPDATE account SET hint_bits=0,review='NEW_SENDER' WHERE namespace_id=? AND review='POSSIBLE_COMMERCIAL' AND choice='DEFAULT'",new Object[]{namespace}); }
+    public void setting(String field,boolean value) {
+        if(!set("sales_hints","discovery","digest").contains(field))throw new IllegalArgumentException("INVALID_SETTING");
+        long command=commandSequence.incrementAndGet();optionVetoes.put(field,command);notifyChanged();Stamp stamp=stamp();
+        transaction(stamp,db->{db.execSQL("UPDATE namespace SET "+field+"=? WHERE id=?",new Object[]{value?1:0,stamp.namespace()});if(field.equals("sales_hints")&&!value)clearHints(db,stamp.namespace());},()->{optionVetoes.remove(field,command);notifyChanged();});
+    }
+    private static void cancelGrants(SQLiteDatabase db,long namespace) {
+        db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK' AND account_id IN (SELECT id FROM account WHERE namespace_id=?)",new Object[]{namespace});
+    }
+    public void pause() {
+        emergencyStop();Stamp stamp=stamp();transaction(stamp,db->{
+            db.execSQL("UPDATE namespace SET paused=1,global_revision=global_revision+1 WHERE id=?",new Object[]{stamp.namespace()});cancelGrants(db,stamp.namespace());
+            db.execSQL("UPDATE action_job SET state='REINSPECT' WHERE state IN ('ACTION_INTENT','VERIFYING') AND account_id IN (SELECT id FROM account WHERE namespace_id=?)",new Object[]{stamp.namespace()});event(db,null,"STOPPED","USER_STOP");
         },null);
     }
-    public void reserveReminder(Runnable notify) {
-        writer.execute(() -> {
-            try {
-                SQLiteDatabase db=helper.getWritableDatabase();
-                long now=System.currentTimeMillis();
-                try(Cursor c=db.rawQuery("SELECT value FROM app_meta WHERE key='last_digest_ms'",null)) {
-                    if(c.moveToFirst()){long last=Long.parseLong(c.getString(0));if(now<last||now-last<30L*86400000)return;}
-                }
-                try(Cursor c=db.rawQuery("SELECT count(*) FROM account WHERE namespace_id=1 AND choice='DEFAULT' AND review='POSSIBLE_COMMERCIAL' AND dismissed_until<=?",new String[]{""+now})) {
-                    if(!c.moveToFirst()||c.getLong(0)==0)return;
-                }
-                db.execSQL("INSERT OR REPLACE INTO app_meta(key,value) VALUES('last_digest_ms',?)",new Object[]{""+now});
-                main.post(notify);
+    public boolean ready(Readiness r) {
+        Snapshot s=current();return r!=null&&s.loaded()&&consented()&&failure.isEmpty()&&s.binding().bound()&&s.binding().equals(r.binding())
+            &&s.namespace()==r.namespace()&&s.globalRevision()==r.globalRevision()&&authority.matches(r.epoch())
+            &&SystemClock.elapsedRealtime()>=r.observedElapsed()&&SystemClock.elapsedRealtime()-r.observedElapsed()<=RuleEngine.EVIDENCE_TTL_MS;
+    }
+    public void arm(Readiness readiness,Runnable success) {
+        if(!ready(readiness))return;Stamp stamp=stamp();long owner=readiness.epoch();
+        transaction(stamp,db->{
+            if(!ready(readiness))throw new Stale();
+            db.execSQL("UPDATE namespace SET enabled=1,paused=0,setup='READY',global_revision=global_revision+1 WHERE id=?",new Object[]{stamp.namespace()});
+            db.execSQL("UPDATE action_job SET global_revision=(SELECT global_revision FROM namespace WHERE id=?) WHERE action='BLOCK' AND account_id IN (SELECT id FROM account WHERE namespace_id=?)",new Object[]{stamp.namespace(),stamp.namespace()});
+        },()->{if(authority.arm(owner)&&consented()&&current().binding().equals(readiness.binding())){notifyChanged();if(success!=null)success.run();}else emergencyStop();});
+    }
+    public void emergencyStop() { authority.revoke();notifyChanged(); }
+    /** Called only after measured installation and visible receiver verification plus user selection. */
+    public void bindReceiver(Binding binding,Runnable success) {
+        if(!binding.bound()||!installation.equals(binding.installation())||!binding.packageDigest().matches("[a-f0-9]{64}"))throw new IllegalArgumentException("INVALID_BINDING");
+        Identity.canonicalPhone(binding.receiver());switchNamespace(binding,success);
+    }
+    public void localChoices(Runnable success) { switchNamespace(new Binding(installation,"","","",""),success); }
+    private void switchNamespace(Binding binding,Runnable success) {
+        emergencyStop();long owner=dataEpoch.incrementAndGet();vetoes.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
+        writer.execute(()->{
+            try{
+                if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    db.execSQL("UPDATE namespace SET active=0,paused=1,global_revision=global_revision+1");db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK'");
+                    long id=-1;
+                    try(Cursor c=db.rawQuery("SELECT id FROM namespace WHERE installation=? AND package_digest=? AND profile_key=? AND receiver_binding=?",new String[]{installation,binding.packageDigest(),binding.profile(),binding.receiver()})){if(c.moveToFirst())id=c.getLong(0);}
+                    if(id<0){ContentValues row=new ContentValues();row.put("installation",installation);row.put("package_digest",binding.packageDigest());row.put("profile_key",binding.profile());row.put("receiver_binding",binding.receiver());row.put("qualification_id",binding.adapter());id=db.insertOrThrow("namespace",null,row);}
+                    db.execSQL("UPDATE namespace SET active=1,enabled=0,paused=1,qualification_id=? WHERE id=?",new Object[]{binding.adapter(),id});db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                publish(db);main.post(()->{if(owner==dataEpoch.get()&&consentCommand==consentOwner){consentVeto=false;notifyChanged();if(success!=null)success.run();}});
             }catch(Exception error){fail();}
+        });
+    }
+    public void reset(Runnable success) {
+        emergencyStop();long owner=dataEpoch.incrementAndGet();vetoes.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
+        writer.execute(()->{
+            try{
+                if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    for(String table:new String[]{"action_job","action_event","account","attention_daily","app_meta","namespace"})db.delete(table,null,null);
+                    db.execSQL("INSERT INTO namespace(id,installation,active) VALUES(1,?,1)",new Object[]{installation});db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                failure="";publish(db);main.post(()->{if(owner==dataEpoch.get()){if(consentCommand==consentOwner)consentVeto=false;notifyChanged();if(success!=null)success.run();}});
+            }catch(Exception error){fail();}
+        });
+    }
+    private boolean currentEvidence(Evidence e,long owner) {
+        Snapshot s=current();return e!=null&&authority.matches(owner)&&consented()&&s.binding().bound()&&e.namespace()==s.namespace()&&e.completeProfile()&&e.sideEffectFree()
+            &&s.binding().receiver().equals(e.receiver())&&s.binding().adapter().equals(e.adapter())&&SystemClock.elapsedRealtime()>=e.observedElapsed()
+            &&SystemClock.elapsedRealtime()-e.observedElapsed()<=RuleEngine.EVIDENCE_TTL_MS;
+    }
+    public void observe(Evidence e,String name) {
+        long owner=epoch();if(!currentEvidence(e,owner))return;String phone=Identity.canonicalPhone(e.phone());Stamp stamp=stamp();long revision=current().globalRevision();
+        transaction(stamp,db->{
+            if(!currentEvidence(e,owner)||current().globalRevision()!=revision)throw new Stale();
+            if(e.kind()!=Kind.BUSINESS_CONFIRMED&&e.kind()!=Kind.REGULAR_PROFILE_OBSERVED)return;
+            long now=System.currentTimeMillis();
+            if(e.kind()==Kind.BUSINESS_CONFIRMED){try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=? AND phone=?",new String[]{""+stamp.namespace(),phone})){if(!c.moveToFirst())ensureCapacity(db);}}
+            db.execSQL("INSERT OR IGNORE INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) SELECT ?,?,?,?,?,? WHERE (SELECT count(*) FROM account)<?",new Object[]{stamp.namespace(),phone,Identity.label(name),Identity.searchKey(name),now,now,ACCOUNT_LIMIT});
+            db.execSQL("UPDATE account SET review=CASE WHEN kind='REGULAR_PROFILE_OBSERVED' AND ?='BUSINESS_CONFIRMED' THEN 'TYPE_CHANGED' ELSE 'NONE' END,hint_bits=0,kind=?,observed_state=?,ever_business=MAX(ever_business,?),checked_at=?,last_seen=? WHERE namespace_id=? AND phone=?",new Object[]{e.kind().name(),e.kind().name(),e.blockState().name(),e.kind()==Kind.BUSINESS_CONFIRMED?1:0,now,now,stamp.namespace(),phone});
+            // Reconcile only settled block jobs. An observation never completes a mutation or an unblock grant.
+            db.execSQL("DELETE FROM action_job WHERE action='BLOCK' AND state IN ('DONE','CANCELED') AND account_id IN (SELECT id FROM account WHERE namespace_id=? AND phone=? AND observed_state='UNBLOCKED')",new Object[]{stamp.namespace(),phone});
+            db.execSQL("INSERT OR IGNORE INTO action_job(account_id,action,state,global_revision,account_revision,created_at,updated_at) SELECT a.id,'BLOCK','PENDING',n.global_revision,a.revision,?,? FROM account a JOIN namespace n ON n.id=a.namespace_id WHERE a.namespace_id=? AND a.phone=? AND a.choice<>'ALLOW' AND (a.kind='BUSINESS_CONFIRMED' OR a.choice='DENY_MANUAL') AND a.observed_state='UNBLOCKED'",new Object[]{now,now,stamp.namespace(),phone});
+        },null);
+    }
+    private boolean matchesPlan(SQLiteDatabase db,Plan p,boolean verification) {
+        try(Cursor c=db.rawQuery("SELECT a.phone,a.revision,j.action,j.state,j.nonce,j.generation,n.global_revision,n.receiver_binding,n.qualification_id,j.global_revision,j.account_revision,j.grant_created_at,n.consent_version FROM account a JOIN action_job j ON a.id=j.account_id JOIN namespace n ON n.id=a.namespace_id WHERE a.id=? AND n.id=? AND n.active=1",new String[]{""+p.accountId(),""+p.namespace()})) {
+            if(!c.moveToFirst())return false;
+            long now=System.currentTimeMillis();
+            if(p.action()==Action.UNBLOCK&&(now<c.getLong(11)||now-c.getLong(11)>=RuleEngine.GRANT_TTL_MS))return false;
+            if(c.getLong(9)!=p.globalRevision()||c.getLong(10)!=p.accountRevision()||!CONSENT_VERSION.equals(c.getString(12)))return false;
+            return p.phone().equals(c.getString(0))&&p.accountRevision()==c.getLong(1)&&p.action().name().equals(c.getString(2))
+                &&!set("DONE","CANCELED","FAILED").contains(c.getString(3))&&java.util.Objects.equals(p.nonce()==null?"":p.nonce(),c.isNull(4)?"":c.getString(4))
+                &&(!verification||!p.confirmationAttempted()||p.generation()==c.getLong(5))&&p.globalRevision()==c.getLong(6)&&p.receiver().equals(c.getString(7))&&p.adapter().equals(c.getString(8));
+        }
+    }
+    public void journal(Plan p,Runnable success,Runnable failed) {
+        Stamp stamp=stamp();long owner=epoch();writer.execute(()->{
+            try{
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    require(db,stamp);if(disarmed()||!authority.matches(owner)||!matchesPlan(db,p,false)||vetoed(p.accountId()))throw new Stale();
+                    ContentValues values=new ContentValues();values.put("state",p.control()==io.github.appunnim.businessgate.automation.AutomationController.Control.CONFIRM_BLOCK||p.control()==io.github.appunnim.businessgate.automation.AutomationController.Control.CONFIRM_UNBLOCK?"VERIFYING":"ACTION_INTENT");values.put("generation",p.generation());values.put("updated_at",System.currentTimeMillis());
+                    if(db.update("action_job",values,"account_id=?",new String[]{""+p.accountId()})!=1)throw new Stale();event(db,p.accountId(),"INTENT","ACTION_INTENT");db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                publish(db);main.post(()->{if(authority.matches(owner)&&stamp.data()==dataEpoch.get())success.run();else failed.run();});
+            }catch(Stale ignored){main.post(failed);}catch(Exception error){fail();main.post(failed);}
+        });
+    }
+    public void verified(Plan p,Evidence e,Consumer<CommitResult> result) {
+        Stamp stamp=stamp();long owner=epoch();writer.execute(()->{
+            CommitResult outcome;
+            try{
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    require(db,stamp);if(!currentEvidence(e,owner)||!matchesPlan(db,p,true)||!p.phone().equals(e.phone())||e.generation()!=p.generation()
+                        ||e.blockState()!=(p.action()==Action.BLOCK?BlockState.BLOCKED:BlockState.UNBLOCKED))throw new Stale();
+                    db.execSQL("UPDATE account SET observed_state=?,gate_owned=CASE WHEN ?='UNBLOCKED' THEN 0 WHEN ?=1 THEN 1 ELSE gate_owned END,checked_at=? WHERE id=? AND namespace_id=?",new Object[]{e.blockState().name(),e.blockState().name(),p.confirmationAttempted()?1:0,System.currentTimeMillis(),p.accountId(),p.namespace()});
+                    db.execSQL("UPDATE action_job SET state='DONE',nonce=NULL WHERE account_id=?",new Object[]{p.accountId()});event(db,p.accountId(),"VERIFIED","VERIFIED");prune(db);db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                publish(db);outcome=CommitResult.COMMITTED;
+            }catch(Stale ignored){outcome=CommitResult.STALE;}catch(Exception error){fail();outcome=CommitResult.FAILED;}
+            CommitResult committed=outcome;main.post(()->result.accept(committed==CommitResult.COMMITTED&&(!authority.matches(owner)||stamp.data()!=dataEpoch.get()||current().namespace()!=p.namespace()||current().account(p.accountId())==null||current().account(p.accountId()).revision()!=p.accountRevision())?CommitResult.STALE:committed));
+        });
+    }
+    public void reserveReminder(Runnable notify) {
+        Stamp stamp=stamp();long command=commandSequence.get();writer.execute(()->{
+            try{
+                SQLiteDatabase db=helper.getWritableDatabase();require(db,stamp);Snapshot s=current();if(!optionEnabled("digest")||!optionEnabled("sales_hints"))return;
+                long now=System.currentTimeMillis();
+                try(Cursor c=db.rawQuery("SELECT value FROM app_meta WHERE key='last_digest_ms'",null)){if(c.moveToFirst()){long last=Long.parseLong(c.getString(0));if(now<last||now-last<30L*86400000)return;}}
+                try(Cursor c=db.rawQuery("SELECT count(*) FROM account WHERE namespace_id=? AND choice='DEFAULT' AND review='POSSIBLE_COMMERCIAL' AND dismissed_until<=?",new String[]{""+stamp.namespace(),""+now})){if(!c.moveToFirst()||c.getLong(0)==0)return;}
+                db.execSQL("INSERT OR REPLACE INTO app_meta(key,value) VALUES('last_digest_ms',?)",new Object[]{""+now});
+                main.post(()->{if(stamp.data()==dataEpoch.get()&&current().namespace()==stamp.namespace()&&command==commandSequence.get()&&optionEnabled("digest")&&optionEnabled("sales_hints"))notify.run();});
+            }catch(Stale ignored){/* No notification for an old namespace. */}catch(Exception error){fail();}
         });
     }
     public void effortSummary(Consumer<String> callback) {
-        writer.execute(() -> {
+        writer.execute(()->{
             try(Cursor c=helper.getReadableDatabase().rawQuery("SELECT COALESCE(SUM(management_ms),0),COALESCE(SUM(occupancy_ms),0),COALESCE(SUM(union_ms),0) FROM attention_daily",null)) {
-                c.moveToFirst();String result="Observed effort, retained days\nManagement: "+c.getLong(0)/1000+" seconds\nVisible sessions: "+c.getLong(1)/1000+" seconds\nCombined, without overlap: "+c.getLong(2)/1000+" seconds\n\nLocal lower-bound timings. Unobserved reading and outside-app repair time require a separate pilot. The monthly attention target is not yet measured.";
-                main.post(()->callback.accept(result));
+                c.moveToFirst();String result="Observed effort, retained days\nManagement: "+c.getLong(0)/1000+" seconds\nVisible sessions: "+c.getLong(1)/1000+" seconds\nCombined, without overlap: "+c.getLong(2)/1000+" seconds\n\nLocal lower-bound timings. Unobserved reading and outside-app repair time require a separate pilot. The monthly attention target is not yet measured.";main.post(()->callback.accept(result));
             }catch(Exception error){fail();}
         });
     }
-    public void attention(long[] durations) {
-        String day=java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
-        transaction(db -> {
-            // Two statements in one transaction also support the baseline platform SQLite.
-            db.execSQL("INSERT OR IGNORE INTO attention_daily(day_utc) VALUES(?)",new Object[]{day});
-            db.execSQL("UPDATE attention_daily SET management_ms=management_ms+?,occupancy_ms=occupancy_ms+?,union_ms=union_ms+? WHERE day_utc=?",new Object[]{durations[0],durations[1],durations[2],day});
+    public void attention(String day,long[] durations) {
+        if(durations.length!=3||durations[0]<0||durations[1]<0||durations[2]<0||durations[2]>durations[0]+durations[1])throw new IllegalArgumentException("INVALID_INTERVAL");
+        java.time.LocalDate.parse(day);long[] copy=durations.clone();transaction(stamp(),db->{
+            db.execSQL("INSERT OR IGNORE INTO attention_daily(day_utc) VALUES(?)",new Object[]{day});db.execSQL("UPDATE attention_daily SET management_ms=management_ms+?,occupancy_ms=occupancy_ms+?,union_ms=union_ms+? WHERE day_utc=?",new Object[]{copy[0],copy[1],copy[2],day});
         },null);
     }
+    public void attention(long[] durations) { attention(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(),durations); }
     private void prune(SQLiteDatabase db) {
         long now=System.currentTimeMillis();
         db.execSQL("DELETE FROM action_event WHERE at_ms<? OR id NOT IN (SELECT id FROM action_event ORDER BY at_ms DESC,id DESC LIMIT 5000)",new Object[]{now-30L*86400000});
         db.execSQL("DELETE FROM account WHERE choice='DEFAULT' AND ever_business=0 AND review='NONE' AND id NOT IN (SELECT account_id FROM action_job) AND ((kind='REGULAR_PROFILE_OBSERVED' AND last_seen<?) OR (kind='UNKNOWN' AND last_seen<?))",new Object[]{now-90L*86400000,now-30L*86400000});
         db.execSQL("DELETE FROM attention_daily WHERE day_utc<?",new Object[]{java.time.LocalDate.now(java.time.ZoneOffset.UTC).minusDays(35).toString()});
-        db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK' AND (grant_created_at>? OR grant_created_at<=?)",new Object[]{now,now-7L*86400000});
+        db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK' AND state NOT IN ('DONE','CANCELED','FAILED') AND (grant_created_at>? OR grant_created_at<=?)",new Object[]{now,now-RuleEngine.GRANT_TTL_MS});
     }
-    private static void event(SQLiteDatabase db,Long id,String type,String reason) {
-        db.execSQL("INSERT INTO action_event(account_id,type,reason,at_ms) VALUES(?,?,?,?)",new Object[]{id,type,reason,System.currentTimeMillis()});
-    }
+    private static Set<String> set(String... values) { return new java.util.HashSet<>(java.util.Arrays.asList(values)); }
+    private static void event(SQLiteDatabase db,Long id,String type,String reason) { db.execSQL("INSERT INTO action_event(account_id,type,reason,at_ms) VALUES(?,?,?,?)",new Object[]{id,type,reason,System.currentTimeMillis()}); }
     private static String string(Cursor c,String key) { String value=c.getString(c.getColumnIndexOrThrow(key));return value==null?"":value; }
     private static long number(Cursor c,String key) { return c.getLong(c.getColumnIndexOrThrow(key)); }
 }

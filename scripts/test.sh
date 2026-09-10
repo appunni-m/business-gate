@@ -10,4 +10,7 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
  app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java
 "${java_bin}java" -cp "$test_dir" io.github.appunnim.businessgate.policy.CoreSuite
 python3 scripts/check_schema.py
+python3 scripts/check_registry.py
+python3 scripts/check_traceability.py
+python3 scripts/test_delivery.py
 python3 scripts/check_brand.py

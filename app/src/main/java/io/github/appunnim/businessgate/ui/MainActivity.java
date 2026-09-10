@@ -61,7 +61,7 @@ public final class MainActivity extends Activity {
     private final Handler main=new Handler(Looper.getMainLooper());
     private final Runnable changed=this::refresh;
     private int queryGeneration;
-    private long expanded=-1;
+    private long expanded=-1,renderNamespace=-1;
     private boolean reviewExpanded,peopleExpanded,started;
     private List<Account> matches=java.util.Collections.emptyList();
     private final List<Row> rows=new ArrayList<>();
@@ -98,23 +98,24 @@ public final class MainActivity extends Activity {
         status=Ui.text(this,"Loading your choices…",13,R.color.muted,false);Ui.pad(status,16,4);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);column.addView(status);
         LinearLayout searchRow=Ui.row(this);searchRow.setBackground(Ui.shape(this,R.color.surface,true));
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,12));column.addView(searchRow,sp);
-        search=new EditText(this);search.setId(View.generateViewId());search.setSingleLine(true);search.setTextSize(15);search.setHint(largeText?"Search":"Search name or number");search.setContentDescription("Search local accounts by name or number");
+        search=new EditText(this);search.setId(R.id.account_search);search.setSingleLine(true);search.setTextSize(15);search.setHint(largeText?"Search":"Search name or number");search.setContentDescription("Search local accounts by name or number");
         search.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);search.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         search.setTextColor(getColor(R.color.ink));search.setHintTextColor(getColor(R.color.muted));search.setBackground(null);Ui.pad(search,14,10);search.setMinHeight(Ui.dp(this,48));
         searchRow.addView(search,new LinearLayout.LayoutParams(0,-2,1));clear=Ui.button(this,"×",false,()->search.setText(""));clear.setContentDescription("Clear search");clear.setVisibility(View.GONE);searchRow.addView(clear,new LinearLayout.LayoutParams(Ui.dp(this,48),-2));
-        list=new ListView(this);list.setId(View.generateViewId());list.setDivider(null);list.setClipToPadding(false);list.setPadding(0,0,0,Ui.dp(this,20));list.setAdapter(adapter);list.setItemsCanFocus(true);column.addView(list,new LinearLayout.LayoutParams(-1,0,1));
+        list=new ListView(this);list.setId(R.id.account_list);list.setDivider(null);list.setClipToPadding(false);list.setPadding(0,0,0,Ui.dp(this,20));list.setAdapter(adapter);list.setItemsCanFocus(true);column.addView(list,new LinearLayout.LayoutParams(-1,0,1));
         batch=Ui.button(this,"Apply pending",true,this::applyPending);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.setMargins(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,12));column.addView(batch,bp);batch.setVisibility(View.GONE);
         setContentView(root);root.requestApplyInsets();
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::handleBack);
-        if(state!=null)search.setText(state.getString("query",""));
         search.addTextChangedListener(new TextWatcher(){
             @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){if(s.length()==0&&after>0){preSearchPosition=list.getFirstVisiblePosition();preSearchTop=list.getChildCount()>0?list.getChildAt(0).getTop():0;}}
             @Override public void onTextChanged(CharSequence s,int start,int before,int count){
+                queryGeneration++;
                 clear.setVisibility(s.length()==0?View.GONE:View.VISIBLE);main.removeCallbacks(searchTask);main.postDelayed(searchTask,150);
                 if(s.length()==0)list.post(()->list.setSelectionFromTop(preSearchPosition,preSearchTop));
             }
             @Override public void afterTextChanged(Editable value){}
         });
+        if(state!=null)search.setText(state.getString("query",""));
     }
     private final Runnable searchTask=this::refresh;
     // API 29-32 fallback only; API 33+ registers the native dispatcher in onCreate.
@@ -128,8 +129,8 @@ public final class MainActivity extends Activity {
         finish();
     }
     @Override protected void onStart(){super.onStart();started=true;repository.addListener(changed);refresh();}
-    @Override protected void onResume(){super.onResume();app.attention.transition(SystemClock.elapsedRealtime(),true,false);refresh();}
-    @Override protected void onPause(){app.attention.transition(SystemClock.elapsedRealtime(),false,false);repository.attention(app.attention.drain(SystemClock.elapsedRealtime()));super.onPause();}
+    @Override protected void onResume(){super.onResume();app.managementAttention(true);refresh();}
+    @Override protected void onPause(){app.managementAttention(false);super.onPause();}
     @Override protected void onStop(){started=false;queryGeneration++;repository.removeListener(changed);main.removeCallbacks(searchTask);super.onStop();}
     @Override protected void onSaveInstanceState(Bundle out){
         out.putString("query",search.getText().toString());out.putLong("expanded",expanded);out.putBoolean("review",reviewExpanded);out.putBoolean("people",peopleExpanded);
@@ -137,16 +138,17 @@ public final class MainActivity extends Activity {
     }
     private void refresh(){
         if(!started)return;for(Runnable binding:settingsBindings)binding.run();Snapshot s=repository.current();
+        if(renderNamespace!=s.namespace()){renderNamespace=s.namespace();matches=java.util.Collections.emptyList();expanded=-1;render();}
         String text;
         if(!s.error().isEmpty())text=s.error();
         else if(!s.loaded())text="Loading your choices…";
         else if(!s.consent())text="Choose the businesses you want to hear from.";
         else if(!app.registry().available())text="Paused · compatibility check needed";
         else if(!GateAccessibilityService.connected())text="Blocking paused · screen access is off";
-        else if(s.paused()||!s.enabled())text="Rule off · no new blocks will run";
+        else if(repository.disarmed()||s.paused()||!s.enabled())text="Rule off · no new blocks will run";
         else text=s.pending()>0?"Rule on · "+getResources().getQuantityString(R.plurals.waiting_actions,s.pending(),s.pending()):"Rule on · no action needed";
         if(!status.getText().toString().equals(text))status.setText(text);
-        pause.setText(s.enabled()&&!s.paused()?"Pause":"Resume");
+        pause.setText(!repository.disarmed()&&s.enabled()&&!s.paused()?"Pause":"Resume");
         batch.setVisibility(s.pending()>0?View.VISIBLE:View.GONE);batch.setText(getResources().getQuantityString(R.plurals.pending_actions,s.pending(),s.pending()));
         int generation=++queryGeneration;
         repository.search(search.getText().toString(),result->{if(!started||generation!=queryGeneration)return;matches=result;render();});
@@ -169,7 +171,7 @@ public final class MainActivity extends Activity {
         }
         List<Account> people=matches.stream().filter(a->!a.businessRow()&&(a.choice()==Choice.ALLOW||a.review()==Review.NONE)).collect(java.util.stream.Collectors.toList());
         if(!people.isEmpty()){
-            rows.add(new Row(-13,"peopleHeader","People · "+people.size()+" left alone",null));
+            rows.add(new Row(-13,"peopleHeader",getResources().getQuantityString(R.plurals.people_count,people.size(),people.size()),null));
             if(peopleExpanded||searching)for(Account a:people)rows.add(new Row(a.id(),"person","",a));
         }
         if(matches.isEmpty())rows.add(new Row(-14,"empty",searching?"No matching accounts":"No businesses found yet",null));
@@ -181,16 +183,16 @@ public final class MainActivity extends Activity {
     private void group(long id,String title,List<Account> accounts){if(!accounts.isEmpty()){rows.add(new Row(id,"section",title+" · "+accounts.size(),null));for(Account a:accounts)rows.add(new Row(a.id(),"account","",a));}}
     private void overflow(View anchor){
         PopupMenu menu=new PopupMenu(this,anchor);
-        String[] items={"Enable a number","Settings & privacy","Compatibility & help","Clear local data"};
+        String[] items={"Enable a number","Settings & privacy","Compatibility & help","Clear local data","Select connected installation","Review receiving account","Manage unconnected choices"};
         for(int i=0;i<items.length;i++)menu.getMenu().add(0,i,i,items[i]);
-        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();default->{}}return true;});menu.show();
+        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();case 4->selectInstallation();case 5->reviewReceiver();case 6->{GateAccessibilityService.stopNow();repository.localChoices(()->announce("Managing unconnected choices. Nothing is applied to a receiving account."));}default->{}}return true;});menu.show();
     }
     private void addNumber(){
         LinearLayout fields=Ui.column(this);Ui.pad(fields,24,4);
         TextView explanation=Ui.text(this,"This permission belongs to one exact number. A new number needs its own permission.",14,R.color.muted,false);fields.addView(explanation);
         EditText phone=new EditText(this);phone.setHint("Full number, for example +1 202 555 0101");phone.setContentDescription("Full phone number with country code");phone.setInputType(InputType.TYPE_CLASS_PHONE);phone.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);phone.setMinHeight(Ui.dp(this,56));fields.addView(phone);
         EditText name=new EditText(this);name.setHint("Name (optional)");name.setContentDescription("Optional local name");name.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_WORDS);name.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);name.setMinHeight(Ui.dp(this,56));fields.addView(name);
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Enable a number").setView(fields).setNegativeButton("Cancel",null).setPositiveButton("Enable",null).create();
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Enable a number").setView(Ui.scroll(this,fields)).setNegativeButton("Cancel",null).setPositiveButton("Enable",null).create();
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
             try{Identity.canonicalPhone(phone.getText().toString());repository.enableNumber(phone.getText().toString(),name.getText().toString(),()->announce("Number enabled. Waiting for a supported account check."));dialog.dismiss();}
             catch(IllegalArgumentException invalid){phone.setError("Enter the full number with country code");phone.requestFocus();}
@@ -204,18 +206,53 @@ public final class MainActivity extends Activity {
         .setNegativeButton("Keep off",null).setPositiveButton("Enable hints",(d,w)->repository.setting("sales_hints",true)).show();}
     private void toggleRule(){
         Snapshot s=repository.current();
-        if(s.enabled()&&!s.paused()){GateAccessibilityService.stopNow();repository.pause();return;}
+        if(!repository.disarmed()&&s.enabled()&&!s.paused()){GateAccessibilityService.stopNow();repository.pause();return;}
         if(!s.consent()){accessDisclosure();return;}
         if(!app.registry().available()){compatibility();return;}
         if(!GateAccessibilityService.connected()){accessDisclosure();return;}
+        if(!s.binding().bound()){reviewReceiver();return;}
         new AlertDialog.Builder(this).setTitle("Turn on your business rule?").setMessage(R.string.activation_disclosure)
-            .setNegativeButton("Review choices",null).setPositiveButton("Turn rule on",(d,w)->repository.arm(false,()->announce("Rule on"))).show();
+            .setNegativeButton("Review choices",null).setPositiveButton("Turn rule on",(d,w)->startRequestedSession()).show();
         // Device/receiver readiness must be established by the qualification workflow.
     }
     private void applyPending(){
         if(!app.registry().available()){compatibility();return;}
-        new AlertDialog.Builder(this).setTitle("Apply your choices").setMessage("Actions need a freshly verified receiving account and supported visible profile. Nothing runs until those checks pass. Sessions stop after 25 seconds or five changes. Existing pending choices are saved.")
-            .setNegativeButton("Close",null).setPositiveButton("Check compatibility",(d,w)->compatibility()).show();
+        new AlertDialog.Builder(this).setTitle("Apply your choices").setMessage("Actions need a freshly verified receiving account and supported visible profile. Nothing runs until those checks pass. This version checks one visible profile per session, for up to 25 seconds. Other pending choices stay saved.")
+            .setNegativeButton("Close",null).setPositiveButton("Start visible session",(d,w)->startRequestedSession()).show();
+    }
+    private void selectInstallation(){
+        if(!app.registry().available()){compatibility();return;}
+        if(!GateAccessibilityService.connected()){accessDisclosure();return;}
+        Intent base=new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        Intent picker=new Intent(Intent.ACTION_PICK_ACTIVITY).putExtra(Intent.EXTRA_INTENT,base).putExtra(Intent.EXTRA_TITLE,"Select connected installation");
+        try{startActivityForResult(picker,71);}catch(android.content.ActivityNotFoundException error){announce("The system app selector is unavailable.");}
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request!=71||result!=RESULT_OK||data==null||data.getComponent()==null)return;
+        if(!GateAccessibilityService.selectInstallation(data.getComponent().getPackageName())){announce("This installation or device is not qualified.");return;}
+        Intent launcher=getPackageManager().getLaunchIntentForPackage(data.getComponent().getPackageName());
+        if(launcher==null||launcher.getComponent()==null){announce("The selected installation has no available launcher.");return;}
+        Intent open=new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(launcher.getComponent());
+        new AlertDialog.Builder(this).setTitle("Verify the receiving account").setMessage("Open a supported account profile, then return here and choose Review receiving account. Only a measured full receiving-account identity can connect your choices.")
+            .setNegativeButton("Later",null).setPositiveButton("Open selected app",(d,w)->{try{startActivity(open);}catch(android.content.ActivityNotFoundException error){announce("The selected installation is no longer available.");}}).show();
+    }
+    private void reviewReceiver(){
+        if(!app.registry().available()){compatibility();return;}
+        Binding candidate=GateAccessibilityService.connectionCandidate();
+        if(candidate==null){announce("Select the installation and open a supported profile to verify its receiving account.");return;}
+        new AlertDialog.Builder(this).setTitle("Connect this receiving account?").setMessage("Receiving account: "+candidate.receiver()+"\n\nChoices for other receiving accounts stay separate. Unconnected choices are not transferred.\n\n"+getString(R.string.access_disclosure))
+            .setNegativeButton("Cancel",null).setPositiveButton("Agree and connect",(d,w)->{
+                if(!candidate.equals(GateAccessibilityService.connectionCandidate())){announce("The account check expired. Open the supported profile again.");return;}
+                repository.bindReceiver(candidate,()->repository.updateSetup("REVIEW",true,()->announce("Receiving account connected. Review its exact-number choices before starting.")));
+            }).show();
+    }
+    private void startRequestedSession(){
+        if(!repository.current().binding().bound()){reviewReceiver();return;}
+        if(!GateAccessibilityService.requestApply()){compatibility();return;}
+        Intent open=getPackageManager().getLaunchIntentForPackage(GateAccessibilityService.packageSelected());
+        if(open==null){GateAccessibilityService.stopNow();announce("Select the connected installation again.");return;}
+        try{startActivity(open);}catch(android.content.ActivityNotFoundException error){GateAccessibilityService.stopNow();announce("The selected installation is unavailable.");}
     }
     private void compatibility(){
         LinearLayout box=Ui.column(this);Ui.pad(box,24,8);
@@ -224,10 +261,10 @@ public final class MainActivity extends Activity {
         box.addView(Ui.text(this,"This build needs measured screen controls, exact receiver binding and physical block/unblock verification before connecting. The first message may arrive. Existing blocks stay as they are.",14,R.color.muted,false));Ui.gap(box,12);
         box.addView(Ui.text(this,"Screen access: "+(GateAccessibilityService.connected()?"connected":"off")+"\nAndroid API: "+Build.VERSION.SDK_INT+"\nApp version: "+BuildConfig.VERSION_NAME,13,R.color.muted,false));
         box.addView(Ui.button(this,"About visible scans",false,()->new AlertDialog.Builder(this).setTitle("Visible scan disclosure").setMessage(R.string.scan_disclosure).setPositiveButton("Understood",null).show()));
-        new AlertDialog.Builder(this).setTitle("Compatibility & help").setView(box).setNegativeButton("Close",null).setPositiveButton("View diagnostics",(d,w)->diagnostics()).show();
+        new AlertDialog.Builder(this).setTitle("Compatibility & help").setView(Ui.scroll(this,box)).setNegativeButton("Close",null).setPositiveButton("View diagnostics",(d,w)->diagnostics()).show();
     }
     private void diagnostics(){
-        Snapshot s=repository.current();String diagnostic="Business Gate "+BuildConfig.VERSION_NAME+"\nAndroid API: "+Build.VERSION.SDK_INT+"\nQualified integration: "+app.registry().available()+"\nScreen access connected: "+GateAccessibilityService.connected()+"\nScreen consent: "+s.consent()+"\nRule enabled: "+s.enabled()+"\nPaused: "+s.paused()+"\nPending choices: "+s.pending()+"\nReason: "+(app.registry().available()?"RECEIVER_CHECK_REQUIRED":"QUALIFICATION_REQUIRED");
+        Snapshot s=repository.current();String diagnostic="Business Gate "+BuildConfig.VERSION_NAME+"\nAndroid API: "+Build.VERSION.SDK_INT+"\nQualified integration: "+app.registry().available()+"\nScreen access connected: "+GateAccessibilityService.connected()+"\nScreen consent: "+s.consent()+"\nRule enabled: "+s.enabled()+"\nPaused: "+s.paused()+"\nPending choices: "+s.pending()+"\nReason: "+(app.registry().available()?GateAccessibilityService.status():"QUALIFICATION_REQUIRED");
         new AlertDialog.Builder(this).setTitle("Local diagnostics").setMessage(diagnostic).setNegativeButton("Close",null).setPositiveButton("Copy diagnostics",(d,w)->{
             getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("Business Gate diagnostics",diagnostic));announce("Diagnostics copied. No names or numbers included.");}).show();
     }
@@ -264,6 +301,7 @@ public final class MainActivity extends Activity {
             .setNegativeButton("Cancel",null).setPositiveButton("Block number",(d,w)->choose(a,Choice.DENY_MANUAL)).show();
     }
     private String subtitle(Account a){
+        if(a.jobState()==JobState.FAILED)return "Action failed · check needed";
         if(a.pending()){
             if(a.jobState()==JobState.REINSPECT||a.jobState()==JobState.VERIFYING||a.jobState()==JobState.ACTION_INTENT)return "Action result not verified · check needed";
             return a.jobAction()==Action.UNBLOCK?"Enabled · unblocking pending":a.choice()==Choice.DENY_MANUAL?"Your block is pending":"Block pending";
@@ -323,6 +361,7 @@ public final class MainActivity extends Activity {
         LinearLayout info=Ui.column(this);Ui.pad(info,12,0);info.setMinimumHeight(Ui.dp(this,64));info.setGravity(Gravity.CENTER_VERTICAL);
         info.addView(Ui.text(this,label,16,R.color.ink,true));TextView number=Ui.text(this,a.phone(),13,R.color.muted,false);number.setTextDirection(View.TEXT_DIRECTION_LTR);info.addView(number);
         String sub=row.type().equals("review")?(a.review()==Review.POSSIBLE_COMMERCIAL?"Possible business · not blocked":"New sender · not blocked"):subtitle(a);
+        if(a.review()==Review.TYPE_CHANGED)sub="Account type changed · "+sub;
         info.addView(Ui.text(this,sub,12,row.type().equals("review")?R.color.amber:R.color.muted,false));
         info.setFocusable(true);info.setContentDescription(label+", "+a.phone()+", "+sub+". "+(expanded==a.id()?"Collapse details":"Show details"));info.setOnClickListener(v->{expanded=expanded==a.id()?-1:a.id();render();});header.addView(info,new LinearLayout.LayoutParams(0,-2,1));
         if(row.type().equals("account")){
@@ -341,7 +380,7 @@ public final class MainActivity extends Activity {
             box.addView(Ui.text(this,"Only "+a.phone()+" follows this choice. A new number needs its own permission.\n\nLast account check: "+checked+"\n"+(a.kind()==Kind.BUSINESS_CONFIRMED?"Business account observed.":"No current business authority.")+"\nYour choice: "+(a.choice()==Choice.ALLOW?"keep enabled":a.choice()==Choice.DENY_MANUAL?"manually block this number":"apply the business rule")+".\n\nThe switch is your preference; a pending action is not proof of a completed block. Exact-number choices remain until you change them, even if a number changes owner.",13,R.color.muted,false));
             if(a.choice()==Choice.ALLOW&&a.blockState()!=BlockState.UNBLOCKED)box.addView(Ui.button(this,"Unblock now",false,()->choose(a,Choice.ALLOW)));
             if(row.type().equals("person"))box.addView(Ui.button(this,a.choice()==Choice.ALLOW?"Kept · never auto-blocked":"Keep this number",false,()->choose(a,Choice.ALLOW)));
-            if(a.pending())box.addView(Ui.button(this,"Retry check",false,this::compatibility));
+            if(a.pending()||a.jobState()==JobState.FAILED)box.addView(Ui.button(this,"Retry check",false,this::applyPending));
         }
         View divider=new View(this);divider.setBackgroundColor(getColor(R.color.line));LinearLayout.LayoutParams line=new LinearLayout.LayoutParams(-1,Ui.dp(this,1));line.topMargin=Ui.dp(this,12);box.addView(divider,line);
     }

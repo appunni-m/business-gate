@@ -8,6 +8,7 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from compatibility import validate
 
 apk = Path(sys.argv[1])
 mapping_file = Path('app/build/outputs/mapping/release/mapping.txt')
@@ -23,8 +24,7 @@ class_count = 0
 with zipfile.ZipFile(apk) as archive:
     names = archive.namelist()
     assert not any(n.endswith('.so') or n.startswith('lib/') for n in names), 'Unexpected native library'
-    registry = json.loads(archive.read('assets/adapters/compatibility.json'))
-    assert registry['adapters'] == [], 'Unqualified distribution must retain an empty registry'
+    compatibility = validate(lambda name: archive.read('assets/' + name))
     for name in names:
         if not name.endswith('.dex'):
             continue
@@ -44,7 +44,7 @@ with zipfile.ZipFile(apk) as archive:
             descriptor = types[struct.unpack_from('<I', data, co+i*32)[0]]
             assert descriptor in allowed_classes, f'Unmapped runtime class: {descriptor}'
             class_count += 1
-        assert not any('GateInstrumentation' in s for s in strings), 'Test harness in release DEX'
+        assert not any('GateInstrumentation' in s or 'ReleaseProbe' in s for s in strings), 'Test harness in release DEX'
 sdk = Path(os.environ['ANDROID_HOME'])
 aapt = sdk / 'build-tools/35.0.0/aapt2'
 permissions = subprocess.check_output([str(aapt), 'dump', 'permissions', str(apk)], text=True)
@@ -56,4 +56,4 @@ assert not re.search(r'android:debuggable.*0xffffffff', manifest), 'Release is d
 assert 'android.permission.BIND_ACCESSIBILITY_SERVICE' in manifest
 assert 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' in manifest
 assert 'backup_rules' in manifest or 'android:fullBackupContent' in manifest
-print(f'PASS release artifact audit: {class_count} mapped app/compiler classes; no runtime SDK/native library; minimal permissions; backup off; no test harness; empty registry')
+print(f'PASS release artifact audit: {class_count} mapped app/compiler classes; no runtime SDK/native library; minimal permissions; backup off; no test harness; validated compatibility={compatibility["connectedAppActionsEnabled"]}')

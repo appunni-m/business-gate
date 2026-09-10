@@ -9,6 +9,7 @@
     <plurals name="pending_actions"><item quantity="one">Apply %d pending action</item><item quantity="other">Apply %d pending actions</item></plurals>
     <plurals name="waiting_actions"><item quantity="one">%d action waiting</item><item quantity="other">%d actions waiting</item></plurals>
     <plurals name="review_count"><item quantity="one">Review · %d sender</item><item quantity="other">Review · %d senders</item></plurals>
+    <plurals name="people_count"><item quantity="one">People · %d left alone</item><item quantity="other">People · %d left alone</item></plurals>
     <string name="session_stop">Business Gate · Stop</string>
     <string name="reminder_title">Your optional review is ready</string>
     <string name="reminder_detail">New senders are left alone. Review your choices when it suits you.</string>

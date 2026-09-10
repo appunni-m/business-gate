@@ -42,6 +42,12 @@ else:
     gh('release', 'edit', tag, '--repo', repository, '--draft=false')
 
 # Only advance the rolling channel. An older queued run must never replace a newer APK.
+pages = json.loads(gh('api', '--paginate', '--slurp', f'repos/{repository}/releases?per_page=100', capture_output=True).stdout)
+releases = [release for page in pages for release in page]
+published_codes = [int(release['tag_name'][6:]) for release in releases if not release['draft'] and re.fullmatch(r'build-[0-9]+', release['tag_name'])]
+if published_codes and max(published_codes) > info['versionCode']:
+    print('A newer published version exists; the continuous APK cannot move backwards.')
+    raise SystemExit(0)
 rolling = next((release for release in releases if release['tag_name'] == 'development'), None)
 if rolling:
     match = re.search(r'<!-- version-code: (\d+) -->', rolling['body'] or '')
@@ -68,4 +74,4 @@ if summary:
     with open(summary, 'a') as stream:
         stream.write(f'### APK ready\n\n[Download Business Gate]({url}) · '
                      f'[Versioned release](https://github.com/{repository}/releases/tag/{tag})\n\n'
-                     'Android 10 or newer. Connected-app blocking remains disabled.\n')
+                     + ('Android 10 or newer. See the qualified support matrix.\n' if info['connectedAppActionsEnabled'] else 'Android 10 or newer. Connected-app blocking remains disabled.\n'))

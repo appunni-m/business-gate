@@ -47,14 +47,23 @@ def main():
         keystore = Path(directory) / 'publisher.p12'
         with open(keystore, 'xb', opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
             stream.write(key_bytes)
-        subprocess.run([
-            str(tools / 'apksigner'), 'sign', '--ks', str(keystore),
-            '--ks-key-alias', secret['keyAlias'], '--ks-pass', 'env:GATE_STORE_PASSWORD',
-            '--key-pass', 'env:GATE_KEY_PASSWORD', '--v4-signing-enabled', 'false',
-            '--out', str(destination), str(source),
-        ], env=environment, check=True)
+        try:
+            subprocess.run([
+                str(tools / 'apksigner'), 'sign', '--ks', str(keystore),
+                '--ks-key-alias', secret['keyAlias'], '--ks-pass', 'env:GATE_STORE_PASSWORD',
+                '--key-pass', 'env:GATE_KEY_PASSWORD', '--v4-signing-enabled', 'false',
+                '--out', str(destination), str(source),
+            ], env=environment, check=True)
+        except Exception:
+            destination.unlink(missing_ok=True)
+            raise
     expected = Path('config/signing-certificate.sha256').read_text().strip()
-    if signing_fingerprint(tools, destination) != expected:
+    try:
+        fingerprint = signing_fingerprint(tools, destination)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+    if fingerprint != expected:
         destination.unlink()
         raise SystemExit('APK signing identity differs from the pinned publisher certificate.')
     print('PASS signed APK integrity and pinned publisher identity')

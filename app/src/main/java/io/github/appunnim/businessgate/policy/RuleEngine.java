@@ -23,15 +23,16 @@ public final class RuleEngine {
         if (!s.consent()) return none(Reason.CONSENT_MISSING);
         if (c.guards() != ALL_GUARDS || c.elapsedNow() >= c.deadline()) return none(Reason.GUARD_FAILED);
         if (s.globalRevision() != c.expectedGlobal() || a.revision() != c.expectedAccount()) return none(Reason.POLICY_CHANGED);
-        if (e == null || a.namespace() != s.namespace() || e.namespace() != s.namespace() || !a.phone().equals(e.phone())
+        if (e == null || !s.binding().bound() || !s.binding().receiver().equals(e.receiver())
+            || !s.binding().adapter().equals(e.adapter()) || a.namespace() != s.namespace() || e.namespace() != s.namespace() || !a.phone().equals(e.phone())
             || e.receiver().isEmpty() || e.adapter().isEmpty() || !e.completeProfile() || !e.sideEffectFree()) return none(Reason.IDENTITY_CHANGED);
         if (e.generation() != c.generation() || c.elapsedNow() < e.observedElapsed()
             || c.elapsedNow() - e.observedElapsed() > EVIDENCE_TTL_MS) return none(Reason.STALE_EVIDENCE);
         if (e.kind() == Kind.NON_DIRECT || e.kind() == Kind.AMBIGUOUS) return none(Reason.NON_DIRECT);
         if (a.choice() == Choice.ALLOW) {
-            if (e.blockState() == BlockState.UNBLOCKED) return none(Reason.ALREADY_SATISFIED);
             if (a.nonce() == null || a.nonce().isEmpty() || c.wallNow() < a.grantCreatedAt()
                 || c.wallNow() - a.grantCreatedAt() >= GRANT_TTL_MS) return none(Reason.NO_UNBLOCK_AUTHORITY);
+            if (e.blockState() == BlockState.UNBLOCKED) return none(Reason.ALREADY_SATISFIED);
             if (e.blockState() == BlockState.UNKNOWN) return none(Reason.BLOCK_STATE_UNKNOWN);
             return new Decision(Action.UNBLOCK, Reason.READY);
         }

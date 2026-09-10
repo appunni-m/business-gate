@@ -30,7 +30,8 @@ There are no sample accounts on a normal installation. Screenshots and the test 
 ```sh
 scripts/test.sh
 ./gradlew :app:lintDebug :app:lintRelease :app:assembleDebugAndroidTest \
-  :app:assembleRelease :app:bundleRelease
+  :app:assembleDebug :app:assembleRelease :app:bundleRelease \
+  :release-probe:lintDebug :release-probe:assembleDebug
 python3 scripts/check_brand.py app/build/outputs/apk/release/app-release-unsigned.apk \
   app/build/outputs/bundle/release/app-release.aab
 ```
@@ -42,9 +43,9 @@ export GATE_TEST_SERIAL=emulator-5554
 scripts/device-tests.sh
 ```
 
-The device script deliberately rejects physical device serials because it resets local app data and inserts fictional test records. It checks actual process-restart recovery as well as policy persistence and rendered UI. The pure suite does not require Android or a network connection.
+The device script deliberately rejects physical device serials because it resets local app data and inserts fictional test records. It checks actual process-restart recovery, the shipped-schema migration, receiver isolation, cancellation races, capacity, search, and rendered UI. The pure suite does not require Android or a network connection.
 
-The delivery workflow signs the verified release APK with a private publisher key stored in an encrypted repository secret. It verifies the signature and installation before publishing a versioned GitHub prerelease and updating the continuous download link. The release includes checksums and source/build metadata. Pull requests only verify code. Signing keys are never committed.
+The delivery workflow signs the verified release APK with a private publisher key stored in an encrypted repository secret. It verifies the signature, installation, and a saved exact-number choice through an update before publishing a versioned GitHub prerelease and updating the continuous download link. The release includes checksums and source/build metadata. Pull requests only verify code. Signing keys are never committed.
 
 Local Gradle release APK/AAB files remain unsigned; debug artifacts use the local Android debug key and a separate application ID. These are development distributions, not store releases. See [delivery and signing](docs/delivery.md) for the one-time setup, automatic checks, updates, and failure recovery.
 
@@ -59,7 +60,7 @@ The switch represents your choice. The subtitle represents a pending operation o
 
 ## Continue implementation and qualification
 
-[Implementation and evidence](docs/implementation.md) identifies tested behavior and unfinished integration work. [Adapter qualification](docs/qualification.md) defines the physical inputs and stop conditions. [Privacy](docs/privacy.md) describes the binary's data boundary. [Contributing](CONTRIBUTING.md) describes the development workflow.
+[Execution status](docs/execution-status.md) gives every planned fix a disposition. [Implementation and evidence](docs/implementation.md), the [completion plan](docs/implementation-plan.md) and [acceptance ledger](docs/acceptance-ledger.json) distinguish engineering tests from physical qualification. [Adapter qualification](docs/qualification.md) defines the physical inputs and stop conditions. [Privacy](docs/privacy.md) describes the binary's data boundary. [Contributing](CONTRIBUTING.md) describes the development workflow.
 
 The neutralized [full specification](docs/design/Business_Gate_Full_PRD_Design.md), [companion specification](docs/design/Business_Gate_Complete_PRD_Design.md), and [HTML design reference](docs/design/prototype.html) preserve the supplied requirements. They are design inputs, not evidence of completed features. The full specification's added review/manual-choice model is used; independent blue branding overrides its accent choice.
 

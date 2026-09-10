@@ -1,0 +1,4 @@
+<resources>
+    <item name="account_search" type="id" />
+    <item name="account_list" type="id" />
+</resources>

@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import zipfile
+from compatibility import validate
 
 apk = Path('output/delivery/business-gate.apk')
 tools = Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0'
@@ -19,6 +21,8 @@ repository = os.environ['GITHUB_REPOSITORY']
 commit = os.environ['GITHUB_SHA']
 run_url = f"https://github.com/{repository}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
 sha = hashlib.sha256(apk.read_bytes()).hexdigest()
+with zipfile.ZipFile(apk) as archive:
+    compatibility = validate(lambda name: archive.read('assets/' + name))
 tag = f'build-{code}'
 info = {
     'applicationId': package[1], 'versionCode': code, 'versionName': name,
@@ -26,7 +30,7 @@ info = {
     'targetAndroidApi': int(re.search(r"^targetSdkVersion:'(\d+)'", badging, re.M)[1]),
     'commit': commit, 'workflowRun': run_url, 'releaseTag': tag,
     'sha256': sha, 'signingCertificateSha256': Path('config/signing-certificate.sha256').read_text().strip(),
-    'channel': 'development', 'connectedAppActionsEnabled': False,
+    'channel': 'development', **compatibility,
 }
 if info['minimumAndroidApi'] != 29 or info['targetAndroidApi'] != 36:
     raise SystemExit('Distribution SDK baseline changed')
@@ -34,11 +38,14 @@ if info['minimumAndroidApi'] != 29 or info['targetAndroidApi'] != 36:
 files = [apk, apk.parent / 'build-info.json']
 (apk.parent / 'SHA256SUMS').write_text(''.join(
     f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n' for path in files))
+capability = ('Connected-app actions are supported only for the qualified environments listed in build-info.json.'
+              if compatibility['connectedAppActionsEnabled'] else
+              '**Connected-app blocking remains disabled.** This build provides the native interface and local controls; no connected-app environment is physically qualified.')
 notes = f'''Business Gate {name} — development build.
 
 Download **business-gate.apk** below and open it on Android 10 or newer. Allow installation from your browser or file manager if Android asks. Later builds from this channel install as updates and preserve local choices.
 
-**Connected-app blocking remains disabled.** This build provides the native interface and local controls; the compatibility registry is empty pending physical qualification.
+{capability}
 
 The APK is signed with the pinned private publisher key. Automated checks cover the safety suite, schema, independent branding, lint, release contents, native instrumentation on API 36, and signed installation on API 29.
 

@@ -10,7 +10,8 @@ import java.util.List;
 
 /** Strict, measured root-to-field paths. Never searches arbitrary text or message subtrees. */
 public final class QualifiedAdapter {
-    public record Path(List<Integer> children,String resourceSuffix,String className,String expectedText) {}
+    public record Ancestor(String resourceSuffix,String className,int childCount) {}
+    public record Path(List<Integer> children,String resourceSuffix,String className,String expectedText,List<Ancestor> ancestors) {}
     public record Reading(AutomationController.Screen screen,String phone,String receiver,Kind kind,
         BlockState blockState,String name,boolean safe,Path action) {}
     private final String id;
@@ -18,7 +19,7 @@ public final class QualifiedAdapter {
     private record Recipe(AutomationController.Screen screen,Path signature,Path phone,Path receiver,
         Path business,Path regular,Path blocked,Path unblocked,Path block,Path unblock,List<Path> forbidden){}
     public QualifiedAdapter(JSONObject row) throws org.json.JSONException {
-        id=row.getString("id");
+        id=row.getString("id");if(!id.matches("[a-z0-9][a-z0-9-]{0,63}"))throw new IllegalArgumentException("INVALID_ADAPTER_ID");
         JSONArray recipes=row.getJSONArray("screens");
         if(recipes.length()!=3)throw new IllegalArgumentException("INCOMPLETE_SCREENS");
         java.util.Set<AutomationController.Screen> roles=new java.util.HashSet<>();
@@ -28,6 +29,7 @@ public final class QualifiedAdapter {
             if(role==AutomationController.Screen.UNKNOWN||!roles.add(role))throw new IllegalArgumentException("DUPLICATE_SCREEN");
             List<Path> forbidden=new ArrayList<>();JSONArray exclusions=s.getJSONArray("forbiddenControls");
             for(int j=0;j<exclusions.length();j++)forbidden.add(path(exclusions.getJSONObject(j)));
+            if(forbidden.size()>8)throw new IllegalArgumentException("UNBOUNDED_SIDE_EFFECT_CHECKS");
             if(forbidden.isEmpty())throw new IllegalArgumentException("MISSING_SIDE_EFFECT_CHECKS");
             screens.add(new Recipe(role,path(s.getJSONObject("signature")),path(s.getJSONObject("phone")),path(s.getJSONObject("receiver")),
                 path(s.getJSONObject("business")),path(s.getJSONObject("regular")),path(s.getJSONObject("blocked")),path(s.getJSONObject("unblocked")),
@@ -39,7 +41,16 @@ public final class QualifiedAdapter {
         JSONArray indices=p.getJSONArray("children");if(indices.length()>12)throw new IllegalArgumentException("PATH_TOO_DEEP");
         List<Integer> children=new ArrayList<>();for(int i=0;i<indices.length();i++){int index=indices.getInt(i);if(index<0||index>63)throw new IllegalArgumentException("PATH_UNBOUNDED");children.add(index);}
         String suffix=p.getString("resourceSuffix");if(!suffix.matches("[a-zA-Z0-9_]+"))throw new IllegalArgumentException("INVALID_RESOURCE");
-        return new Path(java.util.Collections.unmodifiableList(children),suffix,p.getString("className"),p.optString("expectedText",""));
+        String className=p.getString("className"),expected=p.optString("expectedText","");
+        if(!className.matches("[a-zA-Z0-9_.$]{1,160}")||expected.length()>256)throw new IllegalArgumentException("INVALID_FIELD");
+        JSONArray lineage=p.getJSONArray("ancestors");if(lineage.length()!=children.size())throw new IllegalArgumentException("INCOMPLETE_ANCESTORS");
+        List<Ancestor> ancestors=new ArrayList<>();
+        for(int i=0;i<lineage.length();i++){
+            JSONObject a=lineage.getJSONObject(i);String resource=a.getString("resourceSuffix"),type=a.getString("className");int count=a.getInt("childCount");
+            if(!resource.matches("[a-zA-Z0-9_]+")||!type.matches("[a-zA-Z0-9_.$]{1,160}")||count<1||count>64||children.get(i)>=count)throw new IllegalArgumentException("INVALID_ANCESTOR");
+            ancestors.add(new Ancestor(resource,type,count));
+        }
+        return new Path(java.util.Collections.unmodifiableList(children),suffix,className,expected,java.util.Collections.unmodifiableList(ancestors));
     }
     public Reading inspect(AccessibilityNodeInfo root,String pkg) {
         Recipe matched=null;
@@ -56,21 +67,49 @@ public final class QualifiedAdapter {
         return new Reading(matched.screen(),phone,receiver,business?Kind.BUSINESS_CONFIRMED:Kind.REGULAR_PROFILE_OBSERVED,
             blocked?BlockState.BLOCKED:BlockState.UNBLOCKED,"",true,action);
     }
-    public boolean click(AccessibilityNodeInfo root,String pkg,Reading reading) {
+    public boolean supports(Reading reading,AutomationController.Control control) {
+        return switch(control){
+            case BLOCK_ENTRY -> reading.screen()==AutomationController.Screen.PROFILE&&reading.blockState()==BlockState.UNBLOCKED;
+            case UNBLOCK_ENTRY -> reading.screen()==AutomationController.Screen.PROFILE&&reading.blockState()==BlockState.BLOCKED;
+            case CONFIRM_BLOCK -> reading.screen()==AutomationController.Screen.BLOCK_DIALOG&&reading.blockState()==BlockState.UNBLOCKED;
+            case CONFIRM_UNBLOCK -> reading.screen()==AutomationController.Screen.UNBLOCK_DIALOG&&reading.blockState()==BlockState.BLOCKED;
+        };
+    }
+    public boolean languageMatches(AccessibilityNodeInfo root,String pkg,Reading reading){return !reading.action().expectedText().isEmpty()&&node(root,pkg,reading.action())!=null;}
+    public android.graphics.Rect identityBounds(AccessibilityNodeInfo root,String pkg,Reading reading){
+        android.graphics.Rect bounds=new android.graphics.Rect();
+        for(Recipe recipe:screens)if(recipe.screen()==reading.screen()){
+            for(Path path:java.util.Arrays.asList(recipe.phone(),recipe.receiver())){
+                AccessibilityNodeInfo node=node(root,pkg,path);if(node==null)return new android.graphics.Rect();
+                android.graphics.Rect field=new android.graphics.Rect();node.getBoundsInScreen(field);bounds.union(field);
+            }
+        }
+        return bounds;
+    }
+    public boolean actionable(AccessibilityNodeInfo root,String pkg,Reading reading) {
+        AccessibilityNodeInfo n=node(root,pkg,reading.action());return n!=null&&n.isEnabled()&&n.isClickable()&&!n.isCheckable();
+    }
+    public android.graphics.Rect actionBounds(AccessibilityNodeInfo root,String pkg,Reading reading) {
+        AccessibilityNodeInfo n=node(root,pkg,reading.action());android.graphics.Rect bounds=new android.graphics.Rect();if(n!=null)n.getBoundsInScreen(bounds);return bounds;
+    }
+    public boolean click(AccessibilityNodeInfo root,String pkg,Reading reading,AutomationController.Control control) {
+        if(!supports(reading,control))return false;
         AccessibilityNodeInfo node=node(root,pkg,reading.action());
         if(node==null)return false;
         return node.isClickable()&&node.isEnabled()&&node.isVisibleToUser()&&node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
     }
     private static boolean matches(AccessibilityNodeInfo root,String pkg,Path path){return node(root,pkg,path)!=null;}
-    private static String text(AccessibilityNodeInfo root,String pkg,Path path){AccessibilityNodeInfo n=node(root,pkg,path);return n==null||n.getText()==null?null:n.getText().toString();}
+    private static String text(AccessibilityNodeInfo root,String pkg,Path path){AccessibilityNodeInfo n=node(root,pkg,path);return n==null||n.getText()==null||n.getText().length()>64?null:n.getText().toString();}
     private static AccessibilityNodeInfo node(AccessibilityNodeInfo root,String pkg,Path path) {
         AccessibilityNodeInfo n=root;
         if(n==null||!pkg.contentEquals(n.getPackageName()==null?"":n.getPackageName()))return null;
-        for(int index:path.children()) {
-            if(n.getChildCount()>64||index>=n.getChildCount())return null;
+        for(int depth=0;depth<path.children().size();depth++) {
+            int index=path.children().get(depth);Ancestor a=path.ancestors().get(depth);
+            if(n.getChildCount()!=a.childCount()||!n.isVisibleToUser()||!(pkg+":id/"+a.resourceSuffix()).equals(n.getViewIdResourceName())
+                ||!a.className().contentEquals(n.getClassName()==null?"":n.getClassName()))return null;
             n=n.getChild(index);if(n==null||!pkg.contentEquals(n.getPackageName()==null?"":n.getPackageName()))return null;
         }
-        if(!n.isVisibleToUser()||!n.isEnabled()||!(pkg+":id/"+path.resourceSuffix()).equals(n.getViewIdResourceName())
+        if(!n.isVisibleToUser()||!(pkg+":id/"+path.resourceSuffix()).equals(n.getViewIdResourceName())
             ||!path.className().contentEquals(n.getClassName()==null?"":n.getClassName()))return null;
         if(!path.expectedText().isEmpty()&&!path.expectedText().contentEquals(n.getText()==null?"":n.getText()))return null;
         return n;

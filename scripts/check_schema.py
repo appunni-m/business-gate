@@ -40,4 +40,12 @@ checks += 1
 assert conn.execute('PRAGMA foreign_key_check').fetchall() == []
 assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
 checks += 2
-print(f'PASS {checks} schema constraints and recovery assertions')
+legacy=sqlite3.connect(':memory:')
+legacy.executescript(Path('app/src/androidTest/assets/schema-v1.sql').read_text())
+legacy.execute("INSERT INTO namespace(id,installation,enabled,paused) VALUES(1,'actual-v1-fixture',1,0)")
+legacy.execute("INSERT INTO account(namespace_id,phone,choice,first_seen,last_seen) VALUES(1,'+12025550101','ALLOW',0,0)")
+legacy.executescript(Path('app/src/main/assets/migrations/1-2.sql').read_text())
+assert legacy.execute('SELECT choice FROM account').fetchone()[0]=='ALLOW'
+assert legacy.execute('SELECT active,enabled,paused,receiver_binding FROM namespace').fetchone()==(1,0,1,'')
+checks+=2
+print(f'PASS {checks} schema constraints, shipped-schema migration and recovery assertions')

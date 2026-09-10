@@ -22,8 +22,11 @@ public final class SalesHintEngine {
     public record Hint(int bits, int score, boolean promoted) {}
     public Hint score(CharSequence input, boolean consent, boolean allowed, boolean freshRegular, boolean forwarded) {
         if (!consent || allowed || freshRegular || forwarded || input == null) return new Hint(0, 0, false);
-        String bounded = input.toString().codePoints().limit(2048).collect(StringBuilder::new,
-            StringBuilder::appendCodePoint, StringBuilder::append).toString();
+        StringBuilder buffer=new StringBuilder();
+        for(int offset=0,count=0;offset<input.length()&&count<2048;count++){
+            int code=Character.codePointAt(input,offset);buffer.appendCodePoint(code);offset+=Character.charCount(code);
+        }
+        String bounded=buffer.toString();
         if (bounded.codePoints().anyMatch(c -> Character.isLetter(c) && Character.UnicodeScript.of(c) != Character.UnicodeScript.LATIN))
             return new Hint(0, 0, false);
         String text = Normalizer.normalize(bounded, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)

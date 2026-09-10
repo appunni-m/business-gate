@@ -33,6 +33,7 @@ final class Ui {
         b.setBackground(new RippleDrawable(ColorStateList.valueOf(c.getColor(R.color.line)),shape(c,primary?R.color.accent:android.R.color.transparent,false),null));
         b.setOnClickListener(v->action.run());return b;
     }
+    static android.widget.ScrollView scroll(Context context,View content){android.widget.ScrollView scroll=new android.widget.ScrollView(context);scroll.addView(content);return scroll;}
     static void pad(View v,int horizontal,int vertical){v.setPadding(dp(v.getContext(),horizontal),dp(v.getContext(),vertical),dp(v.getContext(),horizontal),dp(v.getContext(),vertical));}
     static void gap(LinearLayout parent,int dp){View v=new View(parent.getContext());parent.addView(v,new LinearLayout.LayoutParams(1,dp(parent.getContext(),dp)));}
 }

@@ -13,12 +13,12 @@ public final class CoreSuite {
         return new Account(7,1,"+12025550101","Harbor Clinic",kind,choice,block,false,3,kind==Kind.BUSINESS_CONFIRMED,Review.NONE,0,0,0,0,
             JobState.PENDING,choice==Choice.ALLOW?Action.UNBLOCK:Action.BLOCK,nonce,NOW-1000);
     }
-    private static Snapshot snapshot(Account a,boolean enabled,boolean paused){return new Snapshot(1,4,true,enabled,paused,true,false,false,false,"READY",List.of(a),"");}
+    private static Snapshot snapshot(Account a,boolean enabled,boolean paused){return new Snapshot(1,4,true,enabled,paused,true,false,false,false,"READY",List.of(a),"",new Binding("synthetic-installation","synthetic-digest","synthetic-profile","receiver-a","synthetic-v1"));}
     private static Evidence evidence(Kind kind,BlockState state){return new Evidence(1,"+12025550101",kind,state,100,8,2,"receiver-a","synthetic-v1",true,true);}
     private static RuleEngine.Context context(int guards){return new RuleEngine.Context(guards,100,NOW,8,4,3,1000);}
     private static void check(boolean condition,String label){assertions++;if(!condition)throw new AssertionError(label);}
     private static void equals(Object actual,Object expected,String label){check(java.util.Objects.equals(actual,expected),label+" expected "+expected+", got "+actual);}
-    public static void main(String[] args){identity();rules();hints();attention();budgets();controller();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
+    public static void main(String[] args){identity();rules();hints();attention();budgets();epochs();controllerRegressions();controller();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
     private static void identity(){
         equals(Identity.canonicalPhone("+1 (202) 555-0101"),"+12025550101","canonical identity");
         for(String bad:new String[]{"2025550101","+01234567","+123","+1234567890123456","+1 202 555 0101 ext 2","+١٢٠٢٥٥٥٠١٠١","+12025550101\u202e","+12025550101,+12025550102","++12025550101","+1202\t5550101","+1202\u200b5550101"}){
@@ -74,6 +74,12 @@ public final class CoreSuite {
         AttentionClock a=new AttentionClock();a.transition(0,true,false);a.transition(10,true,true);a.transition(30,false,true);a.transition(40,false,false);
         long[] totals=a.drain(50);equals(totals[0],30L,"management interval");equals(totals[1],30L,"occupancy interval");equals(totals[2],40L,"overlap union");
         equals(a.drain(60)[2],0L,"drain no duplicate time");
+        AttentionLedger ledger=new AttentionLedger();long midnight=java.time.Instant.parse("2026-09-10T00:00:00Z").toEpochMilli();
+        ledger.management(0,midnight-10,true);ledger.session(5,midnight-5,true);ledger.management(15,midnight+5,false);ledger.session(20,midnight+10,false);
+        java.util.Map<String,long[]> days=ledger.drain(20,midnight+10);
+        equals(days.get("2026-09-09")[2],10L,"cross-midnight first day");equals(days.get("2026-09-10")[2],10L,"cross-midnight second day");
+        equals(days.values().stream().mapToLong(t->t[0]).sum(),15L,"independent management time");equals(days.values().stream().mapToLong(t->t[1]).sum(),15L,"independent session time");
+        check(ledger.drain(30,midnight+20).isEmpty(),"daily drain no double count");
     }
     private static void budgets(){
         SessionBudget batch=new SessionBudget(100,false);
@@ -100,16 +106,47 @@ public final class CoreSuite {
         Fake ambiguous=new Fake();AutomationController ac=new AutomationController();ambiguous.controller=ac;ambiguous.unique=false;ac.start(7,100,8);ac.onEvent(ambiguous);equals(ambiguous.clicks,0,"ambiguous control abort");
         Fake moved=new Fake();AutomationController mc=new AutomationController();moved.controller=mc;moved.defer=true;mc.start(7,100,8);mc.onEvent(moved);moved.window=5;moved.continueJournal.run();equals(moved.clicks,0,"fresh window recheck after journal");
     }
+    private static void epochs(){
+        for(GuardFacts.Guard missing:GuardFacts.Guard.values()){
+            GuardFacts facts=new GuardFacts();for(GuardFacts.Guard guard:GuardFacts.Guard.values())facts.record(guard,guard!=missing);
+            check(facts.bits()!=RuleEngine.ALL_GUARDS,"each named missing observation disarms");
+        }
+        AuthorityEpoch lease=new AuthorityEpoch();long old=lease.current();lease.revoke();
+        check(!lease.arm(old),"late arm cannot undo revocation");check(!lease.armed(),"revoked stays disarmed");
+        check(lease.arm(lease.current()),"fresh authority can arm");lease.revoke();check(!lease.armed(),"Stop immediate");
+    }
+    private static void controllerRegressions(){
+        Fake late=new Fake();AutomationController c=new AutomationController();late.controller=c;late.defer=true;
+        c.start(7,100,8);c.onEvent(late);Runnable oldFailure=late.failJournal;c.stop(late);
+        c.start(7,100,8);c.onEvent(late);oldFailure.run();
+        equals(c.phase(),AutomationController.Phase.JOURNALING,"old journal failure cannot stop new operation");
+        Fake transition=new Fake();AutomationController t=new AutomationController();transition.controller=t;
+        t.start(7,100,8);t.onEvent(transition);t.onEvent(transition);
+        equals(t.phase(),AutomationController.Phase.DIALOG,"intermediate profile event waits without repeating entry");
+        equals(transition.clicks,1,"intermediate event does not repeat click");
+        Fake satisfied=new Fake();satisfied.block=BlockState.BLOCKED;AutomationController i=new AutomationController();satisfied.controller=i;
+        i.start(7,100,8);i.onEvent(satisfied);equals(satisfied.successes,1,"already blocked completes by observation");
+        equals(satisfied.clicks,0,"idempotent completion never clicks");
+        Fake commit=new Fake();commit.deferVerification=true;AutomationController v=new AutomationController();commit.controller=v;
+        v.start(7,100,8);v.onEvent(commit);commit.screen=AutomationController.Screen.BLOCK_DIALOG;v.onEvent(commit);
+        commit.screen=AutomationController.Screen.PROFILE;commit.block=BlockState.BLOCKED;v.onEvent(commit);
+        equals(v.phase(),AutomationController.Phase.COMMITTING,"verification waits for durable acknowledgement");equals(commit.successes,0,"no premature success");
+        commit.verification.accept(AutomationController.CommitResult.FAILED);equals(v.phase(),AutomationController.Phase.STOPPED,"failed commit stops");
+        equals(commit.successes,0,"failed durable verification never succeeds");
+        Fake receiver=new Fake();AutomationController r=new AutomationController();receiver.controller=r;receiver.receiver="other-receiver";
+        r.start(7,100,8);r.onEvent(receiver);equals(receiver.clicks,0,"receiver must match durable namespace");
+    }
     private static final class Fake implements AutomationController.Port{
         Account account=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");
         AutomationController controller;AutomationController.Screen screen=AutomationController.Screen.PROFILE;
-        String phone=account.phone();BlockState block=BlockState.UNBLOCKED;int window=2,clicks,successes;long now=100;
-        boolean defer,unique=true,uncertain;Runnable continueJournal;
+        String phone=account.phone(),receiver="receiver-a";BlockState block=BlockState.UNBLOCKED;int window=2,clicks,successes;long now=100;
+        boolean defer,deferVerification,unique=true,uncertain;java.util.function.Consumer<AutomationController.CommitResult> verification;Runnable continueJournal,failJournal;
         public Snapshot policy(){return snapshot(account,true,false);}
-        public AutomationController.Frame inspect(){return new AutomationController.Frame(screen,new Evidence(1,phone,Kind.BUSINESS_CONFIRMED,block,now,8,window,"receiver-a","synthetic-v1",true,true),new RuleEngine.Context(RuleEngine.ALL_GUARDS,now,NOW,8,4,3,25100),unique);}
-        public void journal(AutomationController.Plan plan,Runnable committed,Runnable failed){if(defer)continueJournal=committed;else committed.run();}
+        public AutomationController.Frame inspect(){return new AutomationController.Frame(screen,new Evidence(1,phone,Kind.BUSINESS_CONFIRMED,block,now,8,window,receiver,"synthetic-v1",true,true),new RuleEngine.Context(RuleEngine.ALL_GUARDS,now,NOW,8,4,3,25100),unique);}
+        public void journal(AutomationController.Plan plan,Runnable committed,Runnable failed){if(defer){continueJournal=committed;failJournal=failed;}else committed.run();}
         public boolean click(AutomationController.Control control,AutomationController.Frame frame){clicks++;return true;}
-        public void verified(AutomationController.Plan plan,Evidence evidence){successes++;}
+        public void verified(AutomationController.Plan plan,Evidence evidence,java.util.function.Consumer<AutomationController.CommitResult> result){if(deferVerification)verification=result;else result.accept(AutomationController.CommitResult.COMMITTED);}
+        public void completed(){successes++;}
         public void stopped(boolean unverified){uncertain=unverified;}
     }
 }

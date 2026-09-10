@@ -7,7 +7,7 @@ case "$GATE_TEST_SERIAL" in emulator-*) ;; *) echo 'Use a dedicated emulator for
 adb_bin="$ANDROID_HOME/platform-tools/adb"
 "$adb_bin" -s "$GATE_TEST_SERIAL" install -r app/build/outputs/apk/debug/app-debug.apk
 "$adb_bin" -s "$GATE_TEST_SERIAL" install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-for test_mode in all prepare-recovery verify-recovery; do
+for test_mode in all performance prepare-recovery verify-recovery; do
     "$adb_bin" -s "$GATE_TEST_SERIAL" shell am force-stop io.github.appunnim.businessgate.debug
     test_result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e mode "$test_mode" io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation)
     echo "$test_result"

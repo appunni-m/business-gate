@@ -4,4 +4,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = 'BusinessGate'
-include ':app'
+include ':app', ':release-probe'

@@ -23,5 +23,12 @@ public final class SessionOverlay {
         }catch(RuntimeException error){view=null;return false;}
     }
     public boolean visible(){return view!=null&&view.isAttachedToWindow();}
+    public boolean ownsWindow(int id){return visible()&&view.createAccessibilityNodeInfo().getWindowId()==id;}
+    public boolean clearOf(android.graphics.Rect target){
+        if(!visible()||!view.isShown()||target.isEmpty())return false;
+        int[] position=new int[2];view.getLocationOnScreen(position);
+        android.graphics.Rect bounds=new android.graphics.Rect(position[0],position[1],position[0]+view.getWidth(),position[1]+view.getHeight());
+        return !bounds.isEmpty()&&!android.graphics.Rect.intersects(bounds,target);
+    }
     public void hide(){if(view!=null){try{service.getSystemService(WindowManager.class).removeView(view);}catch(RuntimeException ignored){/* Already removed by system. */}view=null;}}
 }

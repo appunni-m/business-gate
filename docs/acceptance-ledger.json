@@ -1,0 +1,3995 @@
+{
+  "schemaVersion": 1,
+  "preparedOn": "2026-09-10",
+  "baselineCommit": "092ce8f",
+  "statusMeaning": "Synthetic-only records engineering coverage, not a complete acceptance pass. No physical qualification is recorded.",
+  "cases": [
+    {
+      "id": "full:T001",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2713,
+      "scenario": "Confirmed business, DEFAULT, fresh exact safe profile BLOCK intent, verified only after postcondition.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T002",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2717,
+      "scenario": "Same case but ALLOW No automatic block at any phase.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T003",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2720,
+      "scenario": "UNKNOWN sender with no badge/profile completeness No automatic block.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T004",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2724,
+      "scenario": "Complete regular profile, DEFAULT Cache observation; no block or prompted review.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T005",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2727,
+      "scenario": "Ambiguous/incomplete profile UNKNOWN/AMBIGUOUS; no click.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T006",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2730,
+      "scenario": "Same name as enabled company, different number New independent identity; no permission inheritance. ## Source page 53 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 53 ID Setup / trigger Required result",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T007",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2745,
+      "scenario": "Two accounts share the same last four digits No merge; full numbers distinguish.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T008",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2748,
+      "scenario": "Sender name contains “Business account” No official type classification from name.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T009",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2751,
+      "scenario": "Message/profile description contains “Block” No control click from sender text.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T010",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2754,
+      "scenario": "Phone-looking text appears in message Not accepted as account identity.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T011",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2757,
+      "scenario": "Profile lacks number or exposes username only Unsupported identity; no block.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T012",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2761,
+      "scenario": "National-format number with no country code No inferred canonical key; request full identity.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T013",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2764,
+      "scenario": "Bidi/hidden controls inside number field Reject binding.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T014",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2767,
+      "scenario": "Same name, different group and individual Only verified one-to-one profile eligible.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F08",
+        "F09",
+        "F10",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T015",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2770,
+      "scenario": "Stale personal cache expires No block/forced chat opening; natural recheck only.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T016",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2773,
+      "scenario": "Kept personal number converts to business ALLOW remains; show under Enabled when confirmed.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T017",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2776,
+      "scenario": "DEFAULT cached regular profile becomes confirmed business Fresh official evidence enables normal default-deny; show type change.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T018",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2781,
+      "scenario": "Manual-denied regular sender appears again Reblock exact number only with current manual authority.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T019",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2784,
+      "scenario": "Manual-denied sender changes normal number Independent review only; no inherited denial.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T020",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2788,
+      "scenario": "Enabled number manually blocked in connected messenger later Do not auto-unblock from ALLOW alone.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T021",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2792,
+      "scenario": "Denied official business manually unblocked externally Reapply fixed rule on next eligible observation.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T022",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2796,
+      "scenario": "Reassigned number matches a durable rule Exact rule remains; no unverifiable owner inference.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T023",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2799,
+      "scenario": "Incoming account is a friend using Business app Rule applies unless enabled; setup copy covers this.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T024",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2803,
+      "scenario": "Group/channel/community/self-chat/locked context Ignore mutation, even if a business name appears. 16.4 Sales hints and new-person tests ID Setup / trigger Required result",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F13",
+        "F14",
+        "F17"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T025",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2811,
+      "scenario": "Sales hints off, readable message notification Body not analysed; core discovery still works.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T026",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2814,
+      "scenario": "New personal sender says hello only Neutral collapsed NEW_SENDER, no notice/block.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T027",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2817,
+      "scenario": "Three required feature groups meet threshold POSSIBLE_COMMERCIAL reason bits only.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T028",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2820,
+      "scenario": "One keyword repeated 20 times One feature group; no inflated score.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T029",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2823,
+      "scenario": "URL and price without sales/CTA combination No promoted flag. ## Source page 54 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 54 ID Setup / trigger Required result",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T030",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2837,
+      "scenario": "OTP context with digits and a link No sales flag; no code retained.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T031",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2840,
+      "scenario": "Delivery/appointment update without sales evidence No promoted flag.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T032",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2844,
+      "scenario": "Supported forwarded indicator on promotional text Suppress promoted hint.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T033",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2848,
+      "scenario": "Known kept friend sends promotional wording No promoted hint; explicit ALLOW remains.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T034",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2851,
+      "scenario": "Notification is a group summary No per-person flag or binding.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T035",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2854,
+      "scenario": "Notification hides/redacts text No guess/reconstruction.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T036",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2857,
+      "scenario": "Unsupported-language commercial wording Detector abstains; no translation dependency.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "hints"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T037",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2860,
+      "scenario": "Notification has duplicate display names Separate unresolved candidates; no wrong-number flag.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F19",
+        "F20"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T038",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2863,
+      "scenario": "User taps Keep ALLOW, cleared promotion, no repeated prompt.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F07",
+        "F14",
+        "F20",
+        "F21",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T039",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2866,
+      "scenario": "User taps Block then Cancel No policy change or job.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F07",
+        "F14",
+        "F20",
+        "F21",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T040",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2869,
+      "scenario": "User confirms Block number DENY_MANUAL with exact authority; type is not falsified.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F07",
+        "F14",
+        "F20",
+        "F21",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T041",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2872,
+      "scenario": "User ignores all flags All uncertain personal accounts remain reachable.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F07",
+        "F14",
+        "F20",
+        "F21",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T042",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2875,
+      "scenario": "100 suspect senders arrive Bounded queue/promotion; no automatic overflow blocking.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F07",
+        "F14",
+        "F20",
+        "F21",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T043",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2879,
+      "scenario": "User revokes sales-hint consent Stop parsing; clear unreviewed feature metadata; retain explicit choices.",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F07",
+        "F14",
+        "F20",
+        "F21",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T044",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2883,
+      "scenario": "Same notification is reposted repeatedly No duplicate job or repeated review notice. 16.5 Automation, interruption and race tests ID Setup / trigger Required result",
+      "requirements": [
+        "BG-003",
+        "BG-030"
+      ],
+      "fixes": [
+        "F07",
+        "F14",
+        "F20",
+        "F21",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T045",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2890,
+      "scenario": "Phone locked or display off No click, unlock or wake scan.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T046",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2893,
+      "scenario": "Another app foreground Queue only; no connected messenger takeover.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T047",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2896,
+      "scenario": "Unsupported connected messenger build/signature Registry rejects mutations.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T048",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2899,
+      "scenario": "Same build, new server-side UI variant Structural checks fail safely.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T049",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2902,
+      "scenario": "Selector resolves to zero or two controls No guessed click.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T050",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2905,
+      "scenario": "Combined Block-and-report screen Abort unless a separately tested no-report route exists.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T051",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2908,
+      "scenario": "Report/delete checkbox unexpectedly checked No confirmation; stop unsafe flow.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T052",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2912,
+      "scenario": "Name-only dialog without uninterrupted exact binding Abort.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T053",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2916,
+      "scenario": "User changes chat while profile is resolving Generation invalidated; wrong chat untouched. ## Source page 55 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 55 ID Setup / trigger Required result",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T054",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2930,
+      "scenario": "User opens keyboard, call or picker Stop changing actions.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F03",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T055",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2933,
+      "scenario": "Stop pressed before final dispatcher No new confirm action.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T056",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2936,
+      "scenario": "Enable before dispatcher linearisation Immediate veto prevents block.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T057",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2939,
+      "scenario": "Enable after an already dispatched block Verify and compensate via explicit unblock; truthful transient status.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T058",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2943,
+      "scenario": "Policy save fails after Enable tap Global disarm; no new blocks.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T059",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2946,
+      "scenario": "Process dies after block click before verification Restart at inspect/UNVERIFIED, no blind duplicate click.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T060",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2950,
+      "scenario": "performAction returns true but UI does not change Do not show Blocked.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T061",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2954,
+      "scenario": "Result screen belongs to another number No success; identity incident.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T062",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2957,
+      "scenario": "Live target already blocked Verify/idempotent completion, no repeat click.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T063",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2960,
+      "scenario": "Live target already unblocked for an unblock command Verify/idempotent completion, consume matched command.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T064",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2965,
+      "scenario": "User navigates after Stop No cleanup Back taps over their new screen.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F07",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T065",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2968,
+      "scenario": "Session exceeds budget End safely, leave queue truthful.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T066",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2971,
+      "scenario": "Receiver changes connected messenger account mid-session Abort and disarm namespace.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T067",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2975,
+      "scenario": "Muted sender has no available notification No discovery guarantee; passive/explicit routes only.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T068",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2978,
+      "scenario": "Unread personal chat in an automatic scan path Do not open through read-affecting route.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T069",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2982,
+      "scenario": "User authorises read-affecting scan Scope/side effects disclosed; no send/delete/report.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T070",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2985,
+      "scenario": "Inbox rows reorder during scanning Reacquire candidate; dedupe by verified exact key.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T071",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2988,
+      "scenario": "Slow network or delayed block UI Bounded wait; verify before retry; no guessed success.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T072",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2991,
+      "scenario": "Unblock authority expires after seven days ALLOW persists; no late automatic unblock. 16.6 Storage, privacy, lifecycle and UI tests ID Setup / trigger Required result",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F05",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T073",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 2998,
+      "scenario": "Duplicate account insert Unique namespace/phone key prevents duplicate durable row.",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T074",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3002,
+      "scenario": "Namespace A and B contain same phone Choices remain isolated; only one active namespace.",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T075",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3005,
+      "scenario": "Invalid enum/foreign key SQLite rejects it.",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T076",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3008,
+      "scenario": "Toggle and stale completion interleave Newer choice/job not overwritten. ## Source page 56 BUSINESS GATE PRD / DESIGN / ENGINEERING v2.0 9 September 2026 · Implementation specification 56 ID Setup / trigger Required result",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T077",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3022,
+      "scenario": "Disk full or migration error Disarm; no destructive reset or discarded allowlist.",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T078",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3025,
+      "scenario": "Reboot/force-stop/service disconnect No invisible resurrection or saved-screen continuation.",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T079",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3028,
+      "scenario": "Device restore with mismatched installation marker Setup/namespace review before authority.",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T080",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3032,
+      "scenario": "Clear local data Rule off, local data removed; no connected messenger mass-unblock.",
+      "requirements": [
+        "BG-020",
+        "BG-021"
+      ],
+      "fixes": [
+        "F05",
+        "F06",
+        "F07",
+        "F12",
+        "F13",
+        "F26",
+        "F28"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T081",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3035,
+      "scenario": "Notification from another app Package check returns before body/extras analysis.",
+      "requirements": [
+        "BG-004"
+      ],
+      "fixes": [
+        "F19",
+        "F20",
+        "F21",
+        "F26",
+        "F27"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "scripts/audit_artifact.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T082",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3038,
+      "scenario": "Inspect release files/logs after sales tests No message text, OTP, screenshot or raw tree retained.",
+      "requirements": [
+        "BG-004"
+      ],
+      "fixes": [
+        "F19",
+        "F20",
+        "F21",
+        "F26",
+        "F27"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "scripts/audit_artifact.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T083",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3041,
+      "scenario": "Inspect release manifest/dependencies No Internet/contact/storage/gesture capability or unwanted SDK.",
+      "requirements": [
+        "BG-004"
+      ],
+      "fixes": [
+        "F19",
+        "F20",
+        "F21",
+        "F26",
+        "F27"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "scripts/audit_artifact.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T084",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3045,
+      "scenario": "Own notification permission denied Core UI/Stop work; no repeated permission prompt.",
+      "requirements": [
+        "BG-004"
+      ],
+      "fixes": [
+        "F19",
+        "F20",
+        "F21",
+        "F26",
+        "F27"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T085",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3048,
+      "scenario": "Search across Enabled, Not enabled, Review, People Correct section order and exact-number result identity.",
+      "requirements": [
+        "BG-002"
+      ],
+      "fixes": [
+        "F23",
+        "F24",
+        "F25"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T086",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3052,
+      "scenario": "Toggle while filtered/scrolled Search/anchor retained; correct row moves without wrong listener binding.",
+      "requirements": [
+        "BG-002"
+      ],
+      "fixes": [
+        "F23",
+        "F24",
+        "F25"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T087",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3056,
+      "scenario": "10,000 synthetic records Search target met; scrolling remains usable.",
+      "requirements": [
+        "BG-002"
+      ],
+      "fixes": [
+        "F23",
+        "F24",
+        "F25"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T088",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3059,
+      "scenario": "200% font scale, landscape, small viewport No clipped text/actions; one scrollable column.",
+      "requirements": [
+        "BG-002"
+      ],
+      "fixes": [
+        "F23",
+        "F24",
+        "F25"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T089",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3062,
+      "scenario": "TalkBack on, row recycled/moved Correct name/number/state and stable focus behaviour.",
+      "requirements": [
+        "BG-002"
+      ],
+      "fixes": [
+        "F23",
+        "F24",
+        "F25"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T090",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3065,
+      "scenario": "Dark theme and contrast checks Text/control contrast meets targets; colour not sole cue.",
+      "requirements": [
+        "BG-002"
+      ],
+      "fixes": [
+        "F23",
+        "F24",
+        "F25"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T091",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3068,
+      "scenario": "Repeated optional flags or compatibility events Digest/incident caps; no nag loop.",
+      "requirements": [
+        "BG-010"
+      ],
+      "fixes": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T092",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3072,
+      "scenario": "App closes during setup No accidental rule activation; resume correctly.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "foundationRegressions"
+        },
+        {
+          "path": "scripts/check_schema.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T093",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3075,
+      "scenario": "Release/debug differences Fixture recorder and fake adapter absent from release.",
+      "requirements": [
+        "BG-004"
+      ],
+      "fixes": [
+        "F14",
+        "F22",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F30"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "scripts/audit_artifact.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T094",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3078,
+      "scenario": "External intent attempts “block number” command No untrusted mutation authority.",
+      "requirements": [
+        "BG-004"
+      ],
+      "fixes": [
+        "F14",
+        "F22",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F30"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "scripts/audit_artifact.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T095",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3082,
+      "scenario": "Clock/time-zone change No expired in-session authority resurrected; timestamps readable.",
+      "requirements": [
+        "BG-001"
+      ],
+      "fixes": [
+        "F14",
+        "F22",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F30"
+      ],
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "rules"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "controllerRegressions"
+        }
+      ],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "full:T096",
+      "source": "docs/design/Business_Gate_Full_PRD_Design.md",
+      "sourceLine": 3086,
+      "scenario": "Pilot normal and high-volume months Attention, queue coverage and screen waiting reported honestly. 16.7 Quantitative engineering targets Area Proposed target / measurement Safety Zero wrong-number, enabled-number or unauthorised personal blocks in the complete matrix; any incident stops release. This is not a statistical proof of zero future failures.",
+      "requirements": [
+        "BG-010"
+      ],
+      "fixes": [
+        "F14",
+        "F22",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+    },
+    {
+      "id": "companion:T001",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2417,
+      "scenario": "R05 New confirmed business, exact number, all guards valid Queue and verify Block; OFF remains the desired policy.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T002",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2422,
+      "scenario": "Same denied brand sends from a second business number Treat separately and deny; no brand-recognition service required.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T003",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2427,
+      "scenario": "Same name/logo as an enabled account, different number Do not inherit the enabled exception.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T004",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2431,
+      "scenario": "Personal account with a bank-like display name No block; display name is not classification evidence.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T005",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2435,
+      "scenario": "Chat message contains Business account or Block Ignore message subtree; no classification or click from those words.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T006",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2440,
+      "scenario": "Business marker missing from a partial/protected profile UNKNOWN or AMBIGUOUS; no mutation.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T007",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2444,
+      "scenario": "Phone missing, local-format-only or replaced by a username No guessed country code or name identity; no mutation.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T008",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2448,
+      "scenario": "Phone-shaped number appears in business description Do not use it as the profile identity.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T009",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2452,
+      "scenario": "Group, channel, community or system thread has business members NON_DIRECT; no member, group or notification action.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T010",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2456,
+      "scenario": "Two visible profiles have duplicate names Bind exact number before action; position/name cannot select identity.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T011",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2461,
+      "scenario": "Receiving connected messenger account changes mid-session Invalidate namespace and lease; no cross-account policy application.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T012",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2466,
+      "scenario": "R02 Cloned/work-profile/connected messenger Business receiving package Unsupported; do not attach the ordinary-account allowlist.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T013",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2472,
+      "scenario": "Package name matches but signing lineage does not Disarm; show compatibility issue without fallback.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T014",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2476,
+      "scenario": "Phone has bidi controls, invalid characters or over 15 digits Reject identity; sanitize display only, never silently normalize ambiguity. ## Source page 50 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 50 D.2 Personal-cache protection ID / requirement Scenario Required result",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T015",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2494,
+      "scenario": "Known fresh personal sender sends repeated messages Skip routine profile inspection; notification and chat unchanged.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T016",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2499,
+      "scenario": "New personal sender not in cache No block because the cache lacks the number.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T017",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2502,
+      "scenario": "Personal observation reaches 30 days Mark STALE; no forced visit and no queued block.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T018",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2505,
+      "scenario": "Repeated personal notifications over 30 days last_seen may advance; verified_at and reusable classification do not.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T019",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2510,
+      "scenario": "R06 Fresh business evidence contradicts old personal cache Validate and persist independently; then apply exact current exception.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T020",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2516,
+      "scenario": "Business converts to ordinary personal profile Cancel future automatic blocks; do not automatically undo an existing block.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T021",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2521,
+      "scenario": "Personal label changes, but account type is not observed Update/invalidate label cache only; do not infer a business conversion.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T022",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2526,
+      "scenario": "Idle personal row qualifies for 90-day pruning Delete local cache only; leave connected messenger unchanged.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T023",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2530,
+      "scenario": "R06 Enabled former business is now personal Keep exact exception; show no personal blocking switch.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T024",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2535,
+      "scenario": "R15 Adapter update or reinstall invalidates personal evidence UNKNOWN/STALE, not BUSINESS; no automatic deny from invalidation. ## Source page 51 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 51 D.3 Policy, blocking and explicit unblocking ID / requirement Scenario Required result",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T025",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2554,
+      "scenario": "R09 Enable an unblocked known business Commit ON first; cancel blocks; no unnecessary unblock click.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T026",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2559,
+      "scenario": "Enable a currently blocked known business Create one-shot authority; show unblocking pending until verified.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T027",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2564,
+      "scenario": "App restarts with pending explicit unblock Keep valid grant, but reacquire all UI/identity evidence from scratch.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T028",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2569,
+      "scenario": "R14 Stop/Pause occurs before unblock completes Cancel grant and generation; retain ON and display mismatch.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T029",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2575,
+      "scenario": "Saved ON account is later manually blocked in connected messenger No automatic unblock; require explicit Unblock now.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T030",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2579,
+      "scenario": "Denied business is manually unblocked while rule active Reblock only after fresh safe business observation; do not undo unrelated changes.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T031",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2584,
+      "scenario": "Switch OFF while connected messenger unavailable Save preference; show Block pending, not Blocked.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T032",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2588,
+      "scenario": "Storage write fails on toggle Keep previous committed switch; no external action.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T033",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2591,
+      "scenario": "R13 OFF-to-ON races with final block confirmation Preserve ON; record actual effect; reconcile only with valid grant.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T034",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2597,
+      "scenario": "R13 ON-to-OFF races with pending unblock Invalidate old grant/job; no stale result overwrites the latest choice.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T035",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2602,
+      "scenario": "Previously known business has unknown current type but exact blocked identity Only explicit valid known-business unblock route may act; no general unblock tool.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T036",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2608,
+      "scenario": "Already blocked business is encountered again Record fresh matching observation; do not repeat block.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T037",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2612,
+      "scenario": "Replayed nonce or obsolete revision after success Reject; no duplicate or future perpetual unblock authority.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T038",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2617,
+      "scenario": "Offline UI shows blocked Label as connected messenger UI observation; test actual sender behavior after reconnection separately. ## Source page 52 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 52 D.4 No-read discovery and interruption ID / requirement Scenario Required result",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T039",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2634,
+      "scenario": "First discovery sees unread personal and business chats Use qualified direct profile route; preserve read/unread and receipts.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T040",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2639,
+      "scenario": "R16 Only available profile route opens an unread chat Do not run it automatically; fail low-attention integration gate.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T041",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2645,
+      "scenario": "User manually opens an unread chat User navigation is not reversed; app performs no additional read operation.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T042",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2649,
+      "scenario": "Locked, hidden or archived chats not safely enumerated Skip and record coverage honestly; no unlock/archive bypass.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T043",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2654,
+      "scenario": "R14 User starts typing or opens attachment picker/call Abort automation; do not press Back after losing the lease.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T044",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2660,
+      "scenario": "User taps outside Stop chip during mutation Pass touch through; invalidate unexpected transition and reacquire before any click.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T045",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2665,
+      "scenario": "User presses Stop Persist pause, revoke grants and leases, remove overlay; no next action.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T046",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2669,
+      "scenario": "Phone locks or screen turns off No wake/unlock; discard active lease and retain safe pending intent.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T047",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2673,
+      "scenario": "Another app or system dialog takes focus No takeover or click-through; pause current sequence.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T048",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2677,
+      "scenario": "Inbox reorders after arrival or pinned-row changes Resolve current row identity anew; never trust old coordinates/index.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T049",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2682,
+      "scenario": "Discovery repeats same items or reaches its limit Stop with checkpoint; report actual inspected scope, not all chats.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T050",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2687,
+      "scenario": "Flow interrupted immediately before planned Back action Do not navigate Back; preserve the user's new context.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T051",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2691,
+      "scenario": "R15 Overlay would cover the required confirmation control Reposition only through qualified layout; otherwise abort. ## Source page 53 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 53 D.5 Automation, lifecycle and adversarial UI ID / requirement Scenario Required result",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T052",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2709,
+      "scenario": "Confirmation dialog offers Report or Delete Verify safe unchecked state; never report/delete; abort if separation uncertain.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T053",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2714,
+      "scenario": "Unexpected button with text Block appears elsewhere Do not match by loose text; require supported structural role.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T054",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2719,
+      "scenario": "connected messenger build, language or protected-view structure changes Stop mutation immediately, independent of retry counter.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T055",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2723,
+      "scenario": "performAction returns true but result never appears Do not mark Blocked; reobserve and show uncertain/pending result.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T056",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2728,
+      "scenario": "Process dies before/after final confirmation Journal survives; re-inspect before retry; never replay the last click.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T057",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2733,
+      "scenario": "A stale AccessibilityNodeInfo points to another window Never reuse; reacquire and bind fresh node.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T058",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2737,
+      "scenario": "Six-second automatic lease expires Stop safely; no extension by wall-clock changes or repeated sleeps.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T059",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2741,
+      "scenario": "R15 Three structural failures in same environment Open circuit; suppress endless retry loops and repeated user prompts.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T060",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2747,
+      "scenario": "Notification/window event storm Coalesce and bound work; one active mutation; no battery-draining loop.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T061",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2751,
+      "scenario": "Service reconnects before policy has loaded Disarmed until consent, storage, namespace and adapter checks pass.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T062",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2756,
+      "scenario": "Permission revoked, force-stop or uninstall No watchdog; future automation stops; no mass unblock.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T063",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2760,
+      "scenario": "Monotonic lease valid but device wall clock changes Action deadline does not extend; display timestamps may differ only.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T064",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2765,
+      "scenario": "Malicious intent/deep link requests a block or enable Reject; exported Activity accepts navigation only, not mutation commands. ## Source page 54 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 54 D.6 Notifications, privacy and storage ID / requirement Scenario Required result",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T065",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2783,
+      "scenario": "Notification from any package other than connected messenger Reject before reading extras; no content/log/storage.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T066",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2787,
+      "scenario": "Redacted or empty connected messenger notification No invented sender/type; bounded opaque hint only when available.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T067",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2792,
+      "scenario": "Group summary or duplicate notification key Ignore/deduplicate; no business verdict or repeated job.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T068",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2796,
+      "scenario": "Personal connected messenger notification remains visible No cancel/snooze/reply/mark-shown/channel change.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T069",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2800,
+      "scenario": "Hint queue exceeds 256 or 24-hour age Drop bounded unresolved hints; no personal detail in diagnostic.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T070",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2804,
+      "scenario": "Notification access or POST_NOTIFICATIONS denied Core safe accessibility behavior remains; no repeated permission nag.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T071",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2809,
+      "scenario": "Release dependency and permission audit No third-party runtime library, INTERNET, contacts, camera, SMS, root or remote scripts.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T072",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2814,
+      "scenario": "Inspect production logs/database/crash diagnostics No message bodies, OTPs, photos, screenshots or raw trees.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T073",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2819,
+      "scenario": "Restore/transfer or missing installation marker No active automation until fresh installation/account review.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T074",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2824,
+      "scenario": "Schema migration fails or database is corrupt/full Disarm and preserve existing data; never destructive-fallback.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T075",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2829,
+      "scenario": "Duplicate namespace/phone write or orphan foreign key Reject invalid write; no silent policy replacement.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T076",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2833,
+      "scenario": "R09 50,000 durable account threshold Preserve exceptions/history; stop optional cache growth and fail safely if new authority cannot be saved.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T077",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2838,
+      "scenario": "Privacy or support link opened Use external browser; no implicit account/diagnostic upload. ## Source page 55 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 55 D.7 One-page UI and low-attention experience ID / requirement Scenario Required result",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T078",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2855,
+      "scenario": "Empty installation with no permissions Single setup card, clear inactive state; no fake discovered directory.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T079",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2859,
+      "scenario": "Search matches enabled and denied businesses Enabled section stays first; query persists through toggle.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T080",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2863,
+      "scenario": "R06 Search matches a personal record Show after business matches, without switch or block action.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T081",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2868,
+      "scenario": "Rapid toggles while ListView recycles rows Detach listeners on bind; stable IDs; only intended exact account changes.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T082",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2873,
+      "scenario": "Toggle moves row between sections Preserve visible anchor and query; no jump to top or accidental second action.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T083",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2877,
+      "scenario": "Names include apostrophe, %, _, Unicode or bidi controls Bound escaped search; safe label rendering; exact number unchanged.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T084",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2882,
+      "scenario": "No search matches or no businesses discovered Explain locally; no network lookup, forced scan or upsell.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T085",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2886,
+      "scenario": "200% font, TalkBack, 320 dp width, dark theme No clipped decisions; 48 dp targets; state announced without color alone.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T086",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2891,
+      "scenario": "Keyboard, rotation, insets and process recreation Restore query/focus/anchor safely; no replay of switch events or permission consent.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T087",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2896,
+      "scenario": "Quiet month with no exception changes or faults No routine app visits, success notifications, digests or review chores.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T088",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2901,
+      "scenario": "New-business-heavy user exceeds attention budget Record all work and waiting; fail target, do not exclude unsupported cases.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T089",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2906,
+      "scenario": "Permission/compatibility repair after initial setup Count imposed time in T30; no special exclusion for inconvenient failures.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T090",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2911,
+      "scenario": "Management and automation intervals overlap Count interval union, not sum; preserve separate diagnostic components.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T091",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2916,
+      "scenario": "Thirty-day real-user pilot Report p50/p95 effort and all-case coverage, false blocks, faults and unsupported users. ## Source page 56 BUSINESS GATE PRODUCT REQUIREMENTS + DESIGN / v2.0 9 September 2026 · Implementation specification 56 D.8 Release and commercial completeness ID / requirement Scenario Required result",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T092",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2933,
+      "scenario": "Only reference evaluator tests have passed Do not claim Android automation is qualified or sell a working blocker.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T093",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2938,
+      "scenario": "Store declaration differs from release behavior Block release until disclosure, consent, video and behavior agree.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T094",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2943,
+      "scenario": "Platform/legal approval is absent or adverse Do not sell or hide the limitation behind notification muting.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T095",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2948,
+      "scenario": "R16 Paid listing and update/reinstall testing No in-app billing flow or per-reinstall fee; verify actual Play account pricing.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T096",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2953,
+      "scenario": "R16 Compatible connected messenger versions update frequently Include real repair burden in pilot and maintenance model.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    },
+    {
+      "id": "companion:T097",
+      "source": "docs/design/Business_Gate_Complete_PRD_Design.md",
+      "sourceLine": 2959,
+      "scenario": "Stop-ship safety incident after rollout Halt rollout, test a corrected signed update; no claim of a remote kill switch.",
+      "requirements": [
+        "companion requirement retained; full design governs conflicts"
+      ],
+      "fixes": [
+        "F01",
+        "F16",
+        "F30"
+      ],
+      "status": "unrun",
+      "tests": [],
+      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    }
+  ]
+}

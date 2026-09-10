@@ -20,6 +20,7 @@ import java.util.function.BooleanSupplier;
 public final class GateInstrumentation extends Instrumentation {
     private Bundle arguments;
     private int assertions;
+    private String metrics="";
     private GateRepository repository;
     @Override public void onCreate(Bundle args){arguments=args==null?new Bundle():args;super.onCreate(args);start();}
     private void check(boolean value,String name){assertions++;if(!value)throw new AssertionError(name);}
@@ -40,6 +41,8 @@ public final class GateInstrumentation extends Instrumentation {
                 check(repository.disarmed(),"startup is disarmed");
             }else if(mode.equals("prepare-recovery")){
                 seed();try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET state='ACTION_INTENT' WHERE account_id=4");}
+            }else if(mode.equals("performance")){
+                performance();
             }else if(mode.equals("setup")){
                 committed(cb->repository.reset(cb));launch();
             }else if(mode.equals("seed")){
@@ -60,16 +63,148 @@ public final class GateInstrumentation extends Instrumentation {
                 CountDownLatch accent=new CountDownLatch(1);repository.search("maya",rows->{check(rows.size()==2,"accent-normalized search");accent.countDown();});check(accent.await(10,TimeUnit.SECONDS),"accent callback");
                 committed(cb->repository.choose(first.id(),Choice.ALLOW,cb));String nonce=repository.current().account(first.id()).nonce();check(!nonce.isEmpty(),"explicit enable grants nonce");
                 runOnMainSync(repository::pause);until(()->repository.current().accounts().stream().allMatch(a->a.nonce().isEmpty()));check(repository.current().account(first.id()).choice()==Choice.ALLOW,"pause cancels authority but retains choice");
-                seed();Activity activity=launch();
+                foundationRegressions();seed();Activity activity=launch();
                 until(()->hasText(activity,"Harbor Clinic"));check(hasText(activity,"Paused · compatibility check needed"),"unsupported status visible");runOnMainSync(()->find(activity.getWindow().getDecorView(),android.widget.ListView.class).setSelection(6));until(()->hasText(activity,"Block pending"));check(hasText(activity,"Block pending"),"pending subtitle visible after scrolling");
                 runOnMainSync(()->{EditText search=find(activity.getWindow().getDecorView(),EditText.class);search.setText("+12025550102");});
-                until(()->hasText(activity,"Parcel Desk"));Thread.sleep(300);check(!hasText(activity,"Harbor Clinic"),"search excludes other exact number");
+                until(()->hasText(activity,"Parcel Desk")&&!hasText(activity,"Harbor Clinic"));check(!hasText(activity,"Harbor Clinic"),"search excludes other exact number");
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("No such local account"));until(()->hasText(activity,"No matching accounts"));check(hasText(activity,"Enable a number"),"empty search offers explicit number entry");
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText(""));until(()->hasText(activity,"Harbor Clinic"));
                 check(repository.current().accounts().size()==6,"UI search does not mutate repository");
             }
-            result.putString("stream","PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
-        }catch(Throwable error){result.putString("stream","FAIL "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
+            result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
+        }catch(Throwable error){result.putString("stream","FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
+    }
+    private void performance()throws Exception{
+        committed(repository::reset);insertSyntheticAccounts(0,10_000);committed(repository::reload);
+        check(repository.current().accounts().size()==10_000,"ten thousand records loaded");
+        long[] samples=new long[20];
+        for(int i=0;i<samples.length;i++){
+            CountDownLatch done=new CountDownLatch(1);int index=i;long start=android.os.SystemClock.elapsedRealtimeNanos();
+            repository.search("account "+(9000+i),rows->{check(rows.size()==1,"large-database query identity");samples[index]=android.os.SystemClock.elapsedRealtimeNanos()-start;done.countDown();});
+            check(done.await(10,TimeUnit.SECONDS),"bounded search callback");
+        }
+        java.util.Arrays.sort(samples);long p95=samples[18]/1_000_000;
+        java.io.File database=getTargetContext().getDatabasePath("gate.db");long bytes=database.length()+new java.io.File(database.getPath()+"-wal").length();
+        metrics="METRIC records=10000 query_p95_ms="+p95+" database_and_wal_bytes="+bytes+"\n";
+        check(p95<=100,"declared emulator query target");check(bytes<20L*1024*1024,"ten-thousand-record storage target");
+        insertSyntheticAccounts(10_000,40_000);committed(repository::reload);check(repository.current().accounts().size()==50_000,"account ceiling fixture");
+        committed(cb->repository.enableNumber("+12025550197","Capacity protection",cb));
+        check(repository.current().accounts().size()==50_000,"new choice evicts only optional cache at capacity");
+        check(repository.current().accounts().stream().anyMatch(a->a.phone().equals("+12025550197")&&a.choice()==Choice.ALLOW),"new explicit choice preserved at capacity");
+    }
+    private void insertSyntheticAccounts(int offset,int count){
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
+            SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+            try(var insert=db.compileStatement("INSERT INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) VALUES(1,?,?,?,?,?)")){
+                long now=System.currentTimeMillis();
+                for(int i=offset;i<offset+count;i++){
+                    String name="Account "+i;insert.bindString(1,"+1999"+String.format(java.util.Locale.ROOT,"%07d",i));insert.bindString(2,name);insert.bindString(3,name.toLowerCase(java.util.Locale.ROOT));insert.bindLong(4,now);insert.bindLong(5,now);insert.executeInsert();insert.clearBindings();
+                }
+                db.setTransactionSuccessful();
+            }finally{db.endTransaction();}
+        }
+    }
+    private void writerBarrier()throws Exception{
+        java.lang.reflect.Field field=GateRepository.class.getDeclaredField("writer");field.setAccessible(true);
+        CountDownLatch done=new CountDownLatch(1);((java.util.concurrent.ExecutorService)field.get(repository)).execute(done::countDown);
+        check(done.await(10,TimeUnit.SECONDS),"writer drained");waitForIdleSync();
+    }
+    private void foundationRegressions()throws Exception{
+        committed(repository::reset);
+        String digest=io.github.appunnim.businessgate.automation.AdapterRegistry.sha256("owned synthetic installation".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Binding a=new Binding(repository.installation(),digest,"synthetic-profile","+12025550001","synthetic-a");
+        Binding b=new Binding(repository.installation(),digest,"synthetic-profile","+12025550002","synthetic-a");
+        committed(cb->repository.bindReceiver(a,cb));committed(cb->repository.updateSetup("REVIEW",true,cb));
+        committed(cb->repository.enableNumber("+12025550101","Synthetic namespace choice",cb));long namespaceA=repository.current().namespace();
+        committed(cb->repository.bindReceiver(b,cb));check(repository.current().accounts().isEmpty(),"receiving namespaces isolate the same sender");
+        committed(cb->repository.enableNumber("+12025550101","Independent choice",cb));long id=repository.current().accounts().get(0).id();
+        committed(cb->repository.choose(id,Choice.DENY_MANUAL,cb));
+        committed(cb->repository.bindReceiver(a,cb));check(repository.current().namespace()==namespaceA,"existing namespace restored");
+        check(repository.current().accounts().get(0).choice()==Choice.ALLOW,"other receiver cannot change ALLOW");
+        check(repository.current().accounts().get(0).nonce().isEmpty(),"namespace switch does not revive unblock grant");
+        long sender=repository.current().accounts().get(0).id();
+        committed(cb->repository.choose(sender,Choice.DEFAULT,cb));
+        Evidence observed=new Evidence(namespaceA,"+12025550101",Kind.BUSINESS_CONFIRMED,BlockState.UNBLOCKED,android.os.SystemClock.elapsedRealtime(),5,2,a.receiver(),a.adapter(),true,true);
+        runOnMainSync(()->repository.observe(observed,"Synthetic observation"));writerBarrier();
+        check(repository.current().account(sender).jobState()==JobState.PENDING,"fresh confirmed profile queues block");
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET state='DONE' WHERE account_id=?",new Object[]{sender});}
+        committed(repository::reload);
+        Evidence again=new Evidence(namespaceA,"+12025550101",Kind.BUSINESS_CONFIRMED,BlockState.UNBLOCKED,android.os.SystemClock.elapsedRealtime(),5,2,a.receiver(),a.adapter(),true,true);
+        runOnMainSync(()->repository.observe(again,"Synthetic observation"));writerBarrier();
+        check(repository.current().account(sender).jobState()==JobState.PENDING,"externally unblocked state requeues settled job");
+        Snapshot pending=repository.current();Account pendingAccount=pending.account(sender);
+        var stalePlan=new io.github.appunnim.businessgate.automation.AutomationController.Plan(sender,pending.globalRevision(),pendingAccount.revision(),5,Action.BLOCK,
+            io.github.appunnim.businessgate.automation.AutomationController.Control.CONFIRM_BLOCK,pendingAccount.phone(),a.receiver(),2,namespaceA,a.adapter(),pendingAccount.nonce(),false);
+        committed(cb->repository.choose(sender,Choice.ALLOW,cb));String newerGrant=repository.current().account(sender).nonce();
+        CountDownLatch verified=new CountDownLatch(1);
+        Evidence blocked=new Evidence(namespaceA,pendingAccount.phone(),Kind.BUSINESS_CONFIRMED,BlockState.BLOCKED,android.os.SystemClock.elapsedRealtime(),5,2,a.receiver(),a.adapter(),true,true);
+        repository.verified(stalePlan,blocked,result->{check(result==io.github.appunnim.businessgate.automation.AutomationController.CommitResult.STALE,"stale verification is acknowledged as stale");verified.countDown();});
+        check(verified.await(10,TimeUnit.SECONDS),"verification acknowledgement");
+        check(newerGrant.equals(repository.current().account(sender).nonce())&&repository.current().account(sender).jobAction()==Action.UNBLOCK,"old completion cannot consume newer ALLOW command");
+        java.lang.reflect.Field field=GateRepository.class.getDeclaredField("writer");field.setAccessible(true);
+        java.util.concurrent.ExecutorService writer=(java.util.concurrent.ExecutorService)field.get(repository);
+        CountDownLatch held=new CountDownLatch(1),release=new CountDownLatch(1);
+        writer.execute(()->{held.countDown();try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+        check(held.await(10,TimeUnit.SECONDS),"writer held for race");
+        Snapshot before=repository.current();Readiness ready=new Readiness(before.namespace(),before.globalRevision(),repository.epoch(),android.os.SystemClock.elapsedRealtime(),before.binding());
+        runOnMainSync(()->{repository.arm(ready,()->{});repository.emergencyStop();});release.countDown();writerBarrier();check(repository.disarmed(),"late arm cannot undo Stop");
+        CountDownLatch optionHeld=new CountDownLatch(1),optionRelease=new CountDownLatch(1);
+        writer.execute(()->{optionHeld.countDown();try{optionRelease.await(10,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+        check(optionHeld.await(10,TimeUnit.SECONDS),"writer held before option revocation");
+        runOnMainSync(()->{repository.setting("sales_hints",true);repository.setting("sales_hints",false);});
+        check(!repository.optionEnabled("sales_hints"),"queued disable immediately vetoes optional processing");
+        optionRelease.countDown();writerBarrier();check(!repository.optionEnabled("sales_hints"),"old enable acknowledgement cannot undo newer disable");
+        CountDownLatch consentHeld=new CountDownLatch(1),consentRelease=new CountDownLatch(1),withdrawn=new CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicBoolean switchCallback=new java.util.concurrent.atomic.AtomicBoolean();
+        writer.execute(()->{consentHeld.countDown();try{consentRelease.await(10,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+        check(consentHeld.await(10,TimeUnit.SECONDS),"writer held before receiver switch and withdrawal");
+        runOnMainSync(()->{repository.bindReceiver(b,()->switchCallback.set(true));repository.updateSetup("WELCOME",false,withdrawn::countDown);});
+        check(!repository.consented(),"consent withdrawal immediately vetoes processing");consentRelease.countDown();
+        check(withdrawn.await(10,TimeUnit.SECONDS),"withdrawal commits after queued receiver switch");writerBarrier();
+        check(!switchCallback.get(),"old receiver callback cannot reopen consent after withdrawal");
+        check(!repository.consented()&&!repository.current().consent(),"withdrawal persists in the newly active receiver");
+        committed(cb->repository.bindReceiver(a,cb));check(!repository.consented(),"returning to an old receiver does not revive withdrawn consent");
+        CountDownLatch heldReset=new CountDownLatch(1),releaseReset=new CountDownLatch(1),resetDone=new CountDownLatch(1);
+        writer.execute(()->{heldReset.countDown();try{releaseReset.await(10,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+        check(heldReset.await(10,TimeUnit.SECONDS),"writer held before reset");
+        runOnMainSync(()->{repository.enableNumber("+12025550109","Superseded",()->{});repository.reset(resetDone::countDown);});releaseReset.countDown();
+        check(resetDone.await(10,TimeUnit.SECONDS),"reset commits");writerBarrier();check(repository.current().accounts().isEmpty(),"queued old choice cannot repopulate reset");
+        android.content.Context isolated=new android.content.ContextWrapper(getTargetContext()){
+            @Override public java.io.File getDatabasePath(String name){return super.getDatabasePath("migration-test.db");}
+            @Override public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory){return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name),factory);}
+            @Override public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory,android.database.DatabaseErrorHandler handler){return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name).getPath(),factory,handler);}
+        };
+        java.io.File path=isolated.getDatabasePath("gate.db");SQLiteDatabase.deleteDatabase(path);
+        try(SQLiteDatabase db=SQLiteDatabase.openOrCreateDatabase(path,null);var input=getContext().getAssets().open("schema-v1.sql")){
+            for(String sql:new String(io.github.appunnim.businessgate.support.Bytes.read(input),java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!sql.trim().isEmpty())db.execSQL(sql);
+            db.execSQL("INSERT INTO namespace(id,installation,enabled,paused,receiver_binding,qualification_id) VALUES(1,'synthetic-installation',1,0,'+12025550001','old-binding')");
+            db.execSQL("INSERT INTO account(id,namespace_id,phone,choice,first_seen,last_seen) VALUES(1,1,'+12025550101','ALLOW',0,0)");
+            db.execSQL("INSERT INTO action_job(account_id,action,state,global_revision,account_revision,nonce,created_at,updated_at) VALUES(1,'UNBLOCK','PENDING',0,0,'expired-grant',0,0)");
+        }
+        try(GateDbHelper helper=new GateDbHelper(isolated)){
+            SQLiteDatabase db=helper.getWritableDatabase();check(db.getVersion()==2,"real helper upgrades actual shipped schema");
+            try(var cursor=db.rawQuery("SELECT a.choice,n.active,n.paused,n.receiver_binding,j.state,j.nonce FROM account a JOIN namespace n ON a.namespace_id=n.id JOIN action_job j ON j.account_id=a.id",null)){
+                check(cursor.moveToFirst(),"migration preserves account and job");check(cursor.getString(0).equals("ALLOW"),"migration preserves durable choice");
+                check(cursor.getInt(1)==1&&cursor.getInt(2)==1&&cursor.getString(3).isEmpty(),"migration invalidates unverified binding");
+                check(cursor.getString(4).equals("CANCELED")&&cursor.isNull(5),"migration revokes old unblock authority");
+            }
+            db.setVersion(3);
+        }
+        try(GateDbHelper helper=new GateDbHelper(isolated)){
+            boolean rejected=false;try{helper.getWritableDatabase();}catch(IllegalStateException unsupported){rejected=true;}
+            check(rejected,"unsupported downgrade fails without resetting choices");
+        }
+        try(SQLiteDatabase db=SQLiteDatabase.openDatabase(path.getPath(),null,SQLiteDatabase.OPEN_READONLY)){
+            check(db.getVersion()==3,"rejected downgrade preserves database version");
+            try(var cursor=db.rawQuery("SELECT choice FROM account WHERE id=1",null)){check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW"),"rejected downgrade preserves choice");}
+        }finally{SQLiteDatabase.deleteDatabase(path);}
+        byte[] damaged="Synthetic damaged database fixture; preserve for recovery.".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        java.nio.file.Files.write(path.toPath(),damaged);
+        try(GateDbHelper helper=new GateDbHelper(isolated)){
+            boolean rejected=false;try{helper.getWritableDatabase();}catch(android.database.sqlite.SQLiteException corrupt){rejected=true;}
+            check(rejected,"corrupt database fails closed");
+            check(path.exists()&&java.util.Arrays.equals(damaged,java.nio.file.Files.readAllBytes(path.toPath())),"corruption handler does not erase the original database");
+        }finally{SQLiteDatabase.deleteDatabase(path);}
     }
     private Activity launch(){return startActivitySync(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
     private void seed()throws Exception{

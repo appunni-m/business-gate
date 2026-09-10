@@ -1,12 +1,16 @@
 PRAGMA foreign_keys = ON;
 CREATE TABLE namespace (
  id INTEGER PRIMARY KEY, installation TEXT NOT NULL, receiver_binding TEXT NOT NULL DEFAULT '',
+ package_digest TEXT NOT NULL DEFAULT '', profile_key TEXT NOT NULL DEFAULT '',
+ active INTEGER NOT NULL DEFAULT 0 CHECK(active IN (0,1)),
  qualification_id TEXT NOT NULL DEFAULT '', global_revision INTEGER NOT NULL DEFAULT 0 CHECK(global_revision>=0),
  enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)), paused INTEGER NOT NULL DEFAULT 1 CHECK(paused IN (0,1)),
  consent_version TEXT NOT NULL DEFAULT '', consent_at INTEGER NOT NULL DEFAULT 0,
  setup TEXT NOT NULL DEFAULT 'WELCOME', discovery INTEGER NOT NULL DEFAULT 0 CHECK(discovery IN (0,1)),
  sales_hints INTEGER NOT NULL DEFAULT 0 CHECK(sales_hints IN (0,1)), digest INTEGER NOT NULL DEFAULT 0 CHECK(digest IN (0,1))
 );
+CREATE UNIQUE INDEX one_active_namespace ON namespace(active) WHERE active=1;
+CREATE UNIQUE INDEX receiver_namespace ON namespace(installation,package_digest,profile_key,receiver_binding) WHERE receiver_binding<>'';
 CREATE TABLE account (
  id INTEGER PRIMARY KEY, namespace_id INTEGER NOT NULL REFERENCES namespace(id),
  phone TEXT NOT NULL CHECK(length(phone) BETWEEN 8 AND 16 AND substr(phone,1,1)='+' AND substr(phone,2,1) BETWEEN '1' AND '9' AND substr(phone,2) NOT GLOB '*[^0-9]*'),
@@ -48,4 +52,4 @@ CREATE TABLE attention_daily (
  occupancy_ms INTEGER NOT NULL DEFAULT 0 CHECK(occupancy_ms>=0), union_ms INTEGER NOT NULL DEFAULT 0 CHECK(union_ms>=0),
  CHECK(union_ms<=management_ms+occupancy_ms)
 );
-PRAGMA user_version=1;
+PRAGMA user_version=2;

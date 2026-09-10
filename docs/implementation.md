@@ -1,55 +1,53 @@
 # Implementation and verification
 
-Version 0.1.0, 9 September 2026. This is an Android development implementation. A successful build, synthetic fixture or pure-rule assertion does not qualify an external application's interface.
+Updated 10 September 2026. This remains an Android development implementation with **connected-app actions disabled**. The compatibility registry is empty. Building, installing, or passing synthetic tests does not establish physical compatibility.
 
-## What is implemented
+## Changes implemented from the completion plan
 
-| Design area | Implementation | Evidence or boundary |
+The [completion plan](implementation-plan.md) is the work definition. The [acceptance ledger](acceptance-ledger.json) keeps the full design's 96 cases separate from the companion's 97 cases. Engineering coverage is explicitly distinguished from a full acceptance pass.
+
+| Area | Current implementation | Verification boundary |
 | --- | --- | --- |
-| Independent identity | Original blue gate vector, native system typography, day/night palette, neutral project vocabulary | Source and APK/AAB name gate; visual inspection |
-| One-page management | Native Activity and ListView; stable IDs; enabled-first groups; expandable details; review/people groups; local search; exact-number form; pending footer | Android UI harness and emulator screenshots |
-| Local identity and choices | Conservative full international-number parser, normalized display search, DEFAULT/ALLOW/DENY_MANUAL choices | Pure identity/cross-product suite; actual SQLite/Android tests |
-| Personal safety | Separate current classification, review hint, desired choice and observed state; unknown/personal default abstention; manual confirmation | Pure policy matrix and Android classification-isolation checks |
-| Immediate choices | Main-thread per-command ALLOW veto while serial SQLite transaction commits; durable revisions; same-number mutation only | Controller journal-race tests; Android same-name isolation and nonce tests |
-| Persistence and recovery | Schema constraints, WAL, one writer, one current job per account, non-destructive version refusal, installation marker, unfinished intent recovery | SQLite constraint suite; actual Android process stop and restart |
-| Privacy and lifecycle | No Internet permission or runtime SDKs, bounded data, backup exclusions, explicit reset and consent withdrawal, inactive startup | Merged manifest and APK inventory audit; Android permission checks |
-| Pure hint classifier | Default-off bounded English phrase groups, script/OTP/forward/kept/fresh-profile exclusions; reason bits only | Positive and negative golden cases; no live notification binding yet |
-| Optional discovery | Permission disclosure, package-first listener, bounded in-memory opaque hint cache | Compiled production service; real provenance/coverage not qualified |
-| Reminders and effort | Consent/permission-gated silent reminder, 30-day reservation, identity-free notification; local interval-union timing and effort dialog | Pure interval-union tests; reminder delivery/device timing still needs testing |
-| Action core | Guard conjunction, per-step journal-before-dispatch, fresh reinspection, revision and identity cancellation, explicit one-shot unblock, verified-only success | Synthetic controller race, Stop, ambiguity and postcondition tests |
-| Bounded sessions | One-operation controller deadline; pure batch/scan budget with deduplication, five mutation/25-second and 100 profile/120-second limits, no-progress stop | Pure budget tests; real navigation is not connected |
-| Generic adapter boundary | Bundled exact-build/signing/locale registry and bounded structural field/control paths | Empty registry is enforced in artifact audit; no measured external fixture supplied |
-| Release engineering | Pinned checksummed wrapper, debug APK, optimized unsigned release APK/AAB, lint and CI workflow | Local successful builds, wrapper check and actual DEX/manifest inspection |
+| Identity and choices | Original blue gate identity, native one-page UI, exact-number choices and independent receiver namespaces | Pure policy and actual Android database/UI tests; live receiver extraction unqualified |
+| Migration | Transactional schema 1 to 2 upgrade from the actual shipped schema; choices retained; obsolete bindings and unblock grants revoked | Android `SQLiteOpenHelper` migration regression plus SQLite schema checks |
+| Cancellation | Separate data and authority generations; immediate Stop/ALLOW veto; callbacks cannot rearm an old lease or repopulate a reset namespace | Deterministic writer-held Android tests and pure callback regressions |
+| Action state | Durable verification acknowledgement, action/identity/revision/grant matching, idempotent observation completion, settled block-job reconciliation | Pure controller and Android repository tests; external dispatch/postconditions unqualified |
+| Compatibility | Bounded exact-environment registry, signing-history checks, reviewed evidence and artifact hashes, structural ancestor validation | Source/artifact gates; no nonempty production contract is qualified |
+| Execution boundary | Named guard observations, specific entry/confirmation dispatch, live control/identity geometry checks, finite visible sessions, fenced deadlines | Compiles and passes lint; physical window/interaction behavior remains unrun |
+| Connection UI | System installation picker, explicit receiver review, readiness-based activation and current-profile session request | Inactive with the empty registry; complete live journey remains unqualified |
+| Optional features | Bounded pure hint classifier, notification-cache cleanup, reminder permission/consent recheck, separate management/session effort intervals with UTC day splitting | Pure timing/hint tests; notification provenance, delivery races, and physical attention measurements remain incomplete |
+| UI and capacity | Stable search/list IDs, immediate invalidation of old search results, scrollable custom dialogs, failed-job copy, bounded accounts with optional-cache eviction before rejecting a new explicit choice | Native UI and large-database harness; physical accessibility/device matrix remains unrun |
+| Delivery | Signed GitHub APKs, certificate pinning, immutable versioned releases, rolling download, source provenance, and a separate upgrade probe using its own test key | Existing public delivery verified; new workflow checks must pass on the corresponding source commit |
 
-## Verification run
+The initial installed-release activation test used version `0.1.0-dev.5.1` (`100501`). Startup and screen-access binding passed; Resume displayed compatibility help. No block/unblock was performed. That result remains the baseline, not evidence that the new live path is qualified.
 
-The following commands were executed locally on macOS arm64 with JDK 17 and SDK 36/Build Tools 35.0.0:
+## Run the checks
+
+Use Java 17 and the SDK configuration in the [README](../README.md). Before pushing an implementation change:
 
 ```sh
 scripts/test.sh
 python3 scripts/check_wrapper.py
 ./gradlew :app:lintDebug :app:lintRelease :app:assembleDebug \
-  :app:assembleDebugAndroidTest :app:assembleRelease :app:bundleRelease
-./gradlew :app:dependencies --configuration releaseRuntimeClasspath
-scripts/device-tests.sh
+  :app:assembleDebugAndroidTest :app:assembleRelease :app:bundleRelease \
+  :release-probe:lintDebug :release-probe:assembleDebug
 python3 scripts/audit_artifact.py app/build/outputs/apk/release/app-release-unsigned.apk
 python3 scripts/check_brand.py app/build/outputs/apk/debug/app-debug.apk \
   app/build/outputs/apk/release/app-release-unsigned.apk \
-  app/build/outputs/bundle/release/app-release.aab
+  app/build/outputs/bundle/release/app-release.aab \
+  release-probe/build/outputs/apk/debug/release-probe-debug.apk
 ```
 
-The pure suite currently exercises 196,721 assertions, including all 65,536 combinations of 16 required guards for each of automatic business block, explicit manual block and one-shot unblock. This is assertion coverage of the supplied contexts, not line coverage or evidence that the Android environment supplies truthful guard values. The schema suite exercises 19 constraint/recovery checks.
+On an isolated emulator, set `GATE_TEST_SERIAL` and run `scripts/device-tests.sh`. The harness resets only the debug application and uses synthetic records. It exercises persistence, namespaces, cancellation, migration, search/UI, 10,000-record queries, the 50,000-account boundary, and actual process termination/restart. If the installed debug APK has a higher version code, build with an appropriate `-PgateVersionCode`; do not delete saved data to avoid an upgrade check.
 
-The native harness ran on an isolated Android API 36 arm64 emulator. Its `all` mode passed 29 persistence/permission/UI assertions; `prepare-recovery` and `verify-recovery` each passed two checks and used an actual process termination between runs. A startup synchronization issue and a test assumption about an offscreen row were corrected in the harness. No personal data or external test accounts were used.
+The separate `release-probe` module is not a dependency of the application. `scripts/release-upgrade-test.sh` installs the probe on a dedicated emulator, seeds a fictional ALLOW choice through the previous signed app's own UI, installs the new signed APK with `adb install -r`, and verifies the choice. It removes the probe afterward. It never inspects the connected app or receives publisher credentials.
 
-The release runtime dependency graph reports **No dependencies**. The artifact audit inventories actual DEX definitions against the R8 mapping, allows app classes and compiler-generated record support, rejects bundled native libraries and the test harness, checks the exact permission set and backup flag, and requires the empty production registry. The app is not release-signed.
+## Remaining implementation and evidence
 
-Visual review covers setup, the saved-choice/compatibility state, light and dark modes, and a 320 dp viewport at 200% font scale. Large text uses a separate toolbar action row and a short visible search hint while retaining the full accessibility description. TalkBack traversal, all OS/OEM combinations, 50,000-row performance, power-loss corruption, real device transfer and a real monthly-attention study remain unverified.
+The integration is still incomplete. Measured receiver/profile/dialog contracts, reliable own-action versus user-interaction handling, full navigation/batching/scanning, notification provenance and scoring integration, safe recovery/compensation across real external transitions, and physical block/unblock outcomes are not qualified. Some of these still require implementation once the actual interface is measured; JSON metadata alone cannot complete them.
 
-## Work that remains before real blocking
+The service conservatively stops on click/scroll events. No optimistic exception for its own clicks is enabled. A target whose event ordering cannot meet the safe contract remains unsupported. Current sessions operate on a visible profile; qualified navigation and multi-profile batches are unfinished.
 
-The integration registry is empty because the required input measurements are absent. The production service subscribes to an inert package and never arms. The UI stores local decisions but reports the unavailable integration. The current generic service adapter is a provisional engineering harness; measured receiver namespace binding, per-guard device evidence, qualified navigation/batching, notification provenance, full interruption/compensation behavior and real block/unblock flows still need implementation and physical validation. See [qualification](qualification.md).
+TalkBack behavior, the complete physical OS/OEM/layout matrix, transfer/corruption recovery, real sender delivery/read receipts, discovery coverage, and the monthly attention pilot remain unrun. See [qualification](qualification.md). Do not claim a completed blocker, discovery percentage, or one-minute monthly effort from the engineering suite.
 
-Public distribution additionally needs the owner's signing setup, final identity/license choices, privacy/support endpoints, policy approval, integration review and paid-listing configuration. No store submission, paid sale, real block, unblock, message read, or external-account mutation was performed.
-
-The design's one-minute monthly attention, broad discovery coverage and long-term blocking claims are **unmeasured**. Preserve these as release criteria, not marketing promises.
+GitHub delivery is already release-signed. Local Gradle release outputs remain unsigned. The configured repository signing secret does not need to be recreated. No store sale/publication has occurred, and the owner has not selected an open-source license or final public support/privacy endpoints.
