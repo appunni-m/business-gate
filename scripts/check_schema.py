@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Exercise the exact bundled schema, including constraints and crash recovery."""
+import contextlib
+import json
 import sqlite3
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 conn = sqlite3.connect(':memory:')
@@ -48,4 +53,57 @@ legacy.executescript(Path('app/src/main/assets/migrations/1-2.sql').read_text())
 assert legacy.execute('SELECT choice FROM account').fetchone()[0]=='ALLOW'
 assert legacy.execute('SELECT active,enabled,paused,receiver_binding FROM namespace').fetchone()==(1,0,1,'')
 checks+=2
-print(f'PASS {checks} schema constraints, shipped-schema migration and recovery assertions')
+
+migration = [sql.strip() for sql in Path('app/src/main/assets/migrations/1-2.sql').read_text().split(';') if sql.strip()]
+v1 = Path('app/src/androidTest/assets/schema-v1.sql').read_text()
+def old_database(path):
+    db=sqlite3.connect(path)
+    db.executescript(v1)
+    db.execute("INSERT INTO namespace(id,installation,enabled,paused) VALUES(1,'interruption-fixture',1,0)")
+    db.execute("INSERT INTO account(namespace_id,phone,choice,first_seen,last_seen) VALUES(1,'+12025550101','ALLOW',0,0)")
+    db.commit()
+    return db
+
+def preserved(db):
+    assert db.execute('PRAGMA user_version').fetchone()[0]==1
+    assert 'active' not in {row[1] for row in db.execute('PRAGMA table_info(namespace)')}
+    assert db.execute('SELECT choice FROM account').fetchone()[0]=='ALLOW'
+    assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+
+# Actual worker death at each migration statement, followed by reopening the original file.
+with tempfile.TemporaryDirectory(prefix='business-gate-migration-') as directory:
+    for cut in range(1,len(migration)+1):
+        path=Path(directory)/f'legacy-{cut}.db'
+        old_database(path).close()
+        worker='''import json,os,sqlite3,sys
+db=sqlite3.connect(sys.argv[1]);db.execute('BEGIN IMMEDIATE')
+for statement in json.loads(sys.stdin.read()): db.execute(statement)
+os._exit(73)
+'''
+        result=subprocess.run([sys.executable,'-c',worker,str(path)],input=json.dumps(migration[:cut]),text=True)
+        assert result.returncode==73
+        with contextlib.closing(sqlite3.connect(path)) as reopened: preserved(reopened)
+        checks+=1
+
+# A real SQLite page quota raises SQLITE_FULL without consuming the host's remaining disk.
+limited=old_database(':memory:')
+pages=limited.execute('PRAGMA page_count').fetchone()[0]
+limited.execute(f'PRAGMA max_page_count={pages}')
+try:
+    limited.execute('BEGIN IMMEDIATE')
+    for statement in migration: limited.execute(statement)
+except sqlite3.OperationalError as error:
+    assert 'full' in str(error).lower()
+    limited.rollback()
+else:
+    raise AssertionError('Expected the migration to exceed its page quota')
+preserved(limited)
+checks+=1
+limited.execute('PRAGMA max_page_count=1000000')
+limited.execute('BEGIN IMMEDIATE')
+for statement in migration: limited.execute(statement)
+limited.execute('PRAGMA user_version=2');limited.commit()
+assert limited.execute('SELECT choice FROM account').fetchone()[0]=='ALLOW'
+assert limited.execute('SELECT paused,enabled FROM namespace').fetchone()==(1,0)
+checks+=1
+print(f'PASS {checks} schema, migration interruption, quota failure and recovery checks')

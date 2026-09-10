@@ -27,14 +27,14 @@ Local command output is retained under `/tmp/business-gate/` during execution. I
 | F03 | Partial | Bounded registry, device/build/signing-history and evidence-hash validation. Nonempty measured fixtures and environment rejection matrix remain. |
 | F04 | Partial | Installation picker, receiver review, readiness token and finite profile-session dispatch wired. Supported activation journey needs F02/F03. |
 | F05 | Partial | Receiver/installation isolation, generation-bound writes and unconnected choices tested. Real account/clone/restore transitions remain unqualified. |
-| F06 | Partial | Actual v1 migration preserves choices and revokes old bindings/grants; corruption preserves files; downgrade rejects safely. Disk-full and interrupted migration matrix remain. |
+| F06 | Partial | Actual v1 migration preserves choices and revokes old bindings/grants; corruption preserves files; downgrade rejects safely. SQLite worker-death and quota/recovery checks pass locally; the added Android WAL quota regression awaits CI. |
 | F07 | Partial | Stop/ALLOW/data epochs and callback ownership; reset and consent/switch races tested. Full live dispatch cancellation matrix remains. |
 | F08 | Partial | Sixteen named guards; each missing bit rejects pure dispatch. Android fact derivation and window behavior remain unqualified. |
 | F09 | Partial | Bounded paths, ancestors, class/text/identity and visible forbidden-control checks. Adversarial structural fixtures, total callback node budget and measured fixtures remain. |
 | F10 | Partial | Specific entry/confirmation control and renewed identity/revision/window/policy checks. Real last-moment replacement tests remain. |
-| F11 | Partial | Old failure callbacks/deadlines fenced; intermediate events do not repeat entry. Own-action versus user-input attribution remains conservative and unfinished. |
+| F11 | Partial | Old callbacks fenced; 2.5-second transition and eight-second attempt deadlines added; intermediate events do not repeat entry. Own-action versus user-input attribution remains conservative and unfinished. |
 | F12 | Partial | Completion waits for durable same-command acknowledgement; stale completion cannot consume newer ALLOW. Live postconditions remain unqualified. |
-| F13 | Partial | Settled jobs requeue from fresh evidence; idempotence and actual restart reinspection tested. Bounded Retry, uncertain circuit recovery and every crash boundary remain. |
+| F13 | Partial | Settled jobs requeue; bounded attempts/backoffs, explicit Retry, preserved grants and durable circuit recovery pass the CI repository suite. Added entry/confirmation process-death checks and real external crash boundaries still need completion. |
 | F14 | Partial | Immediate ALLOW veto, nonce/revision/expiry and ownership checks strengthened. Live after-dispatch compensation remains unfinished. |
 | F15 | Partial | Stop geometry, finite lease and lock/lifecycle stops implemented. Reachability, TalkBack, interruptions and foreground matrix remain unrun. |
 | F16 | Blocked | No real block/unblock, independent sender delivery check or physically qualified final APK. |
@@ -43,7 +43,7 @@ Local command output is retained under `/tmp/business-gate/` during execution. I
 | F19 | Blocked | Opaque bounded notification cache is scoped and cleared. Provenance/candidate consumer and discovery bridge remain unimplemented. |
 | F20 | Partial | Bounded classifier, immediate option veto, global consent withdrawal and metadata cleanup. Qualified incoming-text and review-promotion integration remain unimplemented. |
 | F21 | Partial | Reminder rechecks consent/options, namespace, permission/channel and 30-day cap. Device delivery/revocation/clock matrix remains. |
-| F22 | Partial | Management/session monotonic intervals, UTC splitting and union accounting. Process-loss persistence, scan/repair attention and pilot remain. |
+| F22 | Partial | Monotonic intervals, UTC splitting, union accounting and visible-only checkpoints implemented. New checkpoint process-death tests await CI; scan/repair attention and pilot remain. |
 | F23 | Partial | Runtime disarm, failed-job copy, receiver/local-choice management and readiness requests improved. Full setup/retry/recovery state machine remains. |
 | F24 | Partial | Stable IDs, stale-search invalidation, namespace result clearing, scrollable dialogs and plurals. Complete visual/TalkBack/layout matrix remains. |
 | F25 | Partial | Write-time retention, account ceiling and optional-cache eviction; emulator query/capacity checks pass. Physical scrolling and all-protected capacity evidence remain. |
@@ -58,6 +58,8 @@ Local command output is retained under `/tmp/business-gate/` during execution. I
 Commit `715a4d9` passed the [recovery branch's Android verification](https://github.com/appunni-m/business-gate/actions/runs/34437281467). It adds durable attempt counts, a three-attempt limit, 30-second/five-minute backoffs, independent 2.5-second transition and eight-second attempt deadlines, and persisted uncertain-result reasons. Explicit Retry reopens inspection without creating an unblock grant. Structural/identity anomalies persist a circuit that requires an explicit, observe-only compatibility check. A targeted Retry or Unblock now keeps the requested number pinned; an unblock-only session preserves the paused business rule. This proves engineering behavior on the CI emulator, not live connected-app qualification.
 
 Visible effort now checkpoints approximately every five seconds while management or session work is active. Metric writes do not reload account lists. Reset invalidates queued old metrics and clears pre-reset intervals; receiving-account switches do not erase already measured global effort. No timer resumes on process startup. Android scheduling and uncommitted writes can still lose the latest duration during a crash, so the displayed totals remain a local lower bound. New process-death checkpoint tests must pass before this additional change is considered emulator-verified.
+
+The first checkpoint CI run passed 164 core Android assertions but timed out at the 50,000-record snapshot callback. The account projection now reads only required columns by fixed index, and the harness records that load's duration without increasing its timeout. The retrying verification must pass before promotion. Separately, 31 SQLite checks pass locally, including actual worker termination after each migration statement, quota-induced migration rollback and successful recovery after capacity returns. The Android harness adds the production migration method under a WAL/page quota; that result is still pending.
 
 The local emulator currently refuses to start because the host has insufficient disk space. Its saved account data is preserved. Pure/build/lint checks can continue locally; the GitHub emulator is the available device harness for this change. Build `100701` previously passed GitHub verification/delivery and a local signed predecessor upgrade; its published bytes and signing identity were verified.
 

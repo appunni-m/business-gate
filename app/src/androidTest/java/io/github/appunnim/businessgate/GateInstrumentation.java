@@ -80,7 +80,7 @@ public final class GateInstrumentation extends Instrumentation {
                 check(repository.current().accounts().size()==6,"UI search does not mutate repository");
             }
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
-        }catch(Throwable error){result.putString("stream","FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
+        }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
     private void performance()throws Exception{
         committed(repository::reset);insertSyntheticAccounts(0,10_000);committed(repository::reload);
@@ -95,7 +95,11 @@ public final class GateInstrumentation extends Instrumentation {
         java.io.File database=getTargetContext().getDatabasePath("gate.db");long bytes=database.length()+new java.io.File(database.getPath()+"-wal").length();
         metrics="METRIC records=10000 query_p95_ms="+p95+" database_and_wal_bytes="+bytes+"\n";
         check(p95<=100,"declared emulator query target");check(bytes<20L*1024*1024,"ten-thousand-record storage target");
-        insertSyntheticAccounts(10_000,40_000);committed(repository::reload);check(repository.current().accounts().size()==50_000,"account ceiling fixture");
+        insertSyntheticAccounts(10_000,40_000);long loadStarted=android.os.SystemClock.elapsedRealtime();
+        CountDownLatch loaded=new CountDownLatch(1);runOnMainSync(()->repository.reload(loaded::countDown));
+        check(loaded.await(10,TimeUnit.SECONDS),"fifty-thousand-record snapshot callback within ten seconds");
+        metrics+="METRIC records=50000 snapshot_load_ms="+(android.os.SystemClock.elapsedRealtime()-loadStarted)+"\n";
+        check(repository.current().accounts().size()==50_000,"account ceiling fixture");
         committed(cb->repository.enableNumber("+12025550197","Capacity protection",cb));
         check(repository.current().accounts().size()==50_000,"new choice evicts only optional cache at capacity");
         check(repository.current().accounts().stream().anyMatch(a->a.phone().equals("+12025550197")&&a.choice()==Choice.ALLOW),"new explicit choice preserved at capacity");
@@ -213,6 +217,30 @@ public final class GateInstrumentation extends Instrumentation {
             boolean rejected=false;try{helper.getWritableDatabase();}catch(android.database.sqlite.SQLiteException corrupt){rejected=true;}
             check(rejected,"corrupt database fails closed");
             check(path.exists()&&java.util.Arrays.equals(damaged,java.nio.file.Files.readAllBytes(path.toPath())),"corruption handler does not erase the original database");
+        }finally{SQLiteDatabase.deleteDatabase(path);}
+        migrationQuota(isolated,path);
+    }
+    private void migrationQuota(android.content.Context isolated,java.io.File path)throws Exception{
+        try(SQLiteDatabase db=SQLiteDatabase.openOrCreateDatabase(path,null);var input=getContext().getAssets().open("schema-v1.sql")){
+            for(String sql:new String(io.github.appunnim.businessgate.support.Bytes.read(input),java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!sql.trim().isEmpty())db.execSQL(sql);
+            db.execSQL("INSERT INTO namespace(id,installation) VALUES(1,'quota-fixture')");
+            db.execSQL("INSERT INTO account(id,namespace_id,phone,choice,first_seen,last_seen) VALUES(1,1,'+12025550101','ALLOW',0,0)");
+            db.enableWriteAheadLogging();
+            long pages=android.database.DatabaseUtils.longForQuery(db,"PRAGMA page_count",null);db.setMaximumSize(pages*db.getPageSize());
+            boolean full=false;db.beginTransaction();
+            try(GateDbHelper helper=new GateDbHelper(isolated)){
+                helper.onUpgrade(db,1,2);db.setTransactionSuccessful();
+            }catch(android.database.sqlite.SQLiteFullException expected){full=true;}
+            finally{db.endTransaction();}
+            check(full,"real Android migration reaches its SQLite page quota");
+            check(db.getVersion()==1,"quota failure preserves the shipped schema version");
+            try(var cursor=db.rawQuery("SELECT choice FROM account WHERE id=1",null)){check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW"),"quota failure preserves durable ALLOW");}
+            check(android.database.DatabaseUtils.stringForQuery(db,"PRAGMA integrity_check",null).equals("ok"),"quota rollback retains database integrity");
+            db.setMaximumSize(10L*1024*1024);
+        }
+        try(GateDbHelper helper=new GateDbHelper(isolated)){
+            SQLiteDatabase recovered=helper.getWritableDatabase();check(recovered.getVersion()==2,"migration retries after storage capacity returns");
+            try(var cursor=recovered.rawQuery("SELECT a.choice,n.paused FROM account a JOIN namespace n ON n.id=a.namespace_id WHERE a.id=1",null)){check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW")&&cursor.getInt(1)==1,"recovered migration keeps choice and inactive startup");}
         }finally{SQLiteDatabase.deleteDatabase(path);}
     }
     private Activity launch(){return startActivitySync(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
