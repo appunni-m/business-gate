@@ -39,6 +39,7 @@ import io.github.appunnim.businessgate.GateApplication;
 import io.github.appunnim.businessgate.R;
 import io.github.appunnim.businessgate.data.GateRepository;
 import io.github.appunnim.businessgate.policy.Identity;
+import io.github.appunnim.businessgate.policy.PendingChoices.Pending;
 import io.github.appunnim.businessgate.policy.Model.*;
 import io.github.appunnim.businessgate.policy.SalesHintEngine;
 import io.github.appunnim.businessgate.service.GateAccessibilityService;
@@ -142,6 +143,7 @@ public final class MainActivity extends Activity {
         String text;
         if(!s.error().isEmpty())text=s.error();
         else if(!s.loaded())text="Loading your choices…";
+        else if(!repository.pendingChoices().isEmpty())text="Choices waiting to save · actions paused";
         else if(!s.consent())text="Choose the businesses you want to hear from.";
         else if(!app.registry().available())text="Paused · compatibility check needed";
         else if(!GateAccessibilityService.connected())text="Blocking paused · screen access is off";
@@ -158,6 +160,7 @@ public final class MainActivity extends Activity {
         long anchor=list.getFirstVisiblePosition()<rows.size()?rows.get(list.getFirstVisiblePosition()).id():Long.MIN_VALUE;
         int top=list.getChildCount()>0?list.getChildAt(0).getTop():0;
         rows.clear();Snapshot s=repository.current();boolean searching=!search.getText().toString().trim().isEmpty();
+        if(!s.error().isEmpty()||!repository.pendingChoices().isEmpty())rows.add(new Row(-16,"storage","",null));
         if(!searching){
             if(!s.consent())rows.add(new Row(-1,"setup","",null));
             else if(!app.registry().available()||!GateAccessibilityService.connected())rows.add(new Row(-2,"compatibility","",null));
@@ -189,13 +192,14 @@ public final class MainActivity extends Activity {
         menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();case 4->selectInstallation();case 5->reviewReceiver();case 6->{GateAccessibilityService.stopNow();repository.localChoices(()->announce("Managing unconnected choices. Nothing is applied to a receiving account."));}default->{}}return true;});menu.show();
     }
     private void addNumber(){
+        GateRepository.ChoiceScope scope=repository.choiceScope();
         LinearLayout fields=Ui.column(this);Ui.pad(fields,24,4);
         TextView explanation=Ui.text(this,"This permission belongs to one exact number. A new number needs its own permission.",14,R.color.muted,false);fields.addView(explanation);
         EditText phone=new EditText(this);phone.setHint("Full number, for example +1 202 555 0101");phone.setContentDescription("Full phone number with country code");phone.setInputType(InputType.TYPE_CLASS_PHONE);phone.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);phone.setMinHeight(Ui.dp(this,56));fields.addView(phone);
         EditText name=new EditText(this);name.setHint("Name (optional)");name.setContentDescription("Optional local name");name.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_WORDS);name.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);name.setMinHeight(Ui.dp(this,56));fields.addView(name);
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Enable a number").setView(Ui.scroll(this,fields)).setNegativeButton("Cancel",null).setPositiveButton("Enable",null).create();
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            try{Identity.canonicalPhone(phone.getText().toString());repository.enableNumber(phone.getText().toString(),name.getText().toString(),()->announce("Number enabled. Waiting for a supported account check."));dialog.dismiss();}
+            try{Identity.canonicalPhone(phone.getText().toString());if(repository.enableNumber(scope,phone.getText().toString(),name.getText().toString(),()->announce("Number enabled. Waiting for a supported account check.")))dialog.dismiss();else phone.setError("Storage or the receiving account changed, or too many changes are pending. Keep this number and reopen the form.");}
             catch(IllegalArgumentException invalid){phone.setError("Enter the full number with country code");phone.requestFocus();}
         }));dialog.show();
     }
@@ -207,6 +211,7 @@ public final class MainActivity extends Activity {
         .setNegativeButton("Keep off",null).setPositiveButton("Enable hints",(d,w)->repository.setting("sales_hints",true)).show();}
     private void toggleRule(){
         Snapshot s=repository.current();
+        if(!s.error().isEmpty()||!repository.pendingChoices().isEmpty()){storageHelp();return;}
         if(!repository.disarmed()&&s.enabled()&&!s.paused()){GateAccessibilityService.stopNow();repository.pause();return;}
         if(!s.consent()){accessDisclosure();return;}
         if(!app.registry().available()){compatibility();return;}
@@ -217,6 +222,7 @@ public final class MainActivity extends Activity {
         // Device/receiver readiness must be established by the qualification workflow.
     }
     private void applyPending(){
+        if(!repository.current().error().isEmpty()||!repository.pendingChoices().isEmpty()){storageHelp();return;}
         if(!app.registry().available()){compatibility();return;}
         new AlertDialog.Builder(this).setTitle("Apply your choices").setMessage("Actions need a freshly verified receiving account and supported visible profile. Block actions require your business rule to be on; explicit unblock requests can be checked while it is paused. This version checks one visible profile per session, for up to 25 seconds. Other pending choices stay saved.")
             .setNegativeButton("Close",null).setPositiveButton("Start visible session",(d,w)->startRequestedSession()).show();
@@ -320,18 +326,21 @@ public final class MainActivity extends Activity {
         .setNegativeButton("Cancel",null).setPositiveButton("Delete local data",(d,w)->{GateAccessibilityService.stopNow();repository.reset(()->{search.setText("");expanded=-1;announce("Local data deleted. Existing blocks stay.");});}).show();dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getColor(R.color.danger));}
     private void openSettings(String action){try{startActivity(new Intent(action));}catch(android.content.ActivityNotFoundException error){announce("This settings screen is unavailable on this device.");}}
     private void announce(String message){status.setText(message);}
-    private void choose(Account a,Choice choice){repository.choose(a.id(),choice,()->announce(choice==Choice.ALLOW?"Kept. This number will not be auto-blocked.":"Choice saved. Waiting for a supported account check."));}
+    private void choose(Account a,Choice choice){if(!repository.choose(a,choice,()->announce(choice==Choice.ALLOW?"Kept. This number will not be auto-blocked.":"Choice saved. Waiting for a supported account check.")))choiceRejected();}
+    private void choiceRejected(){refresh();announce("The account changed or too many choices are pending. Review the current number and choose again.");}
     private void unblockNow(Account a){
-        repository.choose(a.id(),Choice.ALLOW,()->{
+        if(!repository.choose(a,Choice.ALLOW,()->{
+            if(!started||isFinishing()||isDestroyed())return;
             if(app.registry().available()&&GateAccessibilityService.connected()&&repository.current().binding().bound())startRequestedSession(false,false,a.id());
             else announce("Unblock request saved. A supported visible account check is still required.");
-        });
+        }))choiceRejected();
     }
     private void manualBlock(Account a){
         new AlertDialog.Builder(this).setTitle("Block this number?").setMessage("This account has not been identified as a business.\n\n"+a.phone()+"\n\nBlock only this number because you chose it. Future messages and calls may be stopped. Another number will need its own check.")
             .setNegativeButton("Cancel",null).setPositiveButton("Block number",(d,w)->choose(a,Choice.DENY_MANUAL)).show();
     }
     private String subtitle(Account a){
+        Pending pending=repository.pendingChoice(a.phone());if(pending!=null)return pending.failed()?"Change not saved · actions paused":"Saving choice · actions paused";
         if(a.jobState()==JobState.FAILED)return "Action failed · check needed";
         if(a.pending()){
             if(a.jobState()==JobState.REINSPECT||a.jobState()==JobState.VERIFYING||a.jobState()==JobState.ACTION_INTENT)return "Action result not verified · check needed";
@@ -352,6 +361,7 @@ public final class MainActivity extends Activity {
             box.removeAllViews();box.setBackgroundColor(getColor(R.color.background));box.setPadding(0,0,0,0);box.setOnClickListener(null);box.setClickable(false);box.setContentDescription(null);box.setAccessibilityHeading(false);
             switch(r.type()){
                 case "section"->{TextView t=Ui.text(MainActivity.this,r.title(),12,R.color.muted,true);Ui.pad(t,16,12);t.setAccessibilityHeading(true);box.addView(t);}
+                case "storage"->storageCard(box);
                 case "setup"->setupCard(box);
                 case "compatibility"->compatibilityCard(box);
                 case "account","person","review"->accountRow(box,r);
@@ -379,8 +389,48 @@ public final class MainActivity extends Activity {
         LinearLayout row=Ui.row(this);Ui.pad(row,0,8);TextView badge=Ui.text(this,number,14,R.color.accent,true);badge.setGravity(Gravity.CENTER);badge.setBackground(Ui.shape(this,R.color.accent_surface,false));row.addView(badge,new LinearLayout.LayoutParams(Ui.dp(this,32),Ui.dp(this,32)));
         LinearLayout body=Ui.column(this);Ui.pad(body,12,0);body.addView(Ui.text(this,title,14,R.color.ink,true));body.addView(Ui.text(this,detail,12,R.color.muted,false));row.addView(body,new LinearLayout.LayoutParams(0,-2,1));c.addView(row);
     }
+    private void storageCard(LinearLayout parent){
+        LinearLayout c=card(parent,R.color.amber_surface);c.addView(Ui.text(this,"Actions are paused",19,R.color.amber,true));Ui.gap(c,8);
+        c.addView(Ui.text(this,repository.current().error().isEmpty()?"Finish saving your choices before starting a session. Unsaved changes can be lost if the app stops.":"The last saved choices remain on this phone. Check storage before trying an unsaved change again. Unsaved changes can be lost if the app stops.",14,R.color.amber,false));Ui.gap(c,12);
+        c.addView(Ui.button(this,"Check storage",false,this::storageHelp));
+        if(!repository.pendingChoices().isEmpty())c.addView(Ui.button(this,"Review unsaved changes",false,this::reviewUnsaved));
+    }
+    private void storageHelp(){
+        new AlertDialog.Builder(this).setTitle("Check local storage?").setMessage("Free some device space if it is full, then check again. This checks the database without deleting your saved choices. Actions stay paused. Unsaved changes need a separate Retry save; they are not replayed automatically and can be lost if the app stops.")
+            .setNegativeButton("Close",null).setPositiveButton("Check storage",(d,w)->{
+                GateAccessibilityService.stopNow();repository.retryStorage(result->{
+                    if(!started||isFinishing()||isDestroyed())return;
+                    switch(result){
+                        case RECOVERED->announce("Storage is available. Actions remain paused; review your choices before starting a session.");
+                        case UNSAVED_CHOICES->{announce("Storage is available. Review and retry your unsaved choices.");reviewUnsaved();}
+                        case FAILED->announce("Storage is still unavailable. Saved data was not deleted. Free space and try again.");
+                        case STALE->announce("The receiving account or local data changed. Review the current page.");
+                    }
+                });
+            }).show();
+    }
+    private void reviewUnsaved(){
+        List<Pending> pending=repository.pendingChoices();if(pending.isEmpty()){announce("No unsaved choices remain.");return;}
+        String[] labels=pending.stream().map(p->p.phone()+" · "+choiceLabel(p.choice())+(p.failed()?" · not saved":" · saving")).toArray(String[]::new);
+        new AlertDialog.Builder(this).setTitle("Unsaved choices for this account").setItems(labels,(d,which)->retrySave(pending.get(which))).setNegativeButton("Close",null).show();
+    }
+    private String choiceLabel(Choice choice){return switch(choice){case ALLOW->"Enable";case DENY_MANUAL->"Block this number";case DEFAULT->"Use business rule";};}
+    private void retrySave(Pending pending){
+        if(!pending.failed()){announce("This choice is still being saved.");return;}
+        String authority=pending.choice()==Choice.ALLOW?"Saving Enable creates a new explicit request to unblock this exact number when a supported check is available.":pending.choice()==Choice.DENY_MANUAL?"Saving Block authorizes only this exact number. Future messages and calls may be stopped.":"Saving this choice allows the business rule to apply only when the account is confirmed as a business.";
+        new AlertDialog.Builder(this).setTitle("Retry saving this choice?").setMessage(pending.phone()+"\n\n"+choiceLabel(pending.choice())+"\n\n"+authority+" Actions remain paused.")
+            .setNegativeButton("Cancel",null).setPositiveButton("Retry save",(d,w)->repository.retrySave(pending,result->{
+                if(!started||isFinishing()||isDestroyed())return;
+                switch(result){
+                    case SAVED->announce("Choice saved. Actions remain paused.");
+                    case FAILED->announce("Could not save. Check storage before trying again.");
+                    case STALE->announce("This choice changed. Review the current number and choose again.");
+                    case BUSY->announce("A choice is already being saved, or storage is not ready.");
+                }
+            })).show();
+    }
     private void compatibilityCard(LinearLayout parent){
-        LinearLayout c=card(parent,R.color.amber_surface);c.addView(Ui.text(this,"Your choices are saved.\nActions are paused.",19,R.color.amber,true));Ui.gap(c,8);
+        LinearLayout c=card(parent,R.color.amber_surface);c.addView(Ui.text(this,"Saved choices stay on this phone.\nActions are paused.",19,R.color.amber,true));Ui.gap(c,8);
         c.addView(Ui.text(this,!app.registry().available()?"A supported integration is needed before Business Gate can apply your choices. Existing blocks stay as they are.":"Screen access is off. Your exact-number choices are still editable.",14,R.color.amber,false));Ui.gap(c,12);
         c.addView(Ui.button(this,"Check compatibility",false,this::compatibility));
     }
@@ -391,12 +441,12 @@ public final class MainActivity extends Activity {
         TextView avatar=Ui.text(this,initials,14,R.color.muted,true);avatar.setGravity(Gravity.CENTER);avatar.setBackground(Ui.shape(this,R.color.background,false));avatar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);header.addView(avatar,new LinearLayout.LayoutParams(Ui.dp(this,36),Ui.dp(this,36)));
         LinearLayout info=Ui.column(this);Ui.pad(info,12,0);info.setMinimumHeight(Ui.dp(this,64));info.setGravity(Gravity.CENTER_VERTICAL);
         info.addView(Ui.text(this,label,16,R.color.ink,true));TextView number=Ui.text(this,a.phone(),13,R.color.muted,false);number.setTextDirection(View.TEXT_DIRECTION_LTR);info.addView(number);
-        String sub=row.type().equals("review")?(a.review()==Review.POSSIBLE_COMMERCIAL?"Possible business · not blocked":"New sender · not blocked"):subtitle(a);
+        String sub=repository.pendingChoice(a.phone())!=null?subtitle(a):row.type().equals("review")?(a.review()==Review.POSSIBLE_COMMERCIAL?"Possible business · not blocked":"New sender · not blocked"):subtitle(a);
         if(a.review()==Review.TYPE_CHANGED)sub="Account type changed · "+sub;
         info.addView(Ui.text(this,sub,12,row.type().equals("review")?R.color.amber:R.color.muted,false));
         info.setFocusable(true);info.setContentDescription(label+", "+a.phone()+", "+sub+". "+(expanded==a.id()?"Collapse details":"Show details"));info.setOnClickListener(v->{expanded=expanded==a.id()?-1:a.id();render();});header.addView(info,new LinearLayout.LayoutParams(0,-2,1));
         if(row.type().equals("account")){
-            Switch sw=new Switch(this);sw.setOnCheckedChangeListener(null);sw.setChecked(a.choice()==Choice.ALLOW);sw.setMinHeight(Ui.dp(this,48));sw.setMinWidth(Ui.dp(this,48));sw.setShowText(false);
+            Switch sw=new Switch(this);sw.setOnCheckedChangeListener(null);Pending pending=repository.pendingChoice(a.phone());sw.setChecked((pending==null?a.choice():pending.choice())==Choice.ALLOW);sw.setMinHeight(Ui.dp(this,48));sw.setMinWidth(Ui.dp(this,48));sw.setShowText(false);
             sw.setContentDescription("Enable "+label+", "+a.phone()+". "+sub);sw.setOnCheckedChangeListener((button,on)->choose(a,on?Choice.ALLOW:Choice.DEFAULT));header.addView(sw,new LinearLayout.LayoutParams(Ui.dp(this,52),Ui.dp(this,48)));
         }
         box.addView(header);

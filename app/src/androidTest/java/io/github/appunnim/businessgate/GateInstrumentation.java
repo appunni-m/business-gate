@@ -12,6 +12,7 @@ import android.widget.TextView;
 import io.github.appunnim.businessgate.data.GateDbHelper;
 import io.github.appunnim.businessgate.data.GateRepository;
 import io.github.appunnim.businessgate.policy.Model.*;
+import io.github.appunnim.businessgate.policy.PendingChoices.Pending;
 import io.github.appunnim.businessgate.automation.AutomationController;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -78,7 +79,7 @@ public final class GateInstrumentation extends Instrumentation {
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("No such local account"));until(()->hasText(activity,"No matching accounts"));check(hasText(activity,"Enable a number"),"empty search offers explicit number entry");
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText(""));until(()->hasText(activity,"Harbor Clinic"));
                 check(repository.current().accounts().size()==6,"UI search does not mutate repository");
-                storageFailureRegressions(activity);
+                storageFailureRegressions(activity);choiceScopeRegressions();
             }
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
@@ -86,6 +87,7 @@ public final class GateInstrumentation extends Instrumentation {
     private void storageFailureRegressions(Activity activity)throws Exception{
         committed(cb->repository.enableNumber("+12025550196","MÁYA 10%_",cb));
         Account protectedAccount=repository.current().accounts().stream().filter(a->a.phone().equals("+12025550196")).findFirst().orElseThrow();
+        long globalBefore=repository.current().globalRevision();String grantBefore=protectedAccount.nonce();long grantTimeBefore=protectedAccount.grantCreatedAt();
         java.util.concurrent.atomic.AtomicInteger notices=new java.util.concurrent.atomic.AtomicInteger();Runnable listener=notices::incrementAndGet;
         repository.addListener(listener);
         try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
@@ -102,12 +104,101 @@ public final class GateInstrumentation extends Instrumentation {
                 check(!acknowledged.get()&&repository.vetoed(protectedAccount.id()),"failed choice has no success acknowledgement and retains immediate ALLOW veto");
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("+12025550196"));
                 until(()->hasText(activity,"MÁYA 10%_"));check(hasText(activity,"Could not save. No new blocks will run."),"saved row and truthful storage failure remain visible");
+                check(repository.pendingChoice(protectedAccount.phone()).failed(),"failed existing choice is explicitly reviewable");
+                runOnMainSync(()->repository.enableNumber("+12025550195","Unsaved new choice",()->acknowledged.set(true)));writerBarrier();
+                check(repository.pendingChoice("+12025550195").failed()&&!acknowledged.get(),"failed new number retained without claiming a database row");
+                check(repository.current().accounts().stream().noneMatch(a->a.phone().equals("+12025550195")),"failed new choice never appears as durable account");
+                check(result(repository::retryStorage)==GateRepository.StorageResult.FAILED,"storage retry reports unavailable table");
+                check(repository.pendingChoices().size()==2&&repository.disarmed(),"failed storage retry preserves both unsaved choices and pause");
+
             }finally{db.execSQL("ALTER TABLE unavailable_accounts RENAME TO account");}
             try(var cursor=db.rawQuery("SELECT choice FROM account WHERE id=?",new String[]{""+protectedAccount.id()})){
                 check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW"),"read/write failure does not delete durable ALLOW");
             }
+            check(result(repository::retryStorage)==GateRepository.StorageResult.UNSAVED_CHOICES,"storage repair requires separate user choice retry");
+            check(repository.current().error().isEmpty()&&repository.current().paused()&&repository.disarmed(),"storage recovery clears error while retaining pause");
+            check(repository.current().globalRevision()>globalBefore,"storage recovery invalidates previous global revision");
+            Account recovered=repository.current().account(protectedAccount.id());
+            check(recovered.nonce().equals(grantBefore)&&recovered.grantCreatedAt()==grantTimeBefore,"storage check does not mint or extend an unblock grant");
+            Pending old=repository.pendingChoice(protectedAccount.phone());
+            Pending forged=new Pending(old.namespace(),old.phone(),old.label(),Choice.DENY_MANUAL,old.baseRevision(),old.sequence(),old.failed());
+            check(this.<GateRepository.SaveResult>result(cb->repository.retrySave(forged,cb))==GateRepository.SaveResult.STALE,"retry cannot replace the stored intended choice with a forged payload");
+            check(this.<GateRepository.SaveResult>result(cb->repository.retrySave(old,cb))==GateRepository.SaveResult.SAVED,"explicit retry saves matching existing choice");
+            check(!repository.current().account(protectedAccount.id()).nonce().equals(grantBefore),"only explicit Retry save creates replacement ALLOW grant");
+            check(this.<GateRepository.SaveResult>result(cb->repository.retrySave(old,cb))==GateRepository.SaveResult.STALE,"completed retry cannot replay a grant");
+            Pending fresh=repository.pendingChoice("+12025550195");
+            check(this.<GateRepository.SaveResult>result(cb->repository.retrySave(fresh,cb))==GateRepository.SaveResult.SAVED,"explicit retry creates previously absent exact number");
+            check(repository.current().accounts().stream().anyMatch(a->a.phone().equals(fresh.phone())&&a.choice()==Choice.ALLOW),"retried new choice committed with exact phone");
+            check(repository.pendingChoices().isEmpty()&&repository.disarmed()&&repository.current().paused(),"saving final pending choice does not resume actions");
+
+            Account current=repository.current().account(protectedAccount.id());
+            db.execSQL("ALTER TABLE account RENAME TO unavailable_accounts");
+            try{runOnMainSync(()->repository.choose(current,Choice.ALLOW,()->{}));writerBarrier();}
+            finally{db.execSQL("ALTER TABLE unavailable_accounts RENAME TO account");}
+            Pending stale=repository.pendingChoice(current.phone());
+            db.execSQL("UPDATE account SET revision=revision+1 WHERE id=?",new Object[]{current.id()});
+            check(result(repository::retryStorage)==GateRepository.StorageResult.UNSAVED_CHOICES,"repair retains revision-stale pending choice");
+            check(this.<GateRepository.SaveResult>result(cb->repository.retrySave(stale,cb))==GateRepository.SaveResult.STALE,"revision change rejects old retry without rebasing intent");
+            Pending replaced=repository.pendingChoice(current.phone());
+            check(repository.current().account(current.id()).choice()==Choice.ALLOW,"stale retry preserves durable choice");
+            committed(cb->repository.choose(repository.current().account(current.id()),Choice.DENY_MANUAL,cb));
+            check(this.<GateRepository.SaveResult>result(cb->repository.retrySave(replaced,cb))==GateRepository.SaveResult.STALE,"new explicit decision cannot be overwritten by old ALLOW retry");
+            check(repository.current().account(current.id()).choice()==Choice.DENY_MANUAL&&repository.current().account(current.id()).nonce().isEmpty(),"replacement deny cancels old grant");
+
         }finally{repository.removeListener(listener);}
         committed(repository::reset);
+    }
+    private <T> T result(java.util.function.Consumer<java.util.function.Consumer<T>> action)throws Exception{
+        var value=new java.util.concurrent.atomic.AtomicReference<T>();CountDownLatch done=new CountDownLatch(1);
+        runOnMainSync(()->action.accept(answer->{value.set(answer);done.countDown();}));
+        check(done.await(10,TimeUnit.SECONDS),"explicit operation result callback");return value.get();
+    }
+    private void choiceScopeRegressions()throws Exception{
+        committed(repository::reset);committed(cb->repository.enableNumber("+12025550181","Old row",cb));
+        Account old=repository.current().accounts().get(0);GateRepository.ChoiceScope scope=repository.choiceScope();
+        committed(repository::reset);committed(cb->repository.enableNumber("+12025550182","Replacement row",cb));
+        Account replacement=repository.current().accounts().get(0);check(old.id()==replacement.id(),"fixture exercises row id reuse after reset");
+        runOnMainSync(()->check(!repository.choose(old,Choice.DENY_MANUAL,()->{}),"old row cannot target reused id"));
+        runOnMainSync(()->check(!repository.enableNumber(scope,"+12025550183","Old form",()->{}),"old add form cannot repopulate reset"));
+        writerBarrier();check(repository.current().accounts().size()==1&&repository.current().account(replacement.id()).choice()==Choice.ALLOW,"stale UI commands preserve replacement account");
+        committed(cb->repository.choose(replacement,Choice.DEFAULT,cb));
+        runOnMainSync(()->check(!repository.choose(replacement,Choice.ALLOW,()->{}),"old row revision cannot mint a new grant"));
+        check(repository.disarmed(),"rejected stale choice keeps actions stopped");
+        Account latest=repository.current().account(replacement.id());
+        CountDownLatch queued=new CountDownLatch(1),drain=new CountDownLatch(1);var obsolete=new java.util.concurrent.atomic.AtomicBoolean();
+        writer().execute(()->{queued.countDown();try{drain.await(10,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+        check(queued.await(10,TimeUnit.SECONDS),"writer held before conflicting choices");
+        runOnMainSync(()->{repository.choose(latest,Choice.ALLOW,()->obsolete.set(true));repository.choose(latest,Choice.DENY_MANUAL,()->{});});
+        check(repository.pendingChoice(latest.phone()).choice()==Choice.DENY_MANUAL,"latest queued exact-number decision is visible");
+        drain.countDown();writerBarrier();
+        check(!obsolete.get()&&repository.pendingChoices().isEmpty(),"superseded save has no success callback and cannot retain veto over committed replacement");
+        check(repository.current().account(latest.id()).choice()==Choice.DENY_MANUAL&&repository.current().account(latest.id()).nonce().isEmpty(),"newest queued choice commits without stale ALLOW authority");
+
+        String digest=io.github.appunnim.businessgate.automation.AdapterRegistry.sha256("owned pending namespace fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Binding bound=new Binding(repository.installation(),digest,"synthetic-profile","+12025550008","synthetic-a");
+        GateRepository.ChoiceScope local=repository.choiceScope();
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
+            SQLiteDatabase db=helper.getWritableDatabase();db.execSQL("ALTER TABLE account RENAME TO unavailable_accounts");
+            try{runOnMainSync(()->repository.enableNumber("+12025550184","Local unsaved",()->{}));writerBarrier();}
+            finally{db.execSQL("ALTER TABLE unavailable_accounts RENAME TO account");}
+        }
+        Pending localPending=repository.pendingChoice("+12025550184");
+        check(result(repository::retryStorage)==GateRepository.StorageResult.UNSAVED_CHOICES,"local pending fixture recovered");
+        committed(cb->repository.bindReceiver(bound,cb));
+        check(repository.pendingChoices().isEmpty(),"new receiver does not inherit unsaved local intent");
+        runOnMainSync(()->check(!repository.enableNumber(local,"+12025550185","Old receiver form",()->{}),"receiver change invalidates open add form"));
+        check(this.<GateRepository.SaveResult>result(cb->repository.retrySave(localPending,cb))==GateRepository.SaveResult.STALE,"wrong receiver rejects exact-number retry");
+        committed(repository::localChoices);check(repository.pendingChoice(localPending.phone()).equals(localPending),"returning to local choices retains unsaved intent for review");
+
+        CountDownLatch held=new CountDownLatch(1),release=new CountDownLatch(1),reset=new CountDownLatch(1);
+        var recovery=new java.util.concurrent.atomic.AtomicReference<GateRepository.StorageResult>();
+        var save=new java.util.concurrent.atomic.AtomicReference<GateRepository.SaveResult>();
+        writer().execute(()->{held.countDown();try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+        check(held.await(10,TimeUnit.SECONDS),"writer held before queued retry and reset");
+        runOnMainSync(()->{repository.retrySave(localPending,save::set);repository.retryStorage(recovery::set);repository.reset(reset::countDown);});
+        release.countDown();check(reset.await(10,TimeUnit.SECONDS),"reset after queued recovery commits");writerBarrier();
+        check(save.get()==GateRepository.SaveResult.STALE&&recovery.get()==GateRepository.StorageResult.STALE,"late recovery and save callbacks remain stale after reset");
+        check(repository.pendingChoices().isEmpty()&&repository.current().accounts().isEmpty()&&repository.disarmed(),"queued retries cannot restore reset choices or authority");
     }
     private void performance()throws Exception{
         committed(repository::reset);insertSyntheticAccounts(0,10_000);committed(repository::reload);
@@ -354,6 +445,8 @@ public final class GateInstrumentation extends Instrumentation {
         Readiness broken=readiness();runOnMainSync(()->{repository.emergencyStop();repository.interrupted(null,AutomationController.StopReason.IDENTITY_CHANGED,false,broken);});writerBarrier();
         check(repository.current().circuitOpen(),"identity anomaly persists the compatibility circuit");
         committed(repository::reload);check(repository.current().circuitOpen(),"reload does not silently close circuit");
+        check(result(repository::retryStorage)==GateRepository.StorageResult.RECOVERED,"storage check can complete independently of compatibility");
+        check(repository.current().circuitOpen()&&repository.disarmed(),"successful storage check cannot clear compatibility circuit or arm");
         runOnMainSync(()->repository.arm(readiness(),()->{}));writerBarrier();check(repository.disarmed(),"Resume cannot clear a circuit implicitly");
         committed(cb->repository.compatibilityChecked(readiness(),cb));check(!repository.current().circuitOpen()&&repository.disarmed(),"explicit compatibility check clears circuit without activating actions");
         committed(cb->{repository.localChoices(cb);repository.attention(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(),new long[]{100,0,100});});writerBarrier();

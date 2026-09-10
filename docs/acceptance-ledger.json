@@ -1432,6 +1432,14 @@
         {
           "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
           "method": "storageFailureRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "choiceScopeRegressions"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "pendingChoices"
         }
       ],
       "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
@@ -1849,6 +1857,14 @@
         {
           "path": "scripts/check_schema.py",
           "method": ""
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "choiceScopeRegressions"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "pendingChoices"
         }
       ],
       "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
@@ -1950,6 +1966,14 @@
         {
           "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
           "method": "storageFailureRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "choiceScopeRegressions"
+        },
+        {
+          "path": "app/src/test/java/io/github/appunnim/businessgate/policy/CoreSuite.java",
+          "method": "pendingChoices"
         }
       ],
       "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."

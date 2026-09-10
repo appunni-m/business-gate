@@ -18,7 +18,7 @@ public final class CoreSuite {
     private static RuleEngine.Context context(int guards){return new RuleEngine.Context(guards,100,NOW,8,4,3,1000);}
     private static void check(boolean condition,String label){assertions++;if(!condition)throw new AssertionError(label);}
     private static void equals(Object actual,Object expected,String label){check(java.util.Objects.equals(actual,expected),label+" expected "+expected+", got "+actual);}
-    public static void main(String[] args){identity();search();rules();hints();attention();budgets();epochs();controllerRegressions();controller();retries();finalDispatch();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
+    public static void main(String[] args){identity();search();pendingChoices();rules();hints();attention();budgets();epochs();controllerRegressions();controller();retries();finalDispatch();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
     private static void identity(){
         equals(Identity.canonicalPhone("+1 (202) 555-0101"),"+12025550101","canonical identity");
         for(String bad:new String[]{"2025550101","+01234567","+123","+1234567890123456","+1 202 555 0101 ext 2","+١٢٠٢٥٥٥٠١٠١","+12025550101\u202e","+12025550101,+12025550102","++12025550101","+1202\t5550101","+1202\u200b5550101"}){
@@ -39,6 +39,30 @@ public final class CoreSuite {
         equals(index.find("no such name"),List.of(),"unmatched local search is empty");
         AccountSearch replacement=new AccountSearch(List.of(second));equals(replacement.find("maya"),List.of(),"new namespace projection contains no previous account");
         equals(index.find("maya"),List.of(first),"replacement cannot mutate an earlier committed projection");
+    }
+    private static void pendingChoices(){
+        var registry=new PendingChoices(2);
+        var a=new PendingChoices.Pending(1,"+12025550101","First",Choice.ALLOW,3,1,false);
+        var b=new PendingChoices.Pending(2,a.phone(),"Second receiver",Choice.DENY_MANUAL,0,2,false);
+        var newer=new PendingChoices.Pending(1,a.phone(),"First",Choice.DEFAULT,3,3,false);
+        check(registry.put(a)&&registry.put(b),"same number has independent receiving intent");
+        check(registry.any(1)&&registry.any(2)&&!registry.any(3),"pending veto is receiving-account scoped");
+        equals(registry.list(1),List.of(a),"review shows only current receiver intent");
+        check(!registry.put(new PendingChoices.Pending(1,"+12025550102","Overflow",Choice.ALLOW,-1,4,false)),"bounded admission rejects without eviction");
+        check(registry.current(a)&&registry.current(b),"capacity rejection preserves prior choices");
+        check(registry.put(newer),"same-number replacement works at capacity");
+        check(!registry.put(a),"older intent cannot supersede latest intent");
+        registry.committed(a);registry.failed(a);
+        equals(registry.get(1,a.phone()),newer,"late ack and failure cannot alter latest choice");
+        registry.failed(newer);check(registry.get(1,a.phone()).failed(),"current failed choice stays reviewable");
+        check(registry.current(newer),"failure marker preserves sequence ownership");
+        var frozen=registry.list(1);boolean immutable=false;try{frozen.clear();}catch(UnsupportedOperationException expected){immutable=true;}
+        check(immutable,"review snapshot is immutable");registry.committed(newer);
+        check(!registry.any(1)&&registry.any(2),"commit clears only matching receiver and number");
+        check(frozen.size()==1,"later commit cannot rewrite displayed review");
+        registry.clear();registry.failed(b);registry.committed(a);
+        check(!registry.any(1)&&!registry.any(2),"reset plus late acknowledgements cannot resurrect intent");
+        for(int invalid:new int[]{0,PendingChoices.LIMIT+1}){boolean rejected=false;try{new PendingChoices(invalid);}catch(IllegalArgumentException expected){rejected=true;}check(rejected,"invalid cap rejected");}
     }
     private static void rules(){
         Account business=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");

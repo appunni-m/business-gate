@@ -9,6 +9,8 @@ import android.os.Looper;
 import android.os.SystemClock;
 import io.github.appunnim.businessgate.policy.AuthorityEpoch;
 import io.github.appunnim.businessgate.policy.AccountSearch;
+import io.github.appunnim.businessgate.policy.PendingChoices;
+import io.github.appunnim.businessgate.policy.PendingChoices.Pending;
 import io.github.appunnim.businessgate.policy.Identity;
 import io.github.appunnim.businessgate.policy.Model.*;
 import io.github.appunnim.businessgate.policy.RuleEngine;
@@ -35,12 +37,13 @@ public final class GateRepository {
     public static final String CONSENT_VERSION = "screen-v1";
     private static final int ACCOUNT_LIMIT = 50_000;
     private final GateDbHelper helper;
+    private final Context context;
     private final ExecutorService writer = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AtomicReference<Snapshot> snapshot = new AtomicReference<>(Snapshot.empty());
     private AccountSearch searchIndex=new AccountSearch(List.of()); // Serial writer owns this projection.
     private final Set<Runnable> listeners = new CopyOnWriteArraySet<>();
-    private final java.util.concurrent.ConcurrentHashMap<Long,Long> vetoes = new java.util.concurrent.ConcurrentHashMap<>();
+    private final PendingChoices pendingChoices=new PendingChoices();
     private final java.util.concurrent.ConcurrentHashMap<String,Long> optionVetoes = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile boolean consentVeto;
     private volatile long consentCommand;
@@ -51,9 +54,13 @@ public final class GateRepository {
     private static final class Stale extends RuntimeException {}
     private static final class Capacity extends RuntimeException {}
     public enum RetryResult { QUEUED, NO_AUTHORITY, STALE, SAVE_FAILED }
-    public GateRepository(Context context) { helper = new GateDbHelper(context); initialize(context); }
+    public enum StorageResult { RECOVERED, UNSAVED_CHOICES, FAILED, STALE }
+    public enum SaveResult { SAVED, FAILED, STALE, BUSY }
+    public record ChoiceScope(long namespace,long epoch) {}
+    public ChoiceScope choiceScope(){return new ChoiceScope(current().namespace(),dataEpoch.get());}
+    public GateRepository(Context context) { this.context=context.getApplicationContext();helper = new GateDbHelper(context); initialize(context); }
     public Snapshot current() { return snapshot.get(); }
-    public boolean disarmed() { return !authority.armed() || !failure.isEmpty(); }
+    public boolean disarmed() { return !authority.armed() || !failure.isEmpty() || pendingChoices.any(current().namespace()); }
     public boolean consented(){return current().consent()&&!consentVeto;}
     public boolean optionEnabled(String field){
         if(!consented()||optionVetoes.containsKey(field))return false;
@@ -62,7 +69,9 @@ public final class GateRepository {
     public long epoch() { return authority.current(); }
     public long metricsEpoch(){return metricsEpoch.get();}
     public String installation() { return installation; }
-    public boolean vetoed(long id) { return vetoes.containsKey(id); }
+    public boolean vetoed(long id) { Account account=current().account(id);return account!=null&&pendingChoices.get(account.namespace(),account.phone())!=null; }
+    public List<Pending> pendingChoices(){return pendingChoices.list(current().namespace());}
+    public Pending pendingChoice(String phone){return pendingChoices.get(current().namespace(),phone);}
     public void reload(Runnable success) { transaction(stamp(), db -> {}, success); }
     public void addListener(Runnable listener) { listeners.add(listener); }
     public void removeListener(Runnable listener) { listeners.remove(listener); }
@@ -80,27 +89,50 @@ public final class GateRepository {
     private void initialize(Context context) {
         writer.execute(() -> {
             try {
-                File marker = new File(context.getNoBackupFilesDir(), "installation");
-                if (!marker.exists()) Files.write(marker.toPath(), UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
-                installation = new String(Files.readAllBytes(marker.toPath()), StandardCharsets.UTF_8);
-                SQLiteDatabase db = helper.getWritableDatabase(); db.beginTransaction();
-                try {
-                    boolean sameInstallation;
-                    try (Cursor c = db.rawQuery("SELECT installation FROM namespace WHERE active=1", null)) {
-                        sameInstallation = c.moveToFirst() && installation.equals(c.getString(0));
-                    }
-                    if (!sameInstallation) {
-                        db.execSQL("UPDATE namespace SET active=0,enabled=0,paused=1,global_revision=global_revision+1");
-                        db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL");
-                        db.execSQL("INSERT INTO namespace(installation,active) VALUES(?,1)", new Object[]{installation});
-                        event(db, null, "RECOVERY", "INSTALLATION_CHANGED");
-                    }
-                    db.execSQL("UPDATE namespace SET paused=1");
-                    db.execSQL("UPDATE action_job SET state='REINSPECT',reason='PROCESS_RESTART' WHERE state IN ('ACTION_INTENT','VERIFYING')");
-                    prune(db); db.setTransactionSuccessful();
-                } finally { db.endTransaction(); }
-                publish(db);
+                SQLiteDatabase db=reconcileStorage(context,false,null);publish(db);
             } catch (Exception error) { fail(); }
+        });
+    }
+    private SQLiteDatabase reconcileStorage(Context context,boolean retry,Stamp owner)throws java.io.IOException {
+        File marker = new File(context.getNoBackupFilesDir(), "installation");
+        if (!marker.exists()) Files.write(marker.toPath(), UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        installation = new String(Files.readAllBytes(marker.toPath()), StandardCharsets.UTF_8);
+        SQLiteDatabase db = helper.getWritableDatabase(); db.beginTransaction();
+        try {
+            boolean sameInstallation;
+            try (Cursor c = db.rawQuery("SELECT installation FROM namespace WHERE active=1", null)) {
+                sameInstallation = c.moveToFirst() && installation.equals(c.getString(0));
+            }
+            if (!sameInstallation) {
+                db.execSQL("UPDATE namespace SET active=0,enabled=0,paused=1,global_revision=global_revision+1");
+                db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL");
+                db.execSQL("INSERT INTO namespace(installation,active) VALUES(?,1)", new Object[]{installation});
+                event(db, null, "RECOVERY", "INSTALLATION_CHANGED");
+            }
+            db.execSQL("UPDATE namespace SET paused=1"+(retry?",global_revision=global_revision+1":""));
+            db.execSQL("UPDATE action_job SET state='REINSPECT',reason=? WHERE state IN ('ACTION_INTENT','VERIFYING')",new Object[]{retry?"STORAGE_RETRY":"PROCESS_RESTART"});
+            if(retry){
+                try(Cursor integrity=db.rawQuery("PRAGMA quick_check",null)){if(!integrity.moveToFirst()||!"ok".equals(integrity.getString(0)))throw new IllegalStateException("STORAGE_INTEGRITY_FAILED");}
+                try(Cursor foreign=db.rawQuery("PRAGMA foreign_key_check",null)){if(foreign.moveToFirst())throw new IllegalStateException("STORAGE_REFERENCES_FAILED");}
+            }
+            prune(db);
+            if(owner!=null&&owner.data()!=dataEpoch.get())throw new Stale();
+            db.setTransactionSuccessful();
+        } finally { db.endTransaction(); }
+        return db;
+    }
+    /** Explicit storage-only recovery never retries a user choice, grants authority or clears a circuit. */
+    public void retryStorage(Consumer<StorageResult> result){
+        emergencyStop();Stamp stamp=stamp();
+        writer.execute(()->{
+            StorageResult outcome;
+            try{
+                if(stamp.data()!=dataEpoch.get()||current().namespace()!=stamp.namespace())throw new Stale();
+                SQLiteDatabase db=reconcileStorage(context,true,stamp);
+                if(stamp.data()!=dataEpoch.get())throw new Stale();
+                failure="";publish(db);outcome=pendingChoices.any(current().namespace())?StorageResult.UNSAVED_CHOICES:StorageResult.RECOVERED;
+            }catch(Stale stale){outcome=StorageResult.STALE;}catch(Exception error){fail();outcome=StorageResult.FAILED;}
+            StorageResult finished=outcome;main.post(()->result.accept(stamp.data()!=dataEpoch.get()?StorageResult.STALE:!current().error().isEmpty()?StorageResult.FAILED:finished));
         });
     }
     private interface Write { void run(SQLiteDatabase db); }
@@ -164,18 +196,50 @@ public final class GateRepository {
             main.post(()->{if(stamp.data()==dataEpoch.get()&&current().namespace()==stamp.namespace())result.accept(rows);});
         });
     }
-    public void enableNumber(String rawPhone,String label,Runnable success) {
-        String phone=Identity.canonicalPhone(rawPhone),name=Identity.label(label); Stamp stamp=stamp(); long sequence=commandSequence.incrementAndGet();
-        current().accounts().stream().filter(a->a.phone().equals(phone)).forEach(a->vetoes.put(a.id(),sequence));
-        transaction(stamp,db->{
-            long now=System.currentTimeMillis();
-            try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=? AND phone=?",new String[]{""+stamp.namespace(),phone})) {
-                if(!c.moveToFirst()) { ensureCapacity(db); db.execSQL("INSERT INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) VALUES(?,?,?,?,?,?)",new Object[]{stamp.namespace(),phone,name,Identity.searchKey(name),now,now}); }
-            }
-            try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=? AND phone=?",new String[]{""+stamp.namespace(),phone})) {
-                if(!c.moveToFirst())throw new IllegalStateException("ACCOUNT_MISSING"); choose(db,stamp.namespace(),c.getLong(0),Choice.ALLOW);
-            }
-        },()->{vetoes.entrySet().removeIf(e->e.getValue()==sequence);if(success!=null)success.run();});
+    public boolean enableNumber(String rawPhone,String label,Runnable success) {return enableNumber(choiceScope(),rawPhone,label,success);}
+    public boolean enableNumber(ChoiceScope scope,String rawPhone,String label,Runnable success) {
+        String phone=Identity.canonicalPhone(rawPhone),name=Identity.label(label);Account existing=current().accounts().stream().filter(a->a.phone().equals(phone)).findFirst().orElse(null);
+        return submitChoice(scope,phone,name,Choice.ALLOW,existing==null?-1:existing.revision(),false,success,null);
+    }
+    private boolean submitChoice(ChoiceScope scope,String phone,String label,Choice choice,long baseRevision,boolean retry,Runnable success,Consumer<SaveResult> result){
+        emergencyStop();
+        if(!current().loaded()||scope.namespace()!=current().namespace()||scope.epoch()!=dataEpoch.get()){notifyChanged();if(result!=null)main.post(()->result.accept(SaveResult.STALE));return false;}
+        Stamp stamp=new Stamp(scope.namespace(),scope.epoch());Pending command=new Pending(stamp.namespace(),phone,label,choice,baseRevision,commandSequence.incrementAndGet(),false);
+        if(!pendingChoices.put(command)){notifyChanged();if(result!=null)main.post(()->result.accept(SaveResult.BUSY));return false;}
+        notifyChanged();
+        writer.execute(()->{
+            SaveResult outcome;long savedRevision=-1;
+            try{
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    require(db,stamp);if(!pendingChoices.current(command))throw new Stale();
+                    long id=-1,revision=-1;
+                    try(Cursor c=db.rawQuery("SELECT id,revision FROM account WHERE namespace_id=? AND phone=?",new String[]{""+command.namespace(),phone})){if(c.moveToFirst()){id=c.getLong(0);revision=c.getLong(1);}}
+                    if(revision!=baseRevision)throw new Stale();
+                    if(id<0){
+                        if(choice!=Choice.ALLOW)throw new Stale();ensureCapacity(db);long now=System.currentTimeMillis();
+                        db.execSQL("INSERT INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) VALUES(?,?,?,?,?,?)",new Object[]{stamp.namespace(),phone,label,Identity.searchKey(label),now,now});
+                        try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=? AND phone=?",new String[]{""+stamp.namespace(),phone})){if(!c.moveToFirst())throw new Stale();id=c.getLong(0);revision=0;}
+                    }
+                    if(retry)db.execSQL("UPDATE namespace SET paused=1,global_revision=global_revision+1 WHERE id=?",new Object[]{stamp.namespace()});
+                    choose(db,stamp.namespace(),id,choice);prune(db);require(db,stamp);if(!pendingChoices.current(command))throw new Stale();savedRevision=revision+1;db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                pendingChoices.committed(command);publish(db);outcome=SaveResult.SAVED;
+            }catch(Stale stale){pendingChoices.failed(command);notifyChanged();outcome=SaveResult.STALE;}
+            catch(Capacity full){pendingChoices.failed(command);fail("Local account storage is full. Existing choices are safe; no new blocks will run.");outcome=SaveResult.FAILED;}
+            catch(Exception error){pendingChoices.failed(command);fail();outcome=SaveResult.FAILED;}
+            SaveResult finished=outcome;long committedRevision=savedRevision;main.post(()->{
+                Account saved=current().accounts().stream().filter(a->a.phone().equals(phone)).findFirst().orElse(null);
+                boolean replaced=finished==SaveResult.SAVED&&(saved==null||saved.revision()!=committedRevision||saved.choice()!=choice||pendingChoices.get(stamp.namespace(),phone)!=null);
+                SaveResult current=replaced||stamp.data()!=dataEpoch.get()||stamp.namespace()!=current().namespace()?SaveResult.STALE:finished;
+                if(result!=null)result.accept(current);if(current==SaveResult.SAVED&&success!=null)success.run();
+            });
+        });return true;
+    }
+    public void retrySave(Pending expected,Consumer<SaveResult> result){
+        if(expected==null||expected.namespace()!=current().namespace()||!pendingChoices.current(expected)){main.post(()->result.accept(SaveResult.STALE));return;}
+        Pending latest=pendingChoices.get(expected.namespace(),expected.phone());if(latest==null||!latest.equals(expected)){main.post(()->result.accept(SaveResult.STALE));return;}if(!latest.failed()){main.post(()->result.accept(SaveResult.BUSY));return;}
+        submitChoice(choiceScope(),latest.phone(),latest.label(),latest.choice(),latest.baseRevision(),true,null,result);
     }
     private static void ensureCapacity(SQLiteDatabase db) {
         try(Cursor c=db.rawQuery("SELECT count(*) FROM account",null)){
@@ -184,9 +248,13 @@ public final class GateRepository {
         int removed=db.delete("account","id IN (SELECT id FROM account WHERE choice='DEFAULT' AND ever_business=0 AND review='NONE' AND id NOT IN (SELECT account_id FROM action_job) ORDER BY last_seen,id LIMIT 1)",null);
         if(removed!=1)throw new Capacity();
     }
-    public void choose(long id,Choice choice,Runnable success) {
-        Stamp stamp=stamp();long sequence=commandSequence.incrementAndGet();if(choice==Choice.ALLOW)vetoes.put(id,sequence);
-        transaction(stamp,db->choose(db,stamp.namespace(),id,choice),()->{vetoes.remove(id,sequence);if(success!=null)success.run();});
+    public boolean choose(long id,Choice choice,Runnable success) {return choose(current().account(id),choice,success);}
+    public boolean choose(Account expected,Choice choice,Runnable success) {
+        ChoiceScope scope=choiceScope();Account account=expected==null?null:current().account(expected.id());
+        if(account==null||account.namespace()!=scope.namespace()||account.namespace()!=expected.namespace()||!account.phone().equals(expected.phone())||account.revision()!=expected.revision()){
+            emergencyStop();notifyChanged();return false;
+        }
+        return submitChoice(scope,account.phone(),account.name(),choice,account.revision(),false,success,null);
     }
     private void choose(SQLiteDatabase db,long namespace,long id,Choice choice) {
         long now=System.currentTimeMillis();
@@ -242,7 +310,7 @@ public final class GateRepository {
         },null);
     }
     public boolean ready(Readiness r) {
-        Snapshot s=current();return r!=null&&s.loaded()&&consented()&&failure.isEmpty()&&s.binding().bound()&&s.binding().equals(r.binding())
+        Snapshot s=current();return r!=null&&s.loaded()&&consented()&&failure.isEmpty()&&!pendingChoices.any(s.namespace())&&s.binding().bound()&&s.binding().equals(r.binding())
             &&s.namespace()==r.namespace()&&s.globalRevision()==r.globalRevision()&&authority.matches(r.epoch())
             &&SystemClock.elapsedRealtime()>=r.observedElapsed()&&SystemClock.elapsedRealtime()-r.observedElapsed()<=RuleEngine.EVIDENCE_TTL_MS;
     }
@@ -312,7 +380,7 @@ public final class GateRepository {
     }
     public void localChoices(Runnable success) { switchNamespace(new Binding(installation,"","","",""),success); }
     private void switchNamespace(Binding binding,Runnable success) {
-        emergencyStop();long owner=dataEpoch.incrementAndGet();vetoes.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
+        emergencyStop();long owner=dataEpoch.incrementAndGet();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
         writer.execute(()->{
             try{
                 if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
@@ -328,7 +396,7 @@ public final class GateRepository {
         });
     }
     public void reset(Runnable success) {
-        emergencyStop();metricsEpoch.incrementAndGet();long owner=dataEpoch.incrementAndGet();vetoes.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
+        emergencyStop();metricsEpoch.incrementAndGet();long owner=dataEpoch.incrementAndGet();pendingChoices.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
         writer.execute(()->{
             try{
                 if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
