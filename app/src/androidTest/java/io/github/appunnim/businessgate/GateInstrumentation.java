@@ -305,13 +305,14 @@ public final class GateInstrumentation extends Instrumentation {
         java.util.List<String> failures=new java.util.ArrayList<>();
         runOnMainSync(()->{
             android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);
-            if(list.getHeight()<48*activity.getResources().getDisplayMetrics().density)failures.add("list viewport smaller than one touch target");
+            if(list.getHeight()<48*activity.getResources().getDisplayMetrics().density)failures.add("list viewport "+list.getHeight()+"px smaller than 48dp; density="+activity.getResources().getDisplayMetrics().density+"; owned window="+activity.getWindow().getDecorView().getWidth()+"x"+activity.getWindow().getDecorView().getHeight());
             inspectLayout(activity.getWindow().getDecorView(),failures);
         });
         captureOwnedView(activity,"layout.png");
         check(failures.isEmpty(),"visible layout: "+String.join(", ",failures));
-        search(activity,"+120255512345678");until(()->ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")));
-        until(()->ownsView(activity,v->v instanceof android.widget.ListView list&&list.getCount()==3));
+        search(activity,"+120255512345678");until(()->ownsView(activity,v->v instanceof android.widget.ListView list&&list.getCount()==(expectedOrientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE?4:3)));
+        long target=repository.current().accounts().stream().filter(a->a.phone().equals("+120255512345678")).findFirst().orElseThrow().id();scrollTo(activity,target,0);
+        until(()->ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")));
         clickOwn(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")&&v.getContentDescription().toString().endsWith("Show details"));
         until(()->ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")&&v.getContentDescription().toString().endsWith("Collapse details")));
         runOnMainSync(()->inspectLayout(activity.getWindow().getDecorView(),failures));
@@ -330,6 +331,11 @@ public final class GateInstrumentation extends Instrumentation {
         }
         captureOwnedView(activity,"layout-action.png");check(reached[0],"expanded action remains reachable through the single list");
         check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"layout changes never replay policy or resume actions");
+        if(expectedOrientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE){
+            search(activity,"");until(()->hasRow(activity,1));scrollTo(activity,-18,0);
+            until(()->hasText(activity,"Business Gate")&&hasText(activity,"Paused · compatibility check needed"));
+            check(hasText(activity,"Business Gate")&&hasText(activity,"Paused · compatibility check needed"),"landscape title and status return after filtered row recycling");
+        }
     }
     private void captureOwnedView(Activity activity,String name)throws Exception{
         android.graphics.Bitmap[] rendered={null};

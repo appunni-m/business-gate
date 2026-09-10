@@ -55,7 +55,7 @@ public final class MainActivity extends Activity {
     private GateRepository repository;
     private GateApplication app;
     private EditText search;
-    private TextView status;
+    private TextView status,title;
     private Button pause,clear,batch;
     private ListView list;
     private final Rows adapter=new Rows();
@@ -63,7 +63,7 @@ public final class MainActivity extends Activity {
     private final Runnable changed=this::refresh;
     private int queryGeneration;
     private long expanded=-1,renderNamespace=-1;
-    private boolean reviewExpanded,peopleExpanded,started;
+    private boolean reviewExpanded,peopleExpanded,started,landscape;
     private List<Account> matches=java.util.Collections.emptyList();
     private final List<Row> rows=new ArrayList<>();
     private final List<Runnable> settingsBindings=new ArrayList<>();
@@ -76,6 +76,7 @@ public final class MainActivity extends Activity {
     private record Row(long id,String type,String title,Account account){}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);app=(GateApplication)getApplication();repository=app.repository();
+        landscape=getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE;
         restoration=state==null?null:new Bundle(state);
         FrameLayout root=new FrameLayout(this);root.setBackgroundColor(getColor(R.color.background));
         LinearLayout column=Ui.column(this);int width=Math.min(getResources().getDisplayMetrics().widthPixels,Ui.dp(this,600));
@@ -90,20 +91,21 @@ public final class MainActivity extends Activity {
             return insets;
         });
         LinearLayout toolbar=Ui.row(this);Ui.pad(toolbar,16,4);toolbar.setMinimumHeight(Ui.dp(this,56));
-        TextView title=Ui.text(this,"Business Gate",22,R.color.ink,true);title.setAccessibilityHeading(true);toolbar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        title=Ui.text(this,"Business Gate",22,R.color.ink,true);title.setAccessibilityHeading(true);if(!landscape)toolbar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
         pause=Ui.button(this,"Resume",false,this::toggleRule);toolbar.addView(pause);
         Button more=Ui.button(this,"⋮",false,()->{});more.setTextSize(24);more.setContentDescription("More options");more.setOnClickListener(this::overflow);toolbar.addView(more,new LinearLayout.LayoutParams(Ui.dp(this,48),-2));
         boolean largeText=getResources().getConfiguration().fontScale>=1.5f;
-        if(largeText&&getResources().getConfiguration().orientation!=android.content.res.Configuration.ORIENTATION_LANDSCAPE){
+        if(largeText&&!landscape){
             toolbar.removeAllViews();toolbar.setOrientation(LinearLayout.VERTICAL);toolbar.setGravity(Gravity.START);
             toolbar.addView(title,new LinearLayout.LayoutParams(-1,-2));
             LinearLayout actions=Ui.row(this);actions.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);actions.addView(pause);actions.addView(more,new LinearLayout.LayoutParams(Ui.dp(this,48),-2));
             toolbar.addView(actions,new LinearLayout.LayoutParams(-1,-2));
         }
         column.addView(toolbar);
-        status=Ui.text(this,"Loading your choices…",13,R.color.muted,false);Ui.pad(status,16,4);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);column.addView(status);
+        status=Ui.text(this,"Loading your choices…",13,R.color.muted,false);Ui.pad(status,16,4);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);if(!landscape)column.addView(status);
         LinearLayout searchRow=Ui.row(this);searchRow.setBackground(Ui.shape(this,R.color.surface,true));
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,12));column.addView(searchRow,sp);
+        if(landscape){LinearLayout.LayoutParams compact=new LinearLayout.LayoutParams(0,-2,1);compact.setMarginEnd(Ui.dp(this,8));toolbar.addView(searchRow,0,compact);}
+        else{LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,12));column.addView(searchRow,sp);}
         search=new EditText(this);search.setId(R.id.account_search);search.setSingleLine(true);search.setSaveEnabled(false);search.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(128)});search.setTextSize(15);search.setHint(largeText?"Search":"Search name or number");search.setContentDescription("Search local accounts by name or number");
         search.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);search.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         search.setTextColor(getColor(R.color.ink));search.setHintTextColor(getColor(R.color.muted));search.setBackground(null);Ui.pad(search,14,10);search.setMinHeight(Ui.dp(this,48));
@@ -204,6 +206,7 @@ public final class MainActivity extends Activity {
     private void render(){
         Anchor anchor=pendingAnchor!=null&&matchesReady?pendingAnchor:captureAnchor();
         rows.clear();Snapshot s=repository.current();boolean searching=!search.getText().toString().trim().isEmpty();
+        if(landscape)rows.add(new Row(-18,"summary","",null));
         if(!s.error().isEmpty()||!repository.pendingChoices().isEmpty())rows.add(new Row(-16,"storage","",null));
         if(!s.loaded()){
             rows.add(new Row(-17,"waiting",s.error().isEmpty()?"Loading your choices…":"Check storage to load your saved choices.",null));
@@ -411,6 +414,11 @@ public final class MainActivity extends Activity {
             Row r=rows.get(position);LinearLayout box=recycled instanceof LinearLayout?(LinearLayout)recycled:Ui.column(MainActivity.this);
             box.removeAllViews();box.setBackgroundColor(getColor(R.color.background));box.setPadding(0,0,0,0);box.setOnClickListener(null);box.setClickable(false);box.setContentDescription(null);box.setAccessibilityHeading(false);
             switch(r.type()){
+                case "summary"->{
+                    if(title.getParent() instanceof ViewGroup parentTitle)parentTitle.removeView(title);
+                    if(status.getParent() instanceof ViewGroup parentStatus)parentStatus.removeView(status);
+                    Ui.pad(title,16,8);box.addView(title);box.addView(status);
+                }
                 case "section"->{TextView t=Ui.text(MainActivity.this,r.title(),12,R.color.muted,true);Ui.pad(t,16,12);t.setAccessibilityHeading(true);box.addView(t);}
                 case "waiting"->{TextView t=Ui.text(MainActivity.this,r.title(),14,R.color.muted,false);Ui.pad(t,16,20);box.addView(t);}
                 case "storage"->storageCard(box);

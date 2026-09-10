@@ -36,6 +36,14 @@ The local API 36 arm64 run passed all 24 configurations (252 assertions) and pro
 
 The [storage-boundary follow-up](storage-boundary-verification.md) also clears prior presentation while the current data cannot be established, and distinguishes unavailable data from an empty saved list.
 
+## Short-landscape correction
+
+[Run 19](https://github.com/appunni-m/business-gate/actions/runs/34453034270) passed all ten native harness modes, including the 32 storage-boundary assertions, before the layout matrix found less than a 48 dp list viewport in landscape at 150% text and larger display scale. CI query p95 was 91 ms and its 50,000-record snapshot loaded in 2,457 ms; both unchanged performance limits passed. Delivery was skipped.
+
+The layout failure was reproduced locally at 720×1280 with 450 dpi in landscape. The fixed landscape header now contains search, Pause and the menu in one row. The title and status remain in the same scrollable list, which retains the 600 dp maximum column width. Portrait retains its existing arrangement. Search remains directly accessible without scrolling to a separate control row. Native layout tests scroll to the exact matching fixture row before expanding it; they still enforce the original minimum viewport and action-reachability requirements. Failure output now includes the owned window dimensions, list height and density.
+
+The full 24-case matrix passes at 720×1280/1280×720 and 360/450 dpi. An additional check in all 12 landscape configurations verifies that the title and status return after filtering, scrolling and row recycling. The current case set totals 264 assertions with 72 validated owned renderings. Original emulator size, density, theme and font settings were restored. These results do not establish IME-visible or TalkBack behavior.
+
 ## Still required
 
 - Real TalkBack traversal, stable keyboard/accessibility focus when rows move or recycle, and completion announcement behavior.
