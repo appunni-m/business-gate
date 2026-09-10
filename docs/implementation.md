@@ -48,6 +48,8 @@ Effort tracking checkpoints only while management or a session is visible. It do
 
 Screen inspection now owns and releases its root and every acquired descendant. Exact path prefixes share a cache within one inspection, and all inspections in a service callback share a 250-node ceiling. Unrelated subtrees are never searched. The final dispatch gate checks the latest durable policy against the same freshly acquired screen that supplies the action node; a changed personal/unknown/group context, receiver, number, window, revision or guard cancels the action. Owned structural tests establish these engineering boundaries without qualifying a connected interface.
 
+Search runs on the serial worker against an immutable normalized projection of the last committed records. Publication replaces that projection before notifying the UI. Queries preserve exact-number matching, literal wildcard text and accent folding without a fresh SQLite scan. During storage failure the projection remains searchable and cannot trigger a database-error refresh loop. The all-protected 50,000-account case rejects a new record without evicting durable choices; saved choices remain editable and actions remain disarmed.
+
 ## Remaining implementation and evidence
 
 The integration is still incomplete. Measured receiver/profile/dialog contracts, reliable own-action versus user-interaction handling, full navigation/batching/scanning, notification provenance and scoring integration, safe recovery/compensation across real external transitions, and physical block/unblock outcomes are not qualified. Some of these still require implementation once the actual interface is measured; JSON metadata alone cannot complete them.

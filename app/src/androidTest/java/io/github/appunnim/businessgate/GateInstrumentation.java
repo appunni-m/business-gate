@@ -78,9 +78,36 @@ public final class GateInstrumentation extends Instrumentation {
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("No such local account"));until(()->hasText(activity,"No matching accounts"));check(hasText(activity,"Enable a number"),"empty search offers explicit number entry");
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText(""));until(()->hasText(activity,"Harbor Clinic"));
                 check(repository.current().accounts().size()==6,"UI search does not mutate repository");
+                storageFailureRegressions(activity);
             }
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
+    }
+    private void storageFailureRegressions(Activity activity)throws Exception{
+        committed(cb->repository.enableNumber("+12025550196","MÁYA 10%_",cb));
+        Account protectedAccount=repository.current().accounts().stream().filter(a->a.phone().equals("+12025550196")).findFirst().orElseThrow();
+        java.util.concurrent.atomic.AtomicInteger notices=new java.util.concurrent.atomic.AtomicInteger();Runnable listener=notices::incrementAndGet;
+        repository.addListener(listener);
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
+            SQLiteDatabase db=helper.getWritableDatabase();db.execSQL("ALTER TABLE account RENAME TO unavailable_accounts");
+            try{
+                runOnMainSync(()->repository.reload(()->{}));until(()->!repository.current().error().isEmpty());
+                writerBarrier();int first=notices.get();Thread.sleep(500);writerBarrier();
+                check(notices.get()==first,"unchanged storage error cannot schedule an endless UI refresh loop");
+                check(repository.disarmed(),"read failure disarms all mutations");
+                CountDownLatch found=new CountDownLatch(1);repository.search("maya 10%_",rows->{check(rows.size()==1&&rows.get(0).id()==protectedAccount.id(),"saved snapshot search preserves accents and literal wildcards during read failure");found.countDown();});
+                check(found.await(10,TimeUnit.SECONDS),"failed-storage search still completes");
+                java.util.concurrent.atomic.AtomicBoolean acknowledged=new java.util.concurrent.atomic.AtomicBoolean();
+                runOnMainSync(()->repository.choose(protectedAccount.id(),Choice.ALLOW,()->acknowledged.set(true)));writerBarrier();
+                check(!acknowledged.get()&&repository.vetoed(protectedAccount.id()),"failed choice has no success acknowledgement and retains immediate ALLOW veto");
+                runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("+12025550196"));
+                until(()->hasText(activity,"MÁYA 10%_"));check(hasText(activity,"Could not save. No new blocks will run."),"saved row and truthful storage failure remain visible");
+            }finally{db.execSQL("ALTER TABLE unavailable_accounts RENAME TO account");}
+            try(var cursor=db.rawQuery("SELECT choice FROM account WHERE id=?",new String[]{""+protectedAccount.id()})){
+                check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW"),"read/write failure does not delete durable ALLOW");
+            }
+        }finally{repository.removeListener(listener);}
+        committed(repository::reset);
     }
     private void performance()throws Exception{
         committed(repository::reset);insertSyntheticAccounts(0,10_000);committed(repository::reload);
@@ -103,6 +130,17 @@ public final class GateInstrumentation extends Instrumentation {
         committed(cb->repository.enableNumber("+12025550197","Capacity protection",cb));
         check(repository.current().accounts().size()==50_000,"new choice evicts only optional cache at capacity");
         check(repository.current().accounts().stream().anyMatch(a->a.phone().equals("+12025550197")&&a.choice()==Choice.ALLOW),"new explicit choice preserved at capacity");
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE account SET choice='ALLOW'");}
+        committed(repository::reload);check(repository.current().accounts().stream().allMatch(a->a.choice()==Choice.ALLOW),"all-protected capacity fixture loaded");
+        java.util.concurrent.atomic.AtomicBoolean saved=new java.util.concurrent.atomic.AtomicBoolean();
+        runOnMainSync(()->repository.enableNumber("+12025550198","No optional record available",()->saved.set(true)));
+        until(()->!repository.current().error().isEmpty());writerBarrier();
+        check(!saved.get()&&repository.current().error().contains("storage is full"),"capacity rejection reports failure without a false save acknowledgement");
+        check(repository.disarmed()&&repository.current().accounts().size()==50_000,"all-protected capacity failure remains bounded and disarmed");
+        check(repository.current().accounts().stream().allMatch(a->a.choice()==Choice.ALLOW)&&repository.current().accounts().stream().noneMatch(a->a.phone().equals("+12025550198")),"capacity failure neither prunes protected choices nor invents a saved new choice");
+        Account existing=repository.current().accounts().get(0);committed(cb->repository.choose(existing.id(),Choice.ALLOW,cb));
+        check(repository.current().account(existing.id()).revision()==existing.revision()+1,"existing choice remains editable at the capacity ceiling");
+        check(repository.disarmed(),"a later successful edit cannot silently resume after storage failure");
     }
     private void insertSyntheticAccounts(int offset,int count){
         try(GateDbHelper helper=new GateDbHelper(getTargetContext())){

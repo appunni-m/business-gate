@@ -18,7 +18,7 @@ public final class CoreSuite {
     private static RuleEngine.Context context(int guards){return new RuleEngine.Context(guards,100,NOW,8,4,3,1000);}
     private static void check(boolean condition,String label){assertions++;if(!condition)throw new AssertionError(label);}
     private static void equals(Object actual,Object expected,String label){check(java.util.Objects.equals(actual,expected),label+" expected "+expected+", got "+actual);}
-    public static void main(String[] args){identity();rules();hints();attention();budgets();epochs();controllerRegressions();controller();retries();finalDispatch();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
+    public static void main(String[] args){identity();search();rules();hints();attention();budgets();epochs();controllerRegressions();controller();retries();finalDispatch();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
     private static void identity(){
         equals(Identity.canonicalPhone("+1 (202) 555-0101"),"+12025550101","canonical identity");
         for(String bad:new String[]{"2025550101","+01234567","+123","+1234567890123456","+1 202 555 0101 ext 2","+١٢٠٢٥٥٥٠١٠١","+12025550101\u202e","+12025550101,+12025550102","++12025550101","+1202\t5550101","+1202\u200b5550101"}){
@@ -28,6 +28,17 @@ public final class CoreSuite {
         equals(Identity.label("Block\u202e\nAlice"),"BlockAlice","safe display controls");
         equals(Identity.likeLiteral("10%_\\"),"10\\%\\_\\\\","bound literal wildcard");
         equals(Identity.query("a".repeat(200)).length(),128,"bounded query");
+    }
+    private static void search(){
+        Account base=account(Kind.UNKNOWN,Choice.ALLOW,BlockState.UNKNOWN,"");
+        Account first=new Account(1,1,base.phone(),"MÁYA 10%_",base.kind(),base.choice(),base.blockState(),false,0,false,Review.NONE,0,0,0,0,JobState.NONE,Action.NONE,"",0);
+        Account second=new Account(2,1,"+12025550102","Same name",base.kind(),base.choice(),base.blockState(),false,0,false,Review.NONE,0,0,0,0,JobState.NONE,Action.NONE,"",0);
+        var source=new java.util.ArrayList<>(List.of(first,second));AccountSearch index=new AccountSearch(source);source.clear();
+        for(String q:List.of("maya","10%_","+1 (202) 555-0101","5550101"))equals(index.find(q),List.of(first),"committed search preserves accents, literal wildcards and formatted numbers");
+        equals(index.find(""),List.of(first,second),"search retains repository order and immutable source");
+        equals(index.find("no such name"),List.of(),"unmatched local search is empty");
+        AccountSearch replacement=new AccountSearch(List.of(second));equals(replacement.find("maya"),List.of(),"new namespace projection contains no previous account");
+        equals(index.find("maya"),List.of(first),"replacement cannot mutate an earlier committed projection");
     }
     private static void rules(){
         Account business=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");

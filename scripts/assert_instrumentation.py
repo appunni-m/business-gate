@@ -13,6 +13,9 @@ directory.mkdir(parents=True, exist_ok=True)
 (directory / f'{mode}.txt').write_text(report)
 print(report, end='')
 success = re.search(r'(?m)^(?:INSTRUMENTATION_RESULT: stream=)?PASS [0-9]+ [^\n]+; mode='+re.escape(mode)+r'\s*$',report)
+if os.environ.get('GITHUB_ACTIONS') == 'true':
+    for metric in re.findall(r'(?m)^(?:INSTRUMENTATION_RESULT: stream=)?(METRIC(?: [a-z][a-z0-9_]{0,39}=[0-9]{1,20}){1,12})$', report)[:8]:
+        print(f'::notice title=Android {mode} metrics::{metric}')
 passed = len(report)<=64_000 and success is not None and 'FAIL' not in report
 if not passed:
     failure = next((line for line in report.splitlines() if 'FAIL' in line), 'No passing instrumentation result')

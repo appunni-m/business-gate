@@ -176,6 +176,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(result.returncode,1)
         self.assertIn('::error title=Android all::FAIL synthetic 10%25',result.stdout)
 
+    def test_failed_performance_exposes_bounded_numeric_metrics(self):
+        environment = dict(os.environ,GITHUB_ACTIONS='true')
+        report = 'METRIC records=10000 query_p95_ms=101\nMETRIC private=not-numeric\nFAIL query target\n'
+        result = subprocess.run([sys.executable,str(ROOT/'scripts/assert_instrumentation.py'),'performance'],input=report,env=environment,text=True,capture_output=True)
+        self.assertEqual(result.returncode,1)
+        self.assertIn('::notice title=Android performance metrics::METRIC records=10000 query_p95_ms=101',result.stdout)
+        self.assertNotIn('::notice title=Android performance metrics::METRIC private=',result.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()

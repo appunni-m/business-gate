@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import io.github.appunnim.businessgate.policy.AuthorityEpoch;
+import io.github.appunnim.businessgate.policy.AccountSearch;
 import io.github.appunnim.businessgate.policy.Identity;
 import io.github.appunnim.businessgate.policy.Model.*;
 import io.github.appunnim.businessgate.policy.RuleEngine;
@@ -37,6 +38,7 @@ public final class GateRepository {
     private final ExecutorService writer = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AtomicReference<Snapshot> snapshot = new AtomicReference<>(Snapshot.empty());
+    private AccountSearch searchIndex=new AccountSearch(List.of()); // Serial writer owns this projection.
     private final Set<Runnable> listeners = new CopyOnWriteArraySet<>();
     private final java.util.concurrent.ConcurrentHashMap<Long,Long> vetoes = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<String,Long> optionVetoes = new java.util.concurrent.ConcurrentHashMap<>();
@@ -130,9 +132,12 @@ public final class GateRepository {
             try(Cursor breaker=db.rawQuery("SELECT value FROM app_meta WHERE key=?",new String[]{"circuit:"+id})){
                 circuit=breaker.moveToFirst()&&!binding.adapter().isEmpty()&&binding.adapter().equals(breaker.getString(0));
             }
+            List<Account> accounts=readAccounts(db,id,"",new String[0]);
+            AccountSearch index=new AccountSearch(accounts);
             snapshot.set(new Snapshot(id,number(n,"global_revision"),true,number(n,"enabled")==1,number(n,"paused")==1,
                 CONSENT_VERSION.equals(string(n,"consent_version")),number(n,"sales_hints")==1,number(n,"discovery")==1,number(n,"digest")==1,
-                string(n,"setup"),readAccounts(db,id,"",new String[0]),failure,binding,circuit));
+                string(n,"setup"),accounts,failure,binding,circuit));
+            searchIndex=index;
         }
         notifyChanged();
     }
@@ -150,17 +155,13 @@ public final class GateRepository {
         return rows;
     }
     public void search(String input, Consumer<List<Account>> result) {
-        String q=Identity.query(input); Stamp stamp=stamp();
-        writer.execute(() -> {
-            try {
-                SQLiteDatabase db=helper.getReadableDatabase(); require(db,stamp);
-                String normalized=Identity.likeLiteral(Identity.searchKey(q)); String digits=q.replaceAll("[ +()\\-]", "");
-                boolean isDigits=!digits.isEmpty()&&digits.matches("[0-9]+");
-                String clause=q.isEmpty()?"":"AND (a.search_key LIKE ? ESCAPE '\\'"+(isDigits?" OR a.phone LIKE ?":"")+")";
-                String[] args=q.isEmpty()?new String[0]:isDigits?new String[]{"%"+normalized+"%","%"+digits+"%"}:new String[]{"%"+normalized+"%"};
-                List<Account> rows=readAccounts(db,stamp.namespace(),clause,args);
-                main.post(() -> { if(stamp.data()==dataEpoch.get()&&current().namespace()==stamp.namespace())result.accept(rows); });
-            } catch(Stale ignored) { /* Namespace switched during search. */ } catch(Exception error) { fail(); }
+        String query=Identity.query(input);Stamp stamp=stamp();
+        writer.execute(()->{
+            // Search the last committed projection. Writes replace it before notifying the UI.
+            // This avoids repeated SQLite scans and remains available during storage failure.
+            if(stamp.data()!=dataEpoch.get()||current().namespace()!=stamp.namespace())return;
+            List<Account> rows=searchIndex.find(query);
+            main.post(()->{if(stamp.data()==dataEpoch.get()&&current().namespace()==stamp.namespace())result.accept(rows);});
         });
     }
     public void enableNumber(String rawPhone,String label,Runnable success) {
