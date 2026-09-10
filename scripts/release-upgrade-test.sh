@@ -12,9 +12,7 @@ previous=${3:-}
 trap '"$adb_bin" -s "$GATE_TEST_SERIAL" uninstall io.github.appunnim.businessgate.probe >/dev/null 2>&1 || true' EXIT HUP INT TERM
 run_probe() {
     result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e mode "$1" io.github.appunnim.businessgate.probe/.ReleaseProbe)
-    echo "$result"
-    case "$result" in *FAIL*|*INSTRUMENTATION_FAILED*) exit 1;; esac
-    case "$result" in *PASS*) ;; *) exit 1;; esac
+    printf '%s\n' "$result" | python3 scripts/assert_instrumentation.py "$1"
 }
 if [ -n "$previous" ] && [ -f "$previous" ]; then
     scripts/apk-smoke-test.sh "$previous"

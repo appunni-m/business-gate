@@ -10,7 +10,5 @@ adb_bin="$ANDROID_HOME/platform-tools/adb"
 for test_mode in all performance prepare-recovery verify-recovery; do
     "$adb_bin" -s "$GATE_TEST_SERIAL" shell am force-stop io.github.appunnim.businessgate.debug
     test_result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e mode "$test_mode" io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation)
-    echo "$test_result"
-    case "$test_result" in *FAIL*|*INSTRUMENTATION_FAILED*) exit 1;; esac
-    case "$test_result" in *PASS*) ;; *) exit 1;; esac
+    printf '%s\n' "$test_result" | python3 scripts/assert_instrumentation.py "$test_mode"
 done

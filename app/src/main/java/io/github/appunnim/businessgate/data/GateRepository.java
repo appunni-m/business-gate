@@ -11,8 +11,10 @@ import io.github.appunnim.businessgate.policy.AuthorityEpoch;
 import io.github.appunnim.businessgate.policy.Identity;
 import io.github.appunnim.businessgate.policy.Model.*;
 import io.github.appunnim.businessgate.policy.RuleEngine;
+import io.github.appunnim.businessgate.policy.RetryPolicy;
 import io.github.appunnim.businessgate.automation.AutomationController.CommitResult;
 import io.github.appunnim.businessgate.automation.AutomationController.Plan;
+import io.github.appunnim.businessgate.automation.AutomationController.StopReason;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -46,6 +48,7 @@ public final class GateRepository {
     private record Stamp(long namespace, long data) {}
     private static final class Stale extends RuntimeException {}
     private static final class Capacity extends RuntimeException {}
+    public enum RetryResult { QUEUED, NO_AUTHORITY, STALE, SAVE_FAILED }
     public GateRepository(Context context) { helper = new GateDbHelper(context); initialize(context); }
     public Snapshot current() { return snapshot.get(); }
     public boolean disarmed() { return !authority.armed() || !failure.isEmpty(); }
@@ -114,7 +117,7 @@ public final class GateRepository {
     private void fail() { fail("Could not save. No new blocks will run."); }
     private void fail(String message) {
         authority.revoke(); failure = message; Snapshot s = current();
-        snapshot.set(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure,s.binding()));
+        snapshot.set(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure,s.binding(),s.circuitOpen()));
         notifyChanged();
     }
     private void publish(SQLiteDatabase db) {
@@ -122,20 +125,24 @@ public final class GateRepository {
         try (Cursor n = db.rawQuery("SELECT * FROM namespace WHERE id=?", new String[]{""+id})) {
             if (!n.moveToFirst()) throw new IllegalStateException("NAMESPACE_MISSING");
             Binding binding = new Binding(string(n,"installation"),string(n,"package_digest"),string(n,"profile_key"),string(n,"receiver_binding"),string(n,"qualification_id"));
+            boolean circuit=false;
+            try(Cursor breaker=db.rawQuery("SELECT value FROM app_meta WHERE key=?",new String[]{"circuit:"+id})){
+                circuit=breaker.moveToFirst()&&!binding.adapter().isEmpty()&&binding.adapter().equals(breaker.getString(0));
+            }
             snapshot.set(new Snapshot(id,number(n,"global_revision"),true,number(n,"enabled")==1,number(n,"paused")==1,
                 CONSENT_VERSION.equals(string(n,"consent_version")),number(n,"sales_hints")==1,number(n,"discovery")==1,number(n,"digest")==1,
-                string(n,"setup"),readAccounts(db,id,"",new String[0]),failure,binding));
+                string(n,"setup"),readAccounts(db,id,"",new String[0]),failure,binding,circuit));
         }
         notifyChanged();
     }
     private List<Account> readAccounts(SQLiteDatabase db, long namespace, String extra, String[] args) {
         List<Account> rows = new ArrayList<>(); String[] bound = new String[args.length+1]; bound[0]=""+namespace; System.arraycopy(args,0,bound,1,args.length);
-        try (Cursor c = db.rawQuery("SELECT a.*,j.state AS job_state,j.action AS job_action,j.nonce,j.grant_created_at FROM account a LEFT JOIN action_job j ON a.id=j.account_id WHERE a.namespace_id=? " + extra + " ORDER BY a.search_key,a.phone,a.id",bound)) {
+        try (Cursor c = db.rawQuery("SELECT a.*,j.state AS job_state,j.action AS job_action,j.nonce,j.grant_created_at,j.attempts,j.updated_at AS job_updated_at,j.reason AS job_reason FROM account a LEFT JOIN action_job j ON a.id=j.account_id WHERE a.namespace_id=? " + extra + " ORDER BY a.search_key,a.phone,a.id",bound)) {
             while(c.moveToNext()) rows.add(new Account(number(c,"id"),namespace,string(c,"phone"),string(c,"name"),Kind.valueOf(string(c,"kind")),Choice.valueOf(string(c,"choice")),
                 BlockState.valueOf(string(c,"observed_state")),number(c,"gate_owned")==1,number(c,"revision"),number(c,"ever_business")==1,Review.valueOf(string(c,"review")),
                 (int)number(c,"hint_bits"),number(c,"dismissed_until"),number(c,"checked_at"),number(c,"last_seen"),
                 c.isNull(c.getColumnIndexOrThrow("job_state"))?JobState.NONE:JobState.valueOf(string(c,"job_state")),
-                c.isNull(c.getColumnIndexOrThrow("job_action"))?Action.NONE:Action.valueOf(string(c,"job_action")),string(c,"nonce"),number(c,"grant_created_at")));
+                c.isNull(c.getColumnIndexOrThrow("job_action"))?Action.NONE:Action.valueOf(string(c,"job_action")),string(c,"nonce"),number(c,"grant_created_at"),(int)number(c,"attempts"),number(c,"job_updated_at"),string(c,"job_reason")));
         }
         return rows;
     }
@@ -236,14 +243,64 @@ public final class GateRepository {
             &&SystemClock.elapsedRealtime()>=r.observedElapsed()&&SystemClock.elapsedRealtime()-r.observedElapsed()<=RuleEngine.EVIDENCE_TTL_MS;
     }
     public void arm(Readiness readiness,Runnable success) {
-        if(!ready(readiness))return;Stamp stamp=stamp();long owner=readiness.epoch();
+        arm(readiness,true,success);
+    }
+    public void arm(Readiness readiness,boolean activateRule,Runnable success) {
+        if(!ready(readiness)||current().circuitOpen())return;Stamp stamp=stamp();long owner=readiness.epoch();
         transaction(stamp,db->{
-            if(!ready(readiness))throw new Stale();
-            db.execSQL("UPDATE namespace SET enabled=1,paused=0,setup='READY',global_revision=global_revision+1 WHERE id=?",new Object[]{stamp.namespace()});
-            db.execSQL("UPDATE action_job SET global_revision=(SELECT global_revision FROM namespace WHERE id=?) WHERE action='BLOCK' AND account_id IN (SELECT id FROM account WHERE namespace_id=?)",new Object[]{stamp.namespace(),stamp.namespace()});
+            if(!ready(readiness)||current().circuitOpen())throw new Stale();
+            db.execSQL("UPDATE namespace SET enabled=CASE WHEN ? THEN 1 ELSE enabled END,paused=CASE WHEN ? THEN 0 ELSE paused END,setup='READY',global_revision=global_revision+1 WHERE id=?",new Object[]{activateRule?1:0,activateRule?1:0,stamp.namespace()});
+            long now=System.currentTimeMillis();
+            db.execSQL("UPDATE action_job SET global_revision=(SELECT global_revision FROM namespace WHERE id=?) WHERE state NOT IN ('DONE','CANCELED','FAILED') AND (action='BLOCK' OR (nonce IS NOT NULL AND grant_created_at<=? AND grant_created_at>?)) AND account_id IN (SELECT id FROM account WHERE namespace_id=?)",new Object[]{stamp.namespace(),now,now-RuleEngine.GRANT_TTL_MS,stamp.namespace()});
         },()->{if(authority.arm(owner)&&consented()&&current().binding().equals(readiness.binding())){notifyChanged();if(success!=null)success.run();}else emergencyStop();});
     }
     public void emergencyStop() { authority.revoke();notifyChanged(); }
+    /** An explicit Retry preserves preference and any existing grant; it never creates an unblock nonce. */
+    public void retryCheck(Account expected,Consumer<RetryResult> callback){
+        emergencyStop();Stamp stamp=stamp();
+        writer.execute(()->{
+            RetryResult result;
+            try{
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    require(db,stamp);Account a=current().account(expected.id());
+                    if(a==null||a.namespace()!=expected.namespace()||a.revision()!=expected.revision())throw new Stale();
+                    long now=System.currentTimeMillis();
+                    boolean authority=a.jobAction()==Action.BLOCK&&a.choice()!=Choice.ALLOW&&(a.kind()==Kind.BUSINESS_CONFIRMED||a.choice()==Choice.DENY_MANUAL)
+                        ||a.jobAction()==Action.UNBLOCK&&a.choice()==Choice.ALLOW&&!a.nonce().isEmpty()&&now>=a.grantCreatedAt()&&now-a.grantCreatedAt()<RuleEngine.GRANT_TTL_MS;
+                    if(!authority||a.jobState()==JobState.DONE||a.jobState()==JobState.CANCELED||a.jobState()==JobState.NONE)result=RetryResult.NO_AUTHORITY;
+                    else{
+                        db.execSQL("UPDATE account SET revision=revision+1 WHERE id=? AND namespace_id=?",new Object[]{a.id(),stamp.namespace()});
+                        db.execSQL("UPDATE action_job SET state='REINSPECT',attempts=0,reason='USER_RETRY',generation=0,updated_at=?,account_revision=?,global_revision=(SELECT global_revision FROM namespace WHERE id=?) WHERE account_id=?",new Object[]{now,a.revision()+1,stamp.namespace(),a.id()});
+                        event(db,a.id(),"POLICY","USER_CHOICE");result=RetryResult.QUEUED;
+                    }
+                    db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                publish(db);
+            }catch(Stale ignored){result=RetryResult.STALE;}catch(Exception error){fail();result=RetryResult.SAVE_FAILED;}
+            RetryResult finished=result;main.post(()->callback.accept(stamp.data()==dataEpoch.get()&&stamp.namespace()==current().namespace()?finished:RetryResult.STALE));
+        });
+    }
+    /** Record only the interrupted command; a newer choice or receiving namespace cannot be overwritten. */
+    public void interrupted(Plan p,StopReason reason,boolean uncertain,Readiness scope){
+        if(scope==null)return;Stamp stamp=stamp();
+        transaction(stamp,db->{
+            if(scope.namespace()!=stamp.namespace()||!scope.binding().equals(current().binding()))throw new Stale();
+            if(reason==StopReason.IDENTITY_CHANGED||reason==StopReason.UNSUPPORTED_SCREEN){
+                db.execSQL("INSERT OR REPLACE INTO app_meta(key,value) VALUES(?,?)",new Object[]{"circuit:"+stamp.namespace(),scope.binding().adapter()});
+            }
+            if(p!=null&&matchesPlan(db,p,false)){
+                db.execSQL("UPDATE action_job SET state=CASE WHEN attempts>=? THEN 'FAILED' ELSE 'REINSPECT' END,reason=?,updated_at=? WHERE account_id=? AND generation=? AND state IN ('ACTION_INTENT','VERIFYING')",
+                    new Object[]{RetryPolicy.MAX_ATTEMPTS,uncertain?"RESULT_UNVERIFIED":reason.name(),System.currentTimeMillis(),p.accountId(),p.generation()});
+            }
+            event(db,null,"STOPPED","USER_STOP");
+        },null);
+    }
+    /** A finite, explicit observe-only compatibility check can clear the persisted circuit. */
+    public void compatibilityChecked(Readiness readiness,Runnable success){
+        if(!ready(readiness))return;Stamp stamp=stamp();
+        transaction(stamp,db->{if(!ready(readiness))throw new Stale();db.delete("app_meta","key=?",new String[]{"circuit:"+stamp.namespace()});},success);
+    }
     /** Called only after measured installation and visible receiver verification plus user selection. */
     public void bindReceiver(Binding binding,Runnable success) {
         if(!binding.bound()||!installation.equals(binding.installation())||!binding.packageDigest().matches("[a-f0-9]{64}"))throw new IllegalArgumentException("INVALID_BINDING");
@@ -314,7 +371,15 @@ public final class GateRepository {
             try{
                 SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
                 try{
-                    require(db,stamp);if(disarmed()||!authority.matches(owner)||!matchesPlan(db,p,false)||vetoed(p.accountId()))throw new Stale();
+                    require(db,stamp);if(disarmed()||current().circuitOpen()||!authority.matches(owner)||!matchesPlan(db,p,false)||vetoed(p.accountId()))throw new Stale();
+                    boolean entry=p.control()==io.github.appunnim.businessgate.automation.AutomationController.Control.BLOCK_ENTRY||p.control()==io.github.appunnim.businessgate.automation.AutomationController.Control.UNBLOCK_ENTRY;
+                    try(Cursor job=db.rawQuery("SELECT attempts,updated_at,state,generation FROM action_job WHERE account_id=?",new String[]{""+p.accountId()})){
+                        if(!job.moveToFirst())throw new Stale();
+                        if(entry){
+                            if(RetryPolicy.eligibility(job.getInt(0),job.getLong(1),System.currentTimeMillis())!=RetryPolicy.Eligibility.READY)throw new Stale();
+                            db.execSQL("UPDATE action_job SET attempts=attempts+1 WHERE account_id=?",new Object[]{p.accountId()});
+                        }else if(!job.getString(2).equals("ACTION_INTENT")||job.getLong(3)!=p.generation())throw new Stale();
+                    }
                     ContentValues values=new ContentValues();values.put("state",p.control()==io.github.appunnim.businessgate.automation.AutomationController.Control.CONFIRM_BLOCK||p.control()==io.github.appunnim.businessgate.automation.AutomationController.Control.CONFIRM_UNBLOCK?"VERIFYING":"ACTION_INTENT");values.put("generation",p.generation());values.put("updated_at",System.currentTimeMillis());
                     if(db.update("action_job",values,"account_id=?",new String[]{""+p.accountId()})!=1)throw new Stale();event(db,p.accountId(),"INTENT","ACTION_INTENT");db.setTransactionSuccessful();
                 }finally{db.endTransaction();}

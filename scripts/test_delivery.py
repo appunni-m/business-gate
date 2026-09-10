@@ -163,6 +163,19 @@ class DeliveryTests(unittest.TestCase):
     def test_signing_failure_removes_temporary_key(self):
         self.signing_failure(mismatch=False)
 
+    def test_instrumentation_requires_matching_completed_mode(self):
+        for report in ('', 'PASS 1 test; mode=wrong\n', 'PASS 1 test; mode=all\nFAIL crash\n', 'x'*64_001):
+            result = subprocess.run([sys.executable,str(ROOT/'scripts/assert_instrumentation.py'),'all'],input=report,text=True,capture_output=True)
+            self.assertNotEqual(result.returncode,0)
+        result = subprocess.run([sys.executable,str(ROOT/'scripts/assert_instrumentation.py'),'all'],input='PASS 1 owned assertion; mode=all\n',text=True,capture_output=True)
+        self.assertEqual(result.returncode,0)
+
+    def test_instrumentation_failure_annotation_is_escaped(self):
+        environment = dict(os.environ,GITHUB_ACTIONS='true')
+        result = subprocess.run([sys.executable,str(ROOT/'scripts/assert_instrumentation.py'),'all'],input='FAIL synthetic 10%\n',env=environment,text=True,capture_output=True)
+        self.assertEqual(result.returncode,1)
+        self.assertIn('::error title=Android all::FAIL synthetic 10%25',result.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()

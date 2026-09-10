@@ -145,6 +145,7 @@ public final class MainActivity extends Activity {
         else if(!s.consent())text="Choose the businesses you want to hear from.";
         else if(!app.registry().available())text="Paused · compatibility check needed";
         else if(!GateAccessibilityService.connected())text="Blocking paused · screen access is off";
+        else if(s.circuitOpen())text="Blocking paused · compatibility check required";
         else if(repository.disarmed()||s.paused()||!s.enabled())text="Rule off · no new blocks will run";
         else text=s.pending()>0?"Rule on · "+getResources().getQuantityString(R.plurals.waiting_actions,s.pending(),s.pending()):"Rule on · no action needed";
         if(!status.getText().toString().equals(text))status.setText(text);
@@ -212,13 +213,27 @@ public final class MainActivity extends Activity {
         if(!GateAccessibilityService.connected()){accessDisclosure();return;}
         if(!s.binding().bound()){reviewReceiver();return;}
         new AlertDialog.Builder(this).setTitle("Turn on your business rule?").setMessage(R.string.activation_disclosure)
-            .setNegativeButton("Review choices",null).setPositiveButton("Turn rule on",(d,w)->startRequestedSession()).show();
+            .setNegativeButton("Review choices",null).setPositiveButton("Turn rule on",(d,w)->startRequestedSession(false,true)).show();
         // Device/receiver readiness must be established by the qualification workflow.
     }
     private void applyPending(){
         if(!app.registry().available()){compatibility();return;}
-        new AlertDialog.Builder(this).setTitle("Apply your choices").setMessage("Actions need a freshly verified receiving account and supported visible profile. Nothing runs until those checks pass. This version checks one visible profile per session, for up to 25 seconds. Other pending choices stay saved.")
+        new AlertDialog.Builder(this).setTitle("Apply your choices").setMessage("Actions need a freshly verified receiving account and supported visible profile. Block actions require your business rule to be on; explicit unblock requests can be checked while it is paused. This version checks one visible profile per session, for up to 25 seconds. Other pending choices stay saved.")
             .setNegativeButton("Close",null).setPositiveButton("Start visible session",(d,w)->startRequestedSession()).show();
+    }
+    private void retryCheck(Account account){
+        if(!app.registry().available()){compatibility();return;}
+        new AlertDialog.Builder(this).setTitle("Check this number again?").setMessage(account.phone()+"\n\nKeep your saved choice and start a new visible check. A fresh account check is required before any action. An expired unblock request needs Unblock now.")
+            .setNegativeButton("Cancel",null).setPositiveButton("Start visible check",(d,w)->{
+                GateAccessibilityService.stopNow();repository.retryCheck(account,result->{
+                    switch(result){
+                        case QUEUED -> startRequestedSession(false,false,account.id());
+                        case NO_AUTHORITY -> announce("No current action is authorized. Use Unblock now for a new unblock request.");
+                        case STALE -> announce("This choice changed. Review the current number before trying again.");
+                        case SAVE_FAILED -> announce("Could not save the retry. Actions remain stopped.");
+                    }
+                });
+            }).show();
     }
     private void selectInstallation(){
         if(!app.registry().available()){compatibility();return;}
@@ -248,8 +263,17 @@ public final class MainActivity extends Activity {
             }).show();
     }
     private void startRequestedSession(){
+        startRequestedSession(false);
+    }
+    private void startRequestedSession(boolean compatibilityCheck){
+        startRequestedSession(compatibilityCheck,false);
+    }
+    private void startRequestedSession(boolean compatibilityCheck,boolean activateRule){
+        startRequestedSession(compatibilityCheck,activateRule,-1);
+    }
+    private void startRequestedSession(boolean compatibilityCheck,boolean activateRule,long accountId){
         if(!repository.current().binding().bound()){reviewReceiver();return;}
-        if(!GateAccessibilityService.requestApply()){compatibility();return;}
+        if(!(compatibilityCheck?GateAccessibilityService.requestCompatibilityCheck():activateRule?GateAccessibilityService.requestActivation():GateAccessibilityService.requestApply(accountId))){compatibility();return;}
         Intent open=getPackageManager().getLaunchIntentForPackage(GateAccessibilityService.packageSelected());
         if(open==null){GateAccessibilityService.stopNow();announce("Select the connected installation again.");return;}
         try{startActivity(open);}catch(android.content.ActivityNotFoundException error){GateAccessibilityService.stopNow();announce("The selected installation is unavailable.");}
@@ -260,6 +284,7 @@ public final class MainActivity extends Activity {
         box.addView(Ui.text(this,app.registry().summary(),14,R.color.muted,false));Ui.gap(box,12);
         box.addView(Ui.text(this,"This build needs measured screen controls, exact receiver binding and physical block/unblock verification before connecting. The first message may arrive. Existing blocks stay as they are.",14,R.color.muted,false));Ui.gap(box,12);
         box.addView(Ui.text(this,"Screen access: "+(GateAccessibilityService.connected()?"connected":"off")+"\nAndroid API: "+Build.VERSION.SDK_INT+"\nApp version: "+BuildConfig.VERSION_NAME,13,R.color.muted,false));
+        if(app.registry().available()&&repository.current().binding().bound())box.addView(Ui.button(this,"Check visible profile",false,()->startRequestedSession(true)));
         box.addView(Ui.button(this,"About visible scans",false,()->new AlertDialog.Builder(this).setTitle("Visible scan disclosure").setMessage(R.string.scan_disclosure).setPositiveButton("Understood",null).show()));
         new AlertDialog.Builder(this).setTitle("Compatibility & help").setView(Ui.scroll(this,box)).setNegativeButton("Close",null).setPositiveButton("View diagnostics",(d,w)->diagnostics()).show();
     }
@@ -296,6 +321,12 @@ public final class MainActivity extends Activity {
     private void openSettings(String action){try{startActivity(new Intent(action));}catch(android.content.ActivityNotFoundException error){announce("This settings screen is unavailable on this device.");}}
     private void announce(String message){status.setText(message);}
     private void choose(Account a,Choice choice){repository.choose(a.id(),choice,()->announce(choice==Choice.ALLOW?"Kept. This number will not be auto-blocked.":"Choice saved. Waiting for a supported account check."));}
+    private void unblockNow(Account a){
+        repository.choose(a.id(),Choice.ALLOW,()->{
+            if(app.registry().available()&&GateAccessibilityService.connected()&&repository.current().binding().bound())startRequestedSession(false,false,a.id());
+            else announce("Unblock request saved. A supported visible account check is still required.");
+        });
+    }
     private void manualBlock(Account a){
         new AlertDialog.Builder(this).setTitle("Block this number?").setMessage("This account has not been identified as a business.\n\n"+a.phone()+"\n\nBlock only this number because you chose it. Future messages and calls may be stopped. Another number will need its own check.")
             .setNegativeButton("Cancel",null).setPositiveButton("Block number",(d,w)->choose(a,Choice.DENY_MANUAL)).show();
@@ -378,9 +409,9 @@ public final class MainActivity extends Activity {
         if(expanded==a.id()){
             Ui.gap(box,12);String checked=a.checkedAt()>0?DateFormat.getDateTimeInstance().format(new Date(a.checkedAt())):"Not checked";
             box.addView(Ui.text(this,"Only "+a.phone()+" follows this choice. A new number needs its own permission.\n\nLast account check: "+checked+"\n"+(a.kind()==Kind.BUSINESS_CONFIRMED?"Business account observed.":"No current business authority.")+"\nYour choice: "+(a.choice()==Choice.ALLOW?"keep enabled":a.choice()==Choice.DENY_MANUAL?"manually block this number":"apply the business rule")+".\n\nThe switch is your preference; a pending action is not proof of a completed block. Exact-number choices remain until you change them, even if a number changes owner.",13,R.color.muted,false));
-            if(a.choice()==Choice.ALLOW&&a.blockState()!=BlockState.UNBLOCKED)box.addView(Ui.button(this,"Unblock now",false,()->choose(a,Choice.ALLOW)));
+            if(a.choice()==Choice.ALLOW&&a.blockState()!=BlockState.UNBLOCKED)box.addView(Ui.button(this,"Unblock now",false,()->unblockNow(a)));
             if(row.type().equals("person"))box.addView(Ui.button(this,a.choice()==Choice.ALLOW?"Kept · never auto-blocked":"Keep this number",false,()->choose(a,Choice.ALLOW)));
-            if(a.pending()||a.jobState()==JobState.FAILED)box.addView(Ui.button(this,"Retry check",false,this::applyPending));
+            if(a.pending()||a.jobState()==JobState.FAILED)box.addView(Ui.button(this,"Retry check",false,()->retryCheck(a)));
         }
         View divider=new View(this);divider.setBackgroundColor(getColor(R.color.line));LinearLayout.LayoutParams line=new LinearLayout.LayoutParams(-1,Ui.dp(this,1));line.topMargin=Ui.dp(this,12);box.addView(divider,line);
     }

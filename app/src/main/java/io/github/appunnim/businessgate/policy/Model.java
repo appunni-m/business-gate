@@ -13,7 +13,13 @@ public final class Model {
     public record Account(long id, long namespace, String phone, String name, Kind kind, Choice choice,
         BlockState blockState, boolean gateOwned, long revision, boolean everBusiness, Review review,
         int hintBits, long dismissedUntil, long checkedAt, long lastSeen, JobState jobState,
-        Action jobAction, String nonce, long grantCreatedAt) {
+        Action jobAction, String nonce, long grantCreatedAt, int attempts, long jobUpdatedAt, String jobReason) {
+        public Account(long id,long namespace,String phone,String name,Kind kind,Choice choice,BlockState blockState,
+            boolean gateOwned,long revision,boolean everBusiness,Review review,int hintBits,long dismissedUntil,long checkedAt,long lastSeen,
+            JobState jobState,Action jobAction,String nonce,long grantCreatedAt){
+            this(id,namespace,phone,name,kind,choice,blockState,gateOwned,revision,everBusiness,review,hintBits,dismissedUntil,checkedAt,lastSeen,
+                jobState,jobAction,nonce,grantCreatedAt,0,0,"");
+        }
         public boolean businessRow() { return everBusiness || choice == Choice.DENY_MANUAL || (choice == Choice.ALLOW && kind == Kind.UNKNOWN); }
         public boolean pending() { return jobState != JobState.NONE && jobState != JobState.DONE && jobState != JobState.CANCELED && jobState != JobState.FAILED; }
     }
@@ -24,7 +30,11 @@ public final class Model {
     public record Readiness(long namespace, long globalRevision, long epoch, long observedElapsed, Binding binding) {}
     public record Snapshot(long namespace, long globalRevision, boolean loaded, boolean enabled,
         boolean paused, boolean consent, boolean salesHints, boolean discovery, boolean digest,
-        String setup, List<Account> accounts, String error, Binding binding) {
+        String setup, List<Account> accounts, String error, Binding binding, boolean circuitOpen) {
+        public Snapshot(long namespace,long globalRevision,boolean loaded,boolean enabled,boolean paused,boolean consent,
+            boolean salesHints,boolean discovery,boolean digest,String setup,List<Account> accounts,String error,Binding binding){
+            this(namespace,globalRevision,loaded,enabled,paused,consent,salesHints,discovery,digest,setup,accounts,error,binding,false);
+        }
         public Snapshot(long namespace, long globalRevision, boolean loaded, boolean enabled, boolean paused, boolean consent,
             boolean salesHints, boolean discovery, boolean digest, String setup, List<Account> accounts, String error) {
             this(namespace, globalRevision, loaded, enabled, paused, consent, salesHints, discovery, digest, setup, accounts, error, Binding.empty());

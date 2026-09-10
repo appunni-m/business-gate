@@ -18,7 +18,7 @@ public final class CoreSuite {
     private static RuleEngine.Context context(int guards){return new RuleEngine.Context(guards,100,NOW,8,4,3,1000);}
     private static void check(boolean condition,String label){assertions++;if(!condition)throw new AssertionError(label);}
     private static void equals(Object actual,Object expected,String label){check(java.util.Objects.equals(actual,expected),label+" expected "+expected+", got "+actual);}
-    public static void main(String[] args){identity();rules();hints();attention();budgets();epochs();controllerRegressions();controller();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
+    public static void main(String[] args){identity();rules();hints();attention();budgets();epochs();controllerRegressions();controller();retries();System.out.println("PASS "+assertions+" assertions: identity, policy guards, hint exclusions, interval union, mutation races and verification");}
     private static void identity(){
         equals(Identity.canonicalPhone("+1 (202) 555-0101"),"+12025550101","canonical identity");
         for(String bad:new String[]{"2025550101","+01234567","+123","+1234567890123456","+1 202 555 0101 ext 2","+١٢٠٢٥٥٥٠١٠١","+12025550101\u202e","+12025550101,+12025550102","++12025550101","+1202\t5550101","+1202\u200b5550101"}){
@@ -136,6 +136,30 @@ public final class CoreSuite {
         Fake receiver=new Fake();AutomationController r=new AutomationController();receiver.controller=r;receiver.receiver="other-receiver";
         r.start(7,100,8);r.onEvent(receiver);equals(receiver.clicks,0,"receiver must match durable namespace");
     }
+    private static Account attempted(Account a,int count,long updated){
+        return new Account(a.id(),a.namespace(),a.phone(),a.name(),a.kind(),a.choice(),a.blockState(),a.gateOwned(),a.revision(),a.everBusiness(),a.review(),a.hintBits(),a.dismissedUntil(),a.checkedAt(),a.lastSeen(),JobState.REINSPECT,a.jobAction(),a.nonce(),a.grantCreatedAt(),count,updated,"RESULT_UNVERIFIED");
+    }
+    private static void retries(){
+        equals(RetryPolicy.eligibility(0,0,NOW),RetryPolicy.Eligibility.READY,"initial attempt available");
+        equals(RetryPolicy.eligibility(1,NOW,NOW+29_999),RetryPolicy.Eligibility.WAIT,"first retry waits thirty seconds");
+        equals(RetryPolicy.eligibility(1,NOW,NOW+30_000),RetryPolicy.Eligibility.READY,"first later opportunity");
+        equals(RetryPolicy.eligibility(2,NOW,NOW+299_999),RetryPolicy.Eligibility.WAIT,"second retry waits five minutes");
+        equals(RetryPolicy.eligibility(2,NOW,NOW+300_000),RetryPolicy.Eligibility.READY,"second later opportunity");
+        equals(RetryPolicy.eligibility(3,NOW,NOW+900_000),RetryPolicy.Eligibility.EXHAUSTED,"three attempts require explicit recovery");
+        equals(RetryPolicy.eligibility(1,NOW,NOW-1),RetryPolicy.Eligibility.WAIT,"wall rollback cannot accelerate a retry");
+        Fake waiting=new Fake();waiting.account=attempted(waiting.account,1,NOW);AutomationController w=new AutomationController();w.start(7,100,8);w.onEvent(waiting);
+        equals(waiting.clicks,0,"backoff blocks entry");equals(waiting.stopReason,AutomationController.StopReason.RETRY_WAIT,"backoff reason remains truthful");
+        Fake observed=new Fake();observed.account=attempted(observed.account,3,NOW);observed.block=BlockState.BLOCKED;AutomationController o=new AutomationController();o.start(7,100,8);o.onEvent(observed);
+        equals(observed.clicks,0,"exhausted crash recovery observes before retry");equals(observed.successes,1,"already satisfied observation needs no repeated mutation");
+        o.stop(observed);check(!observed.uncertain,"stopping a completed operation does not invent uncertainty");
+        Fake stalled=new Fake();stalled.defer=true;AutomationController s=new AutomationController();s.start(7,100,8);s.onEvent(stalled);s.onTime(8100,stalled);stalled.continueJournal.run();
+        equals(stalled.stopReason,AutomationController.StopReason.ATTEMPT_TIMEOUT,"stalled journal times out without an event");equals(stalled.clicks,0,"late journal cannot act after timeout");
+        Fake transition=new Fake();AutomationController t=new AutomationController();t.start(7,100,8);t.onEvent(transition);t.onTime(2600,transition);
+        equals(transition.stopReason,AutomationController.StopReason.TRANSITION_TIMEOUT,"transition has its own bounded deadline");equals(transition.clicks,1,"transition timeout does not repeat entry");
+        Account a=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");Snapshot normal=snapshot(a,true,false);
+        Snapshot circuit=new Snapshot(normal.namespace(),normal.globalRevision(),true,true,false,true,false,false,false,"READY",normal.accounts(),"",normal.binding(),true);
+        equals(engine.evaluate(circuit,a,evidence(Kind.BUSINESS_CONFIRMED,BlockState.UNBLOCKED),context(RuleEngine.ALL_GUARDS)).action(),Action.NONE,"persisted circuit blocks optimistic guard input");
+    }
     private static final class Fake implements AutomationController.Port{
         Account account=account(Kind.BUSINESS_CONFIRMED,Choice.DEFAULT,BlockState.UNBLOCKED,"");
         AutomationController controller;AutomationController.Screen screen=AutomationController.Screen.PROFILE;
@@ -147,6 +171,7 @@ public final class CoreSuite {
         public boolean click(AutomationController.Control control,AutomationController.Frame frame){clicks++;return true;}
         public void verified(AutomationController.Plan plan,Evidence evidence,java.util.function.Consumer<AutomationController.CommitResult> result){if(deferVerification)verification=result;else result.accept(AutomationController.CommitResult.COMMITTED);}
         public void completed(){successes++;}
-        public void stopped(boolean unverified){uncertain=unverified;}
+        public void stopped(AutomationController.Plan plan,AutomationController.StopReason reason,boolean unverified){uncertain=unverified;stopReason=reason;}
+        AutomationController.StopReason stopReason;
     }
 }

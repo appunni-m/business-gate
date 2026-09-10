@@ -35,9 +35,10 @@ public final class GateAccessibilityService extends AccessibilityService {
     private final AutomationController controller=new AutomationController();
     private final Handler handler=new Handler(Looper.getMainLooper());
     private long generation,deadline,activeAccount=-1,candidateAt;
-    private String targetPackage="",reason="NO_CONNECTION",pendingObservation="";
+    private String targetPackage="",reason="NO_CONNECTION",pendingObservation="",requestedPhone="";
     private Binding candidate;
-    private boolean circuitOpen,requested,arming;
+    private boolean requested,arming,checkingCompatibility,activatingRule;
+    private Readiness sessionScope;
     private final Runnable repositoryChanged=()->{
         if(repository==null)return;
         if(!repository.consented()){
@@ -60,7 +61,9 @@ public final class GateAccessibilityService extends AccessibilityService {
         if(connected==null||connected.candidate==null||SystemClock.elapsedRealtime()-connected.candidateAt>60_000)return null;
         return connected.candidate;
     }
-    public static boolean requestApply(){return connected!=null&&connected.request();}
+    public static boolean requestApply(long accountId){return connected!=null&&connected.request(false,false,accountId);}
+    public static boolean requestActivation(){return connected!=null&&connected.request(false,true,-1);}
+    public static boolean requestCompatibilityCheck(){return connected!=null&&connected.request(true,false,-1);}
     private GateApplication app(){return (GateApplication)getApplication();}
     @Override protected void onServiceConnected(){
         connected=this;repository=app().repository();overlay=new SessionOverlay(this);repository.emergencyStop();repository.addListener(repositoryChanged);
@@ -74,11 +77,20 @@ public final class GateAccessibilityService extends AccessibilityService {
         if(!repository.consented()||app().registry().resolve(this,pkg)==null){reason="ENVIRONMENT_UNSUPPORTED";return false;}
         targetPackage=pkg;filter(pkg);reason="OPEN_SUPPORTED_PROFILE";return true;
     }
-    private boolean request(){
+    private boolean request(boolean checkOnly,boolean activateRule,long accountId){
         if(repository==null||!repository.consented()||!repository.current().binding().bound()||app().registry().resolve(this,targetPackage)==null)return false;
-        stop();requested=true;deadline=SystemClock.elapsedRealtime()+25_000;long owner=++generation;reason="WAITING_FOR_PROFILE";
+        Account target=accountId<0?null:repository.current().account(accountId);if(accountId>=0&&target==null)return false;
+        if(repository.current().circuitOpen()&&!checkOnly){reason="COMPATIBILITY_CHECK_REQUIRED";return false;}
+        stop();requested=true;checkingCompatibility=checkOnly;activatingRule=activateRule;deadline=SystemClock.elapsedRealtime()+25_000;long owner=++generation;reason="WAITING_FOR_PROFILE";
+        requestedPhone=target==null?"":target.phone();
+        Snapshot scope=repository.current();sessionScope=new Readiness(scope.namespace(),scope.globalRevision(),repository.epoch(),SystemClock.elapsedRealtime(),scope.binding());
         if(!overlay.show(this::stop)){stop();reason="STOP_CONTROL_UNAVAILABLE";return false;}
-        app().sessionAttention(true);handler.postDelayed(()->{if(generation==owner)stop();},25_000);return true;
+        app().sessionAttention(true);handler.postDelayed(()->{if(generation==owner)stop();},25_000);
+        handler.postDelayed(new Runnable(){@Override public void run(){
+            if(owner!=generation||(!requested&&activeAccount<0))return;
+            if(activeAccount>=0)controller.onTime(SystemClock.elapsedRealtime(),port);
+            if(owner==generation&&(requested||activeAccount>=0))handler.postDelayed(this,250);
+        }},250);return true;
     }
     @Override public void onAccessibilityEvent(AccessibilityEvent event){
         if(repository==null||!repository.consented()||event.getPackageName()==null)return;
@@ -101,6 +113,7 @@ public final class GateAccessibilityService extends AccessibilityService {
         candidateAt=SystemClock.elapsedRealtime();
         if(!candidate.equals(repository.current().binding())){if(requested)stop();reason="RECEIVER_REVIEW_REQUIRED";return;}
         if(requested&&!arming){
+            if(!requestedPhone.isEmpty()&&!requestedPhone.equals(read.phone())){reason="OPEN_REQUESTED_NUMBER";return;}
             if(SystemClock.elapsedRealtime()>=deadline){stop();return;}
             Account account=repository.current().accounts().stream().filter(a->a.phone().equals(read.phone())).findFirst().orElse(null);
             if(account==null){
@@ -110,10 +123,16 @@ public final class GateAccessibilityService extends AccessibilityService {
             }
             long owner=generation;arming=true;
             Readiness ready=new Readiness(repository.current().namespace(),repository.current().globalRevision(),repository.epoch(),SystemClock.elapsedRealtime(),candidate);
-            repository.arm(ready,()->{
+            if(checkingCompatibility){
+                AutomationController.Frame frame=inspect(account);
+                int required=RuleEngine.ALL_GUARDS&~(1<<Guard.NO_STOP.ordinal())&~(1<<Guard.CIRCUIT.ordinal());
+                if(frame==null||(frame.context().guards()&required)!=required){arming=false;reason="CHECK_NEEDS_SAFE_PROFILE";return;}
+                repository.compatibilityChecked(ready,()->{if(owner!=generation)return;finishSession();reason="COMPATIBILITY_CHECK_PASSED";});return;
+            }
+            repository.arm(ready,activatingRule,()->{
                 arming=false;if(owner!=generation||!requested||SystemClock.elapsedRealtime()>=deadline){repository.emergencyStop();return;}
-                if(!account.pending()){finishSession();reason="RULE_READY";return;}
-                circuitOpen=false;activeAccount=account.id();requested=false;reason="APPLYING";controller.start(activeAccount,SystemClock.elapsedRealtime(),generation);controller.onEvent(port);
+                if(!account.pending()){String completedReason=activatingRule?"RULE_READY":"NO_PENDING_ACTION";finishSession();reason=completedReason;return;}
+                activeAccount=account.id();requested=false;reason="APPLYING";controller.start(activeAccount,SystemClock.elapsedRealtime(),generation);controller.onEvent(port);
             });
         }else if(!requested)repository.observe(evidence(read,adapter,root),read.name());
     }
@@ -122,8 +141,11 @@ public final class GateAccessibilityService extends AccessibilityService {
             root.getWindowId(),reading.receiver(),adapter.id(),reading.screen()==AutomationController.Screen.PROFILE||reading.screen()==AutomationController.Screen.BLOCK_DIALOG||reading.screen()==AutomationController.Screen.UNBLOCK_DIALOG,reading.safe());
     }
     private AutomationController.Frame inspect(){
-        if(activeAccount<0||!repository.consented())return null;
-        Snapshot s=repository.current();Account account=s.account(activeAccount);if(account==null)return null;
+        return inspect(repository.current().account(activeAccount));
+    }
+    private AutomationController.Frame inspect(Account account){
+        if(account==null||!repository.consented())return null;
+        Snapshot s=repository.current();
         QualifiedAdapter adapter=app().registry().resolve(this,targetPackage);if(adapter==null)return null;
         AccessibilityNodeInfo root=getRootInActiveWindow();QualifiedAdapter.Reading read=adapter.inspect(root,targetPackage);if(read==null)return null;
         boolean foreground=false,windowSafe=true;Rect target=new Rect();root.getBoundsInScreen(target);
@@ -139,8 +161,8 @@ public final class GateAccessibilityService extends AccessibilityService {
             .record(Guard.INTERACTIVE,getSystemService(PowerManager.class).isInteractive()).record(Guard.UNLOCKED,!getSystemService(KeyguardManager.class).isKeyguardLocked())
             .record(Guard.RECEIVER,receiver).record(Guard.PROFILE,account.phone().equals(read.phone())&&account.namespace()==s.namespace())
             .record(Guard.WINDOW,windowSafe&&root.isVisibleToUser()).record(Guard.OVERLAY,overlay.clearOf(adapter.actionBounds(root,targetPackage,read))&&overlay.clearOf(adapter.identityBounds(root,targetPackage,read)))
-            .record(Guard.NO_STOP,!repository.disarmed()).record(Guard.NO_ALLOW_VETO,!repository.vetoed(activeAccount))
-            .record(Guard.CIRCUIT,!circuitOpen).record(Guard.LEASE,SystemClock.elapsedRealtime()<deadline)
+            .record(Guard.NO_STOP,!repository.disarmed()).record(Guard.NO_ALLOW_VETO,!repository.vetoed(account.id()))
+            .record(Guard.CIRCUIT,!s.circuitOpen()).record(Guard.LEASE,SystemClock.elapsedRealtime()<deadline)
             .record(Guard.STORAGE,s.loaded()&&s.error().isEmpty());
         return new AutomationController.Frame(read.screen(),evidence(read,adapter,root),new RuleEngine.Context(facts.bits(),SystemClock.elapsedRealtime(),System.currentTimeMillis(),generation,s.globalRevision(),account.revision(),deadline),adapter.actionable(root,targetPackage,read));
     }
@@ -163,9 +185,12 @@ public final class GateAccessibilityService extends AccessibilityService {
         }
         @Override public void verified(AutomationController.Plan plan,Evidence evidence,java.util.function.Consumer<AutomationController.CommitResult> result){repository.verified(plan,evidence,result);}
         @Override public void completed(){finishSession();reason="VERIFIED";}
-        @Override public void stopped(boolean uncertain){if(uncertain)circuitOpen=true;finishSession();repository.emergencyStop();reason=uncertain?"RESULT_UNVERIFIED":"STOPPED";}
+        @Override public void stopped(AutomationController.Plan intent,AutomationController.StopReason stopReason,boolean uncertain){
+            repository.emergencyStop();repository.interrupted(intent,stopReason,uncertain,sessionScope);
+            finishSession();reason=uncertain?"RESULT_UNVERIFIED":stopReason.name();
+        }
     };
-    private void finishSession(){if(overlay!=null)overlay.hide();activeAccount=-1;requested=false;arming=false;pendingObservation="";handler.removeCallbacksAndMessages(null);app().sessionAttention(false);}
+    private void finishSession(){if(overlay!=null)overlay.hide();activeAccount=-1;requested=false;arming=false;checkingCompatibility=false;activatingRule=false;sessionScope=null;pendingObservation="";requestedPhone="";handler.removeCallbacksAndMessages(null);app().sessionAttention(false);}
     private void stop(){if(repository==null)return;generation++;controller.stop(port);finishSession();repository.emergencyStop();}
     @Override public void onInterrupt(){stop();}
     @Override public void onDestroy(){stop();if(repository!=null)repository.removeListener(repositoryChanged);try{unregisterReceiver(screenOff);}catch(IllegalArgumentException ignored){/* Connection was never completed. */}connected=null;super.onDestroy();}

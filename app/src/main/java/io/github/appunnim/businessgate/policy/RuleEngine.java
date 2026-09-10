@@ -21,7 +21,7 @@ public final class RuleEngine {
     public Decision evaluate(Snapshot s, Account a, Evidence e, Context c) {
         if (!s.loaded() || a == null) return none(Reason.POLICY_UNLOADED);
         if (!s.consent()) return none(Reason.CONSENT_MISSING);
-        if (c.guards() != ALL_GUARDS || c.elapsedNow() >= c.deadline()) return none(Reason.GUARD_FAILED);
+        if (s.circuitOpen() || c.guards() != ALL_GUARDS || c.elapsedNow() >= c.deadline()) return none(Reason.GUARD_FAILED);
         if (s.globalRevision() != c.expectedGlobal() || a.revision() != c.expectedAccount()) return none(Reason.POLICY_CHANGED);
         if (e == null || !s.binding().bound() || !s.binding().receiver().equals(e.receiver())
             || !s.binding().adapter().equals(e.adapter()) || a.namespace() != s.namespace() || e.namespace() != s.namespace() || !a.phone().equals(e.phone())

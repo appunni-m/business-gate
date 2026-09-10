@@ -53,4 +53,10 @@ Local command output is retained under `/tmp/business-gate/` during execution. I
 | F29 | Implemented | Signing, installation, migration, capability and provenance documents aligned. Owner license and support/privacy endpoints remain explicit owner decisions. |
 | F30 | Blocked | Physical attempt/delivery/coverage matrix and 30-day pilot have not started. No product-rate or monthly-effort target is claimed. |
 
+## Continuing recovery implementation
+
+The next recovery change adds durable attempt counts, a three-attempt limit, 30-second/five-minute backoffs, independent 2.5-second transition and eight-second attempt deadlines, and persisted uncertain-result reasons. Explicit Retry reopens inspection without creating an unblock grant. Structural/identity anomalies persist a circuit that requires an explicit, observe-only compatibility check. A targeted Retry or Unblock now keeps the requested number pinned; an unblock-only session preserves the paused business rule. These repository changes have new Android regressions and must pass CI before being treated as emulator-verified.
+
+The local emulator currently refuses to start because the host has insufficient disk space. Its saved account data is preserved. Pure/build/lint checks can continue locally; the GitHub emulator is the available device harness for this change. Build `100701` previously passed GitHub verification/delivery and a local signed predecessor upgrade; its published bytes and signing identity were verified.
+
 The next integration milestone is F02: measure a safe one-to-one profile and confirmation route with verified receiver identity and an identified consenting sender. If that route cannot establish fresh authority and avoid unwanted side effects, it must remain unsupported. A guessed compatibility row cannot complete this work.

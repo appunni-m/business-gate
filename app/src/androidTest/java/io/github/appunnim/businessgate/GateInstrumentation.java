@@ -12,6 +12,7 @@ import android.widget.TextView;
 import io.github.appunnim.businessgate.data.GateDbHelper;
 import io.github.appunnim.businessgate.data.GateRepository;
 import io.github.appunnim.businessgate.policy.Model.*;
+import io.github.appunnim.businessgate.automation.AutomationController;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -63,7 +64,7 @@ public final class GateInstrumentation extends Instrumentation {
                 CountDownLatch accent=new CountDownLatch(1);repository.search("maya",rows->{check(rows.size()==2,"accent-normalized search");accent.countDown();});check(accent.await(10,TimeUnit.SECONDS),"accent callback");
                 committed(cb->repository.choose(first.id(),Choice.ALLOW,cb));String nonce=repository.current().account(first.id()).nonce();check(!nonce.isEmpty(),"explicit enable grants nonce");
                 runOnMainSync(repository::pause);until(()->repository.current().accounts().stream().allMatch(a->a.nonce().isEmpty()));check(repository.current().account(first.id()).choice()==Choice.ALLOW,"pause cancels authority but retains choice");
-                foundationRegressions();seed();Activity activity=launch();
+                foundationRegressions();recoveryRegressions();seed();Activity activity=launch();
                 until(()->hasText(activity,"Harbor Clinic"));check(hasText(activity,"Paused · compatibility check needed"),"unsupported status visible");runOnMainSync(()->find(activity.getWindow().getDecorView(),android.widget.ListView.class).setSelection(6));until(()->hasText(activity,"Block pending"));check(hasText(activity,"Block pending"),"pending subtitle visible after scrolling");
                 runOnMainSync(()->{EditText search=find(activity.getWindow().getDecorView(),EditText.class);search.setText("+12025550102");});
                 until(()->hasText(activity,"Parcel Desk")&&!hasText(activity,"Harbor Clinic"));check(!hasText(activity,"Harbor Clinic"),"search excludes other exact number");
@@ -207,6 +208,68 @@ public final class GateInstrumentation extends Instrumentation {
         }finally{SQLiteDatabase.deleteDatabase(path);}
     }
     private Activity launch(){return startActivitySync(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
+    private Readiness readiness(){Snapshot s=repository.current();return new Readiness(s.namespace(),s.globalRevision(),repository.epoch(),android.os.SystemClock.elapsedRealtime(),s.binding());}
+    private AutomationController.Plan plan(long id,long generation,AutomationController.Control control){
+        Snapshot s=repository.current();Account a=s.account(id);
+        return new AutomationController.Plan(id,s.globalRevision(),a.revision(),generation,a.jobAction(),control,a.phone(),s.binding().receiver(),2,s.namespace(),s.binding().adapter(),a.nonce(),false);
+    }
+    private void journal(AutomationController.Plan plan,boolean expected)throws Exception{
+        CountDownLatch done=new CountDownLatch(1);java.util.concurrent.atomic.AtomicBoolean saved=new java.util.concurrent.atomic.AtomicBoolean();
+        runOnMainSync(()->repository.journal(plan,()->{saved.set(true);done.countDown();},done::countDown));
+        check(done.await(10,TimeUnit.SECONDS),"journal acknowledgement");check(saved.get()==expected,"journal eligibility matches current durable authority");
+    }
+    private GateRepository.RetryResult retry(Account expected)throws Exception{
+        CountDownLatch done=new CountDownLatch(1);java.util.concurrent.atomic.AtomicReference<GateRepository.RetryResult> result=new java.util.concurrent.atomic.AtomicReference<>();
+        runOnMainSync(()->repository.retryCheck(expected,value->{result.set(value);done.countDown();}));check(done.await(10,TimeUnit.SECONDS),"explicit retry acknowledgement");return result.get();
+    }
+    private void recoveryRegressions()throws Exception{
+        committed(repository::reset);
+        Binding binding=new Binding(repository.installation(),"b".repeat(64),"synthetic-profile","+12025550001","synthetic-recovery");
+        committed(cb->repository.bindReceiver(binding,cb));committed(cb->repository.updateSetup("REVIEW",true,cb));
+        committed(cb->repository.enableNumber("+12025550103","Recovery fixture",cb));long id=repository.current().accounts().get(0).id();
+        committed(cb->repository.choose(id,Choice.DENY_MANUAL,cb));
+        for(int attempt=1;attempt<=3;attempt++){
+            if(attempt>1){
+                try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET updated_at=? WHERE account_id=?",new Object[]{System.currentTimeMillis()-300_001,id});}
+                committed(repository::reload);
+            }
+            committed(cb->repository.arm(readiness(),cb));Readiness scope=readiness();
+            journal(plan(id,20+attempt,AutomationController.Control.BLOCK_ENTRY),true);
+            check(repository.current().account(id).attempts()==attempt,"entry reserves one durable attempt");
+            AutomationController.Plan confirm=plan(id,20+attempt,AutomationController.Control.CONFIRM_BLOCK);journal(confirm,true);
+            check(repository.current().account(id).attempts()==attempt,"confirmation does not count a second attempt");
+            runOnMainSync(()->{repository.emergencyStop();repository.interrupted(confirm,AutomationController.StopReason.TRANSITION_TIMEOUT,true,scope);});writerBarrier();
+            Account interrupted=repository.current().account(id);
+            check(interrupted.jobState()==(attempt==3?JobState.FAILED:JobState.REINSPECT),"bounded failure becomes reinspection or terminal failure");
+            check(interrupted.jobReason().equals("RESULT_UNVERIFIED"),"uncertain dispatch has a durable truthful reason");
+            committed(cb->repository.arm(readiness(),cb));journal(plan(id,50+attempt,AutomationController.Control.BLOCK_ENTRY),false);
+            check(repository.current().account(id).attempts()==attempt,"backoff or exhaustion prevents additional dispatch");
+        }
+        Account failed=repository.current().account(id);
+        check(retry(failed)==GateRepository.RetryResult.QUEUED,"explicit recovery reopens a failed job for inspection");
+        check(repository.current().account(id).attempts()==0&&repository.current().account(id).jobState()==JobState.REINSPECT,"explicit recovery resets only attempt budget");
+        check(repository.current().account(id).choice()==Choice.DENY_MANUAL&&repository.current().account(id).nonce().isEmpty(),"retry does not invent a different choice or unblock grant");
+        check(retry(failed)==GateRepository.RetryResult.STALE,"stale retry cannot replace the newer revision");
+        committed(cb->repository.choose(id,Choice.ALLOW,cb));Account allowed=repository.current().account(id);String grant=allowed.nonce();long grantedAt=allowed.grantCreatedAt();
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET state='FAILED',attempts=3 WHERE account_id=?",new Object[]{id});}
+        committed(repository::reload);check(retry(repository.current().account(id))==GateRepository.RetryResult.QUEUED,"current explicit unblock authority can be retried");
+        check(repository.current().account(id).nonce().equals(grant)&&repository.current().account(id).grantCreatedAt()==grantedAt,"Retry preserves original nonce and expiry");
+        runOnMainSync(repository::pause);writerBarrier();committed(cb->repository.choose(id,Choice.ALLOW,cb));
+        committed(cb->repository.arm(readiness(),false,cb));
+        check(repository.current().paused(),"explicit unblock session does not silently enable business blocking");
+        journal(plan(id,90,AutomationController.Control.UNBLOCK_ENTRY),true);
+        AutomationController.Plan old=plan(id,90,AutomationController.Control.CONFIRM_UNBLOCK);Readiness scope=readiness();
+        committed(cb->repository.choose(id,Choice.ALLOW,cb));String newer=repository.current().account(id).nonce();
+        runOnMainSync(()->repository.interrupted(old,AutomationController.StopReason.USER_STOP,true,scope));writerBarrier();
+        check(repository.current().account(id).nonce().equals(newer)&&repository.current().account(id).jobState()==JobState.PENDING,"old interruption cannot overwrite a replacement ALLOW command");
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET state='FAILED',grant_created_at=? WHERE account_id=?",new Object[]{System.currentTimeMillis()-8L*86400000,id});}
+        committed(repository::reload);check(retry(repository.current().account(id))==GateRepository.RetryResult.NO_AUTHORITY,"Retry cannot revive an expired unblock grant");
+        Readiness broken=readiness();runOnMainSync(()->{repository.emergencyStop();repository.interrupted(null,AutomationController.StopReason.IDENTITY_CHANGED,false,broken);});writerBarrier();
+        check(repository.current().circuitOpen(),"identity anomaly persists the compatibility circuit");
+        committed(repository::reload);check(repository.current().circuitOpen(),"reload does not silently close circuit");
+        runOnMainSync(()->repository.arm(readiness(),()->{}));writerBarrier();check(repository.disarmed(),"Resume cannot clear a circuit implicitly");
+        committed(cb->repository.compatibilityChecked(readiness(),cb));check(!repository.current().circuitOpen()&&repository.disarmed(),"explicit compatibility check clears circuit without activating actions");
+    }
     private void seed()throws Exception{
         committed(cb->repository.reset(cb));
         try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
