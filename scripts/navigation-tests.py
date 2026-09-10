@@ -8,6 +8,7 @@ import re
 import signal
 import subprocess
 import sys
+import traceback
 
 from verification_evidence import environment, views
 
@@ -17,7 +18,30 @@ NAVIGATION = {
 }
 
 
+def navigation_snapshot(run):
+    overlays = run('shell', 'cmd', 'overlay', 'list', 'android')
+    entries = re.findall(r'^\[([ x])\] (com\.android\.internal\.systemui\.navbar\.(?:threebutton|twobutton|gestural))$', overlays, re.M)
+    active = sorted(package for enabled, package in entries if enabled == 'x')
+    available = sorted(package for _, package in entries)
+    raw_mode = run('shell', 'cmd', 'overlay', 'lookup', 'android', 'android:integer/config_navBarInteractionMode')
+    try:
+        mode = int(raw_mode, 0)
+    except ValueError as error:
+        raise RuntimeError('Unrecognized Android navigation resource: ' + raw_mode[:100]) from error
+    if len(active) > 1 or not set(NAVIGATION.values()).issubset(available) or mode not in (0, 1, 2):
+        raise RuntimeError('Navigation setup unavailable: ' + json.dumps({'active': active, 'available': available, 'mode': mode}))
+    # No active overlay is valid: Android then uses its base/vendor resource value.
+    return {'active': active, 'available': available, 'mode': mode}
+
+
+def restore_navigation_commands(snapshot):
+    if snapshot['active']:
+        return [('shell', 'cmd', 'overlay', 'enable-exclusive', '--category', '--user', '0', snapshot['active'][0])]
+    return [('shell', 'cmd', 'overlay', 'disable', '--user', '0', package) for package in snapshot['available']]
+
+
 def main():
+    Path('output/verification/navigation-failure.json').unlink(missing_ok=True)
     def interrupted(signum, frame):
         raise SystemExit('Owned emulator test interrupted')
     signal.signal(signal.SIGTERM, interrupted)
@@ -27,14 +51,12 @@ def main():
         raise SystemExit('Use an isolated emulator')
     adb = [str(Path(os.environ['ANDROID_HOME']) / 'platform-tools/adb'), '-s', serial]
     def run(*args, timeout=30):
-        return subprocess.run(adb + list(args), capture_output=True, text=True, timeout=timeout, check=True).stdout.strip()
-    overlays = run('shell', 'cmd', 'overlay', 'list', 'android')
-    # Read exact package names, rather than depending on localized settings labels.
-    entries = re.findall(r'^\[([ x])\] (com\.android\.internal\.systemui\.navbar\.(?:threebutton|twobutton|gestural))$', overlays, re.M)
-    active = [package for enabled, package in entries if enabled == 'x']
-    if len(active) != 1 or not set(NAVIGATION.values()).issubset({package for _, package in entries}):
-        raise SystemExit('Both navigation configurations and the previous selection must be available')
-    saved = {'navigation': active[0], 'size': run('shell', 'wm', 'size'), 'density': run('shell', 'wm', 'density'),
+        try:
+            return subprocess.run(adb + list(args), capture_output=True, text=True, timeout=timeout, check=True).stdout.strip()
+        except subprocess.CalledProcessError as error:
+            detail = ((error.stdout or '') + (error.stderr or '')).strip()[-1600:]
+            raise RuntimeError('Navigation command ' + ' '.join(args) + f' exited {error.returncode}: ' + detail) from error
+    saved = {'navigation': navigation_snapshot(run), 'size': run('shell', 'wm', 'size'), 'density': run('shell', 'wm', 'density'),
              'font': run('shell', 'settings', 'get', 'system', 'font_scale'), 'night': run('shell', 'cmd', 'uimode', 'night').split()[-1]}
     api = run('shell', 'getprop', 'ro.build.version.sdk')
     if api not in ('29', '36'):
@@ -42,6 +64,7 @@ def main():
     path = Path('output/verification') / f'navigation-api{api}.json'
     path.parent.mkdir(parents=True, exist_ok=True)
     result = {'schemaVersion': 1, 'api': api, 'complete': False, 'cases': [],
+              'originalNavigation': saved['navigation'],
               'scope': 'Owned keyboard Back/IME and compact 200% layouts in both system navigation configurations. No gesture input or physical qualification.'}
     try:
         run('shell', 'am', 'force-stop', 'io.github.appunnim.businessgate.debug')
@@ -51,7 +74,8 @@ def main():
         run('shell', 'cmd', 'uimode', 'night', 'no')
         for name, package in NAVIGATION.items():
             run('shell', 'cmd', 'overlay', 'enable-exclusive', '--category', '--user', '0', package)
-            if '[x] ' + package not in run('shell', 'cmd', 'overlay', 'list', 'android'):
+            selected = navigation_snapshot(run)
+            if selected['active'] != [package] or selected['mode'] != {'threebutton': 0, 'gestural': 2}[name]:
                 raise RuntimeError('Requested navigation configuration did not apply')
             folder = f'navigation-api{api}-{name}'
             image_folder = folder + '-images'
@@ -96,11 +120,11 @@ def main():
         commands.append(('shell', 'settings', 'delete', 'system', 'font_scale') if saved['font'] == 'null' else
                         ('shell', 'settings', 'put', 'system', 'font_scale', saved['font']))
         commands.append(('shell', 'cmd', 'uimode', 'night', saved['night']))
-        commands.append(('shell', 'cmd', 'overlay', 'enable-exclusive', '--category', '--user', '0', saved['navigation']))
+        commands.extend(restore_navigation_commands(saved['navigation']))
         for command in commands:
             try:
                 run(*command)
-            except (OSError, subprocess.SubprocessError):
+            except (OSError, RuntimeError, subprocess.SubprocessError):
                 errors.append(' '.join(command[:4]))
         try:
             for key in ('size', 'density'):
@@ -110,9 +134,9 @@ def main():
                 errors.append('font readback')
             if run('shell', 'cmd', 'uimode', 'night').split()[-1] != saved['night']:
                 errors.append('theme readback')
-            if '[x] ' + saved['navigation'] not in run('shell', 'cmd', 'overlay', 'list', 'android'):
+            if navigation_snapshot(run) != saved['navigation']:
                 errors.append('navigation readback')
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, RuntimeError, subprocess.SubprocessError):
             errors.append('settings readback')
         result['settingsRestored'] = not errors
         path.write_text(json.dumps(result, indent=2) + '\n')
@@ -122,4 +146,14 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except BaseException:
+        detail = traceback.format_exc(limit=5)[-3500:]
+        path = Path('output/verification/navigation-failure.json')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({'complete': False, 'failure': detail}, indent=2) + '\n')
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            escaped = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+            print('::error title=Owned navigation verification::' + escaped, flush=True)
+        raise

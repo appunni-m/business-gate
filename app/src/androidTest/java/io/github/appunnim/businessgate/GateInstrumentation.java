@@ -449,16 +449,30 @@ public final class GateInstrumentation extends Instrumentation {
     private boolean dialogImeVisible(android.app.AlertDialog dialog){
         boolean[] visible={false};runOnMainSync(()->{android.view.WindowInsets insets=dialog.getWindow().getDecorView().getRootWindowInsets();visible[0]=insets!=null&&(android.os.Build.VERSION.SDK_INT>=30?insets.isVisible(android.view.WindowInsets.Type.ime()):insets.getSystemWindowInsetBottom()>dialog.getContext().getResources().getDisplayMetrics().density*100);});return visible[0];
     }
+    private java.util.concurrent.atomic.AtomicBoolean observeImeAnimation(View decor){
+        java.util.concurrent.atomic.AtomicBoolean moving=new java.util.concurrent.atomic.AtomicBoolean();
+        if(android.os.Build.VERSION.SDK_INT>=30)runOnMainSync(()->decor.setWindowInsetsAnimationCallback(new android.view.WindowInsetsAnimation.Callback(android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE){
+            private final java.util.Set<android.view.WindowInsetsAnimation> animations=new java.util.HashSet<>();
+            @Override public void onPrepare(android.view.WindowInsetsAnimation animation){if((animation.getTypeMask()&android.view.WindowInsets.Type.ime())!=0){animations.add(animation);moving.set(true);}}
+            @Override public android.view.WindowInsets onProgress(android.view.WindowInsets insets,java.util.List<android.view.WindowInsetsAnimation> running){
+                for(android.view.WindowInsetsAnimation animation:running)if((animation.getTypeMask()&android.view.WindowInsets.Type.ime())!=0)animations.add(animation);
+                moving.set(!animations.isEmpty());return insets;
+            }
+            @Override public void onEnd(android.view.WindowInsetsAnimation animation){animations.remove(animation);moving.set(!animations.isEmpty());}
+        }));
+        return moving;
+    }
     private void ownedBack(Activity activity)throws Exception{
         check(activity.hasWindowFocus(),"Back is sent only while the owned Activity has input focus");
         sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);waitForIdleSync();Thread.sleep(250);
     }
     private void interactionRegressions()throws Exception{
-        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
+        Activity activity=launch();java.util.concurrent.atomic.AtomicBoolean activityImeMoving=observeImeAnimation(activity.getWindow().getDecorView());
+        search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
         clickOwn(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&v.getContentDescription().toString().endsWith("Show details"));
         runOnMainSync(()->{EditText field=find(activity.getWindow().getDecorView(),EditText.class);field.requestFocus();activity.getSystemService(android.view.inputmethod.InputMethodManager.class).showSoftInput(field,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);});
-        until(()->imeVisible(activity));check(imeVisible(activity),"real search IME is visible");
-        ownedBack(activity);until(()->!imeVisible(activity));
+        until(()->imeVisible(activity)&&!activityImeMoving.get());check(imeVisible(activity),"real search IME is visible after its transition");
+        ownedBack(activity);until(()->!imeVisible(activity)&&!activityImeMoving.get());
         check(!activity.isFinishing()&&ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details")),"first Back dismisses IME and preserves expanded details");
         check(ownsView(activity,v->v instanceof EditText text&&text.getText().toString().equals("+12025550101")),"IME dismissal preserves query");
         ownedBack(activity);check(!activity.isFinishing(),"Back must collapse details before finishing");
@@ -466,17 +480,23 @@ public final class GateInstrumentation extends Instrumentation {
         catch(AssertionError failure){throw new AssertionError("Second Back did not expose the collapsed summary: ime="+imeVisible(activity)+", focused="+activity.hasWindowFocus()+", expandedControl="+ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details"))+", accountMounted="+hasText(activity,"Harbor Clinic"),failure);}
         check(!activity.isFinishing(),"second Back collapses details without leaving the page");
         invokeOwned(activity,"addNumber",null);until(()->ownDialog(activity)!=null);android.app.AlertDialog form=ownDialog(activity);
+        java.util.concurrent.atomic.AtomicBoolean formImeMoving=observeImeAnimation(form.getWindow().getDecorView());
         until(()->form.getWindow().getDecorView().hasWindowFocus());check(true,"number dialog input window is ready");
         EditText phone=ownInput(form,"Full phone number with country code");
         runOnMainSync(()->{phone.setText("+12025550195");phone.requestFocus();});
         android.view.inputmethod.InputMethodManager input=activity.getSystemService(android.view.inputmethod.InputMethodManager.class);
         until(()->input.isActive(phone));check(input.isActive(phone),"number field has a real input connection");
         runOnMainSync(()->input.showSoftInput(phone,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT));
-        until(()->imeVisible(activity)||dialogImeVisible(form));
-        check(form.getWindow().getDecorView().hasWindowFocus(),"owned number form has input focus");sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);Thread.sleep(300);
+        until(()->(imeVisible(activity)||dialogImeVisible(form))&&!formImeMoving.get()&&!activityImeMoving.get());
+        check(form.getWindow().getDecorView().hasWindowFocus(),"owned number form has input focus");sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+        until(()->!imeVisible(activity)&&!dialogImeVisible(form)&&!formImeMoving.get()&&!activityImeMoving.get());
+        check(!dialogImeVisible(form),"first form Back completes IME dismissal before the next input");
         check(form.isShowing(),"first form Back dismisses IME without canceling unsent text");
         check(ownInput(form,"Full phone number with country code").getText().toString().equals("+12025550195"),"number text survives IME dismissal");
-        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);until(()->ownDialog(activity)==null);
+        check(form.getWindow().getDecorView().hasWindowFocus(),"owned form retains input focus after IME dismissal");
+        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+        try{until(()->ownDialog(activity)==null);}
+        catch(AssertionError failure){throw new AssertionError("Second form Back did not cancel: showing="+form.isShowing()+", ime="+dialogImeVisible(form)+", moving="+formImeMoving.get()+", focused="+form.getWindow().getDecorView().hasWindowFocus(),failure);}
         check(repository.current().accounts().stream().noneMatch(a->a.phone().equals("+12025550195")),"second form Back cancels without saving");
         until(activity::hasWindowFocus);ownedBack(activity);until(activity::isFinishing);
         check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"exit retains choices and never activates actions");
