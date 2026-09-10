@@ -59,7 +59,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: GATE_TEST_SERIAL=emulator-5554 scripts/device-tests.sh
+          script: GATE_TEST_SERIAL=emulator-5554 scripts/device-tests.sh && GATE_TEST_SERIAL=emulator-5554 scripts/ui-layout-tests.sh
       - name: Preserve verified build inputs
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -86,6 +86,7 @@ jobs:
             app/build/outputs/apk/debug/*.apk
             app/build/reports/lint-results-*.html
             output/device-tests/*.txt
+            output/ui-layout/*.png
 
   deliver:
     needs: verify

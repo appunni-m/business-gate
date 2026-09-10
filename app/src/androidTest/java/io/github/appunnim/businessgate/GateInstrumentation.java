@@ -36,6 +36,7 @@ public final class GateInstrumentation extends Instrumentation {
     @Override public void onStart(){
         Bundle result=new Bundle();
         try{
+            check(getTargetContext().getPackageName().equals("io.github.appunnim.businessgate.debug"),"synthetic tests require isolated debug data");
             GateApplication app=(GateApplication)getTargetContext().getApplicationContext();until(()->app.repository()!=null);repository=app.repository();until(()->repository.current().loaded());
             String mode=arguments.getString("mode","all");
             if(mode.equals("verify-attention")){
@@ -50,6 +51,10 @@ public final class GateInstrumentation extends Instrumentation {
                 check(repository.current().account(4).attempts()==3,"process restart preserves consumed attempt budget");
             }else if(mode.startsWith("prepare-recovery")){
                 seed();try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE action_job SET state=?,attempts=3 WHERE account_id=4",new Object[]{mode.endsWith("confirm")?"VERIFYING":"ACTION_INTENT"});}
+            }else if(mode.startsWith("layout-")){
+                seed();layoutRegressions();
+            }else if(mode.equals("ui")){
+                seed();uiRegressions();
             }else if(mode.equals("performance")){
                 performance();
             }else if(mode.equals("setup")){
@@ -199,6 +204,118 @@ public final class GateInstrumentation extends Instrumentation {
         release.countDown();check(reset.await(10,TimeUnit.SECONDS),"reset after queued recovery commits");writerBarrier();
         check(save.get()==GateRepository.SaveResult.STALE&&recovery.get()==GateRepository.StorageResult.STALE,"late recovery and save callbacks remain stale after reset");
         check(repository.pendingChoices().isEmpty()&&repository.current().accounts().isEmpty()&&repository.disarmed(),"queued retries cannot restore reset choices or authority");
+    }
+    private View ownView(View root,java.util.function.Predicate<View> predicate){
+        if(predicate.test(root))return root;
+        if(root instanceof ViewGroup group)for(int i=0;i<group.getChildCount();i++){View result=ownView(group.getChildAt(i),predicate);if(result!=null)return result;}
+        return null;
+    }
+    private boolean ownsView(Activity activity,java.util.function.Predicate<View> predicate){
+        boolean[] found={false};runOnMainSync(()->found[0]=ownView(activity.getWindow().getDecorView(),predicate)!=null);return found[0];
+    }
+    private void search(Activity activity,String value){runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText(value));}
+    private void clickOwn(Activity activity,java.util.function.Predicate<View> predicate)throws Exception{
+        until(()->ownsView(activity,predicate));runOnMainSync(()->ownView(activity.getWindow().getDecorView(),predicate).performClick());
+    }
+    private Activity recreate(Activity activity)throws Exception{
+        ActivityMonitor monitor=addMonitor(io.github.appunnim.businessgate.ui.MainActivity.class.getName(),null,false);
+        try{runOnMainSync(activity::recreate);Activity replacement=monitor.waitForActivityWithTimeout(10000);check(replacement!=null&&replacement!=activity,"replacement Activity created");waitForIdleSync();return replacement;}
+        finally{removeMonitor(monitor);}
+    }
+    private void layoutRegressions()throws Exception{
+        committed(cb->repository.enableNumber("+120255512345678","Clinical supplies and regional scheduling ".repeat(3),cb));
+        Activity original=launch();int orientation=arguments.getString("orientation","portrait").equals("landscape")?android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE:android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+        int expectedOrientation=orientation==android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE?android.content.res.Configuration.ORIENTATION_LANDSCAPE:android.content.res.Configuration.ORIENTATION_PORTRAIT;
+        Activity displayed=original;
+        if(original.getResources().getConfiguration().orientation!=expectedOrientation){
+            ActivityMonitor monitor=addMonitor(io.github.appunnim.businessgate.ui.MainActivity.class.getName(),null,false);
+            try{runOnMainSync(()->original.setRequestedOrientation(orientation));displayed=monitor.waitForActivityWithTimeout(10000);check(displayed!=null,"requested orientation creates an Activity");}
+            finally{removeMonitor(monitor);}
+        }
+        Activity activity=displayed;until(()->activity.getResources().getConfiguration().orientation==expectedOrientation);waitForIdleSync();
+        check(Math.abs(activity.getResources().getConfiguration().fontScale-Float.parseFloat(arguments.getString("font","1.0")))<0.01,"requested font scale is applied");
+        boolean dark=arguments.getString("night","light").equals("dark");
+        check((activity.getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK)==(dark?android.content.res.Configuration.UI_MODE_NIGHT_YES:android.content.res.Configuration.UI_MODE_NIGHT_NO),"requested theme is applied");
+        until(()->ownsView(activity,v->v instanceof android.widget.ListView list&&list.getCount()>5));
+        java.util.List<String> failures=new java.util.ArrayList<>();
+        runOnMainSync(()->{
+            android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);
+            if(list.getHeight()<48*activity.getResources().getDisplayMetrics().density)failures.add("list viewport smaller than one touch target");
+            inspectLayout(activity.getWindow().getDecorView(),failures);
+        });
+        captureOwnedView(activity,"layout.png");
+        check(failures.isEmpty(),"visible layout: "+String.join(", ",failures));
+        search(activity,"+120255512345678");until(()->ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")));
+        until(()->ownsView(activity,v->v instanceof android.widget.ListView list&&list.getCount()==3));
+        clickOwn(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")&&v.getContentDescription().toString().endsWith("Show details"));
+        until(()->ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")&&v.getContentDescription().toString().endsWith("Collapse details")));
+        runOnMainSync(()->inspectLayout(activity.getWindow().getDecorView(),failures));
+        captureOwnedView(activity,"layout-expanded.png");
+        check(failures.isEmpty(),"expanded layout: "+String.join(", ",failures));
+        boolean[] reached={false};
+        for(int step=0;step<20&&!reached[0];step++){
+            runOnMainSync(()->{
+                android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);
+                View action=ownView(activity.getWindow().getDecorView(),v->v instanceof android.widget.Button button&&button.getText().toString().equals("Unblock now"));
+                if(action==null)return;
+                android.graphics.Rect visible=new android.graphics.Rect();reached[0]=action.getGlobalVisibleRect(visible)&&visible.height()>=Math.min(action.getHeight(),48*activity.getResources().getDisplayMetrics().density)-1;
+                if(!reached[0]){int[] actionPosition=new int[2],listPosition=new int[2];action.getLocationOnScreen(actionPosition);list.getLocationOnScreen(listPosition);list.scrollListBy(actionPosition[1]-listPosition[1]);}
+            });
+            waitForIdleSync();
+        }
+        captureOwnedView(activity,"layout-action.png");check(reached[0],"expanded action remains reachable through the single list");
+        check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"layout changes never replay policy or resume actions");
+    }
+    private void captureOwnedView(Activity activity,String name)throws Exception{
+        android.graphics.Bitmap[] rendered={null};
+        runOnMainSync(()->{View root=activity.getWindow().getDecorView();rendered[0]=android.graphics.Bitmap.createBitmap(root.getWidth(),root.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(rendered[0]));});
+        try(var stream=new java.io.FileOutputStream(new java.io.File(getTargetContext().getCacheDir(),name))){if(!rendered[0].compress(android.graphics.Bitmap.CompressFormat.PNG,100,stream))throw new java.io.IOException("OWN_RENDER_FAILED");}
+        finally{rendered[0].recycle();}
+    }
+    private void inspectLayout(View view,java.util.List<String> failures){
+        android.graphics.Rect visible=new android.graphics.Rect();if(!view.isShown())return;boolean onScreen=view.getGlobalVisibleRect(visible);
+        if(view instanceof TextView text&&text.getLayout()!=null&&!(view instanceof EditText)){
+            if(onScreen&&visible.width()+1<view.getWidth())failures.add("horizontal clipping in "+view.getClass().getSimpleName());
+            int available=view.getWidth()-text.getCompoundPaddingLeft()-text.getCompoundPaddingRight();
+            for(int line=0;line<text.getLayout().getLineCount();line++)if(text.getLayout().getLineMax(line)>available+1||text.getLayout().getEllipsisCount(line)>0){failures.add("text overflow in "+view.getClass().getSimpleName()+" line="+line+" width="+Math.round(text.getLayout().getLineWidth(line))+" visible="+Math.round(text.getLayout().getLineMax(line))+" available="+available);break;}
+        }
+        if(view instanceof ViewGroup group)for(int i=0;i<group.getChildCount();i++)inspectLayout(group.getChildAt(i),failures);
+    }
+    private long visibleRow(Activity activity){long[] id={Long.MIN_VALUE};runOnMainSync(()->{android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);id[0]=list.getAdapter().getItemId(list.getFirstVisiblePosition());});return id[0];}
+    private int visibleTop(Activity activity){int[] top={0};runOnMainSync(()->{android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);if(list.getChildCount()>0)top[0]=list.getChildAt(0).getTop();});return top[0];}
+    private void scrollTo(Activity activity,long id,int top){runOnMainSync(()->{android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);for(int i=0;i<list.getCount();i++)if(list.getAdapter().getItemId(i)==id){list.setSelectionFromTop(i,top);return;}throw new AssertionError("owned target row exists");});}
+    private void uiRegressions()throws Exception{
+        insertSyntheticAccounts(0,40);
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE account SET kind='BUSINESS_CONFIRMED',ever_business=1 WHERE phone LIKE '+1999%'");}
+        committed(repository::reload);
+        Activity first=launch();search(first,"+12025550101");until(()->hasText(first,"Harbor Clinic"));
+        clickOwn(first,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&v.getContentDescription().toString().endsWith("Show details"));
+        check(ownsView(first,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details")),"exact-number details expanded");
+        Activity replacement=recreate(first);until(()->hasText(replacement,"Harbor Clinic"));
+        check(ownsView(replacement,v->v instanceof EditText e&&e.getText().toString().equals("+12025550101")),"search survives Activity recreation");
+        check(ownsView(replacement,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&v.getContentDescription().toString().endsWith("Collapse details")),"same exact-number details survive Activity recreation");
+        check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"recreation does not replay a choice or resume actions");
+        clickOwn(replacement,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details"));
+        search(replacement,"");until(()->ownsView(replacement,v->v instanceof android.widget.ListView list&&list.getCount()>40));
+        scrollTo(replacement,30,-12);until(()->visibleRow(replacement)==30);int anchorTop=visibleTop(replacement);
+        search(replacement,"+12025550101");until(()->hasText(replacement,"Harbor Clinic"));
+        Activity filtered=recreate(replacement);until(()->hasText(filtered,"Harbor Clinic"));
+        search(filtered,"");until(()->visibleRow(filtered)==30);
+        check(Math.abs(visibleTop(filtered)-anchorTop)<=1,"clearing search restores exact pre-search anchor after recreation");
+        Activity scrolled=recreate(filtered);until(()->visibleRow(scrolled)==30);
+        check(Math.abs(visibleTop(scrolled)-anchorTop)<=1,"scrolled row and offset survive recreation after asynchronous results arrive");
+        search(scrolled,"+12025550101");until(()->hasText(scrolled,"Harbor Clinic"));
+        clickOwn(scrolled,v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101"));
+        until(()->repository.current().account(1).choice()==Choice.DEFAULT);
+        check(repository.current().account(2).choice()==Choice.ALLOW,"filtered toggle changes only the displayed exact number");
+        check(ownsView(scrolled,v->v instanceof EditText e&&e.getText().toString().equals("+12025550101")),"filtered toggle retains the current query");
+        clickOwn(scrolled,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&v.getContentDescription().toString().endsWith("Show details"));
+        String beforeReset=repository.dataIdentity();committed(repository::reset);
+        until(()->ownsView(scrolled,v->v instanceof EditText e&&e.getText().toString().isEmpty()));
+        check(!beforeReset.equals(repository.dataIdentity()),"reset replaces persistent presentation identity");
+        Activity cleared=recreate(scrolled);until(()->hasText(cleared,"No businesses found yet"));
+        check(ownsView(cleared,v->v instanceof EditText e&&e.getText().toString().isEmpty())&&!ownsView(cleared,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details")),"reset cannot restore prior query or expanded number");
+        check(repository.current().accounts().isEmpty()&&repository.disarmed(),"restoring UI after reset cannot restore data or authority");
     }
     private void performance()throws Exception{
         committed(repository::reset);insertSyntheticAccounts(0,10_000);committed(repository::reload);

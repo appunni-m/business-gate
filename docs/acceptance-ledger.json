@@ -2196,9 +2196,13 @@
         {
           "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
           "method": "onStart"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "uiRegressions"
         }
       ],
-      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
     },
     {
       "id": "full:T086",
@@ -2222,9 +2226,13 @@
         {
           "path": "scripts/check_schema.py",
           "method": ""
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "uiRegressions"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
     },
     {
       "id": "full:T087",
@@ -2261,9 +2269,14 @@
         "F24",
         "F25"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "layoutRegressions"
+        }
+      ],
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
     },
     {
       "id": "full:T089",
@@ -2295,9 +2308,18 @@
         "F24",
         "F25"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "layoutRegressions"
+        },
+        {
+          "path": "scripts/check_contrast.py",
+          "method": ""
+        }
+      ],
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
     },
     {
       "id": "full:T091",
@@ -3788,9 +3810,14 @@
         "F16",
         "F30"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "uiRegressions"
+        }
+      ],
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
     },
     {
       "id": "companion:T080",
@@ -3890,9 +3917,14 @@
         "F16",
         "F30"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "layoutRegressions"
+        }
+      ],
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
     },
     {
       "id": "companion:T086",
@@ -3907,9 +3939,14 @@
         "F16",
         "F30"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "uiRegressions"
+        }
+      ],
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
     },
     {
       "id": "companion:T087",

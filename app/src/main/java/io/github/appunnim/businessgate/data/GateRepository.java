@@ -68,6 +68,8 @@ public final class GateRepository {
     }
     public long epoch() { return authority.current(); }
     public long metricsEpoch(){return metricsEpoch.get();}
+    private volatile String dataIdentity="";
+    public String dataIdentity(){return dataIdentity;}
     public String installation() { return installation; }
     public boolean vetoed(long id) { Account account=current().account(id);return account!=null&&pendingChoices.get(account.namespace(),account.phone())!=null; }
     public List<Pending> pendingChoices(){return pendingChoices.list(current().namespace());}
@@ -108,7 +110,9 @@ public final class GateRepository {
                 db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL");
                 db.execSQL("INSERT INTO namespace(installation,active) VALUES(?,1)", new Object[]{installation});
                 event(db, null, "RECOVERY", "INSTALLATION_CHANGED");
+                db.delete("app_meta","key='ui_data_identity'",null);
             }
+            db.execSQL("INSERT OR IGNORE INTO app_meta(key,value) VALUES('ui_data_identity',?)",new Object[]{UUID.randomUUID().toString()});
             db.execSQL("UPDATE namespace SET paused=1"+(retry?",global_revision=global_revision+1":""));
             db.execSQL("UPDATE action_job SET state='REINSPECT',reason=? WHERE state IN ('ACTION_INTENT','VERIFYING')",new Object[]{retry?"STORAGE_RETRY":"PROCESS_RESTART"});
             if(retry){
@@ -157,6 +161,10 @@ public final class GateRepository {
     }
     private void publish(SQLiteDatabase db) {
         long id = activeId(db);
+        try(Cursor identity=db.rawQuery("SELECT value FROM app_meta WHERE key='ui_data_identity'",null)){
+            if(!identity.moveToFirst()||identity.getString(0).isEmpty())throw new IllegalStateException("DATA_IDENTITY_MISSING");
+            dataIdentity=identity.getString(0);
+        }
         try (Cursor n = db.rawQuery("SELECT * FROM namespace WHERE id=?", new String[]{""+id})) {
             if (!n.moveToFirst()) throw new IllegalStateException("NAMESPACE_MISSING");
             Binding binding = new Binding(string(n,"installation"),string(n,"package_digest"),string(n,"profile_key"),string(n,"receiver_binding"),string(n,"qualification_id"));
@@ -402,7 +410,8 @@ public final class GateRepository {
                 if(owner!=dataEpoch.get())return;SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
                 try{
                     for(String table:new String[]{"action_job","action_event","account","attention_daily","app_meta","namespace"})db.delete(table,null,null);
-                    db.execSQL("INSERT INTO namespace(id,installation,active) VALUES(1,?,1)",new Object[]{installation});db.setTransactionSuccessful();
+                    db.execSQL("INSERT INTO namespace(id,installation,active) VALUES(1,?,1)",new Object[]{installation});
+                    db.execSQL("INSERT INTO app_meta(key,value) VALUES('ui_data_identity',?)",new Object[]{UUID.randomUUID().toString()});db.setTransactionSuccessful();
                 }finally{db.endTransaction();}
                 failure="";publish(db);main.post(()->{if(owner==dataEpoch.get()){if(consentCommand==consentOwner)consentVeto=false;notifyChanged();if(success!=null)success.run();}});
             }catch(Exception error){fail();}

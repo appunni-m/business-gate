@@ -67,11 +67,16 @@ public final class MainActivity extends Activity {
     private List<Account> matches=java.util.Collections.emptyList();
     private final List<Row> rows=new ArrayList<>();
     private final List<Runnable> settingsBindings=new ArrayList<>();
-    private int savedPosition,savedTop,preSearchPosition,preSearchTop;
+    private String renderDataIdentity="";
+    private Bundle restoration;
+    private boolean restoring,matchesReady;
+    private record Anchor(long id,String phone,int position,int top){}
+    private static final Anchor START=new Anchor(Long.MIN_VALUE,"",0,0);
+    private Anchor pendingAnchor,preSearchAnchor=START;
     private record Row(long id,String type,String title,Account account){}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);app=(GateApplication)getApplication();repository=app.repository();
-        if(state!=null){expanded=state.getLong("expanded",-1);reviewExpanded=state.getBoolean("review");peopleExpanded=state.getBoolean("people");savedPosition=state.getInt("position");savedTop=state.getInt("top");}
+        restoration=state==null?null:new Bundle(state);
         FrameLayout root=new FrameLayout(this);root.setBackgroundColor(getColor(R.color.background));
         LinearLayout column=Ui.column(this);int width=Math.min(getResources().getDisplayMetrics().widthPixels,Ui.dp(this,600));
         FrameLayout.LayoutParams columnParams=new FrameLayout.LayoutParams(width,ViewGroup.LayoutParams.MATCH_PARENT,Gravity.CENTER_HORIZONTAL);root.addView(column,columnParams);
@@ -89,7 +94,7 @@ public final class MainActivity extends Activity {
         pause=Ui.button(this,"Resume",false,this::toggleRule);toolbar.addView(pause);
         Button more=Ui.button(this,"⋮",false,()->{});more.setTextSize(24);more.setContentDescription("More options");more.setOnClickListener(this::overflow);toolbar.addView(more,new LinearLayout.LayoutParams(Ui.dp(this,48),-2));
         boolean largeText=getResources().getConfiguration().fontScale>=1.5f;
-        if(largeText){
+        if(largeText&&getResources().getConfiguration().orientation!=android.content.res.Configuration.ORIENTATION_LANDSCAPE){
             toolbar.removeAllViews();toolbar.setOrientation(LinearLayout.VERTICAL);toolbar.setGravity(Gravity.START);
             toolbar.addView(title,new LinearLayout.LayoutParams(-1,-2));
             LinearLayout actions=Ui.row(this);actions.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);actions.addView(pause);actions.addView(more,new LinearLayout.LayoutParams(Ui.dp(this,48),-2));
@@ -99,24 +104,27 @@ public final class MainActivity extends Activity {
         status=Ui.text(this,"Loading your choices…",13,R.color.muted,false);Ui.pad(status,16,4);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);column.addView(status);
         LinearLayout searchRow=Ui.row(this);searchRow.setBackground(Ui.shape(this,R.color.surface,true));
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,12));column.addView(searchRow,sp);
-        search=new EditText(this);search.setId(R.id.account_search);search.setSingleLine(true);search.setTextSize(15);search.setHint(largeText?"Search":"Search name or number");search.setContentDescription("Search local accounts by name or number");
+        search=new EditText(this);search.setId(R.id.account_search);search.setSingleLine(true);search.setSaveEnabled(false);search.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(128)});search.setTextSize(15);search.setHint(largeText?"Search":"Search name or number");search.setContentDescription("Search local accounts by name or number");
         search.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);search.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         search.setTextColor(getColor(R.color.ink));search.setHintTextColor(getColor(R.color.muted));search.setBackground(null);Ui.pad(search,14,10);search.setMinHeight(Ui.dp(this,48));
         searchRow.addView(search,new LinearLayout.LayoutParams(0,-2,1));clear=Ui.button(this,"×",false,()->search.setText(""));clear.setContentDescription("Clear search");clear.setVisibility(View.GONE);searchRow.addView(clear,new LinearLayout.LayoutParams(Ui.dp(this,48),-2));
-        list=new ListView(this);list.setId(R.id.account_list);list.setDivider(null);list.setClipToPadding(false);list.setPadding(0,0,0,Ui.dp(this,20));list.setAdapter(adapter);list.setItemsCanFocus(true);column.addView(list,new LinearLayout.LayoutParams(-1,0,1));
+        list=new ListView(this);list.setId(R.id.account_list);list.setSaveEnabled(false);list.setDivider(null);list.setClipToPadding(false);list.setPadding(0,0,0,Ui.dp(this,20));list.setAdapter(adapter);list.setItemsCanFocus(true);column.addView(list,new LinearLayout.LayoutParams(-1,0,1));
         batch=Ui.button(this,"Apply pending",true,this::applyPending);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.setMargins(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,12));column.addView(batch,bp);batch.setVisibility(View.GONE);
+        root.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{
+            int available=r-l-v.getPaddingLeft()-v.getPaddingRight();int bounded=Math.min(available,Ui.dp(this,600));
+            if(bounded>0&&column.getLayoutParams().width!=bounded){ViewGroup.LayoutParams params=column.getLayoutParams();params.width=bounded;column.setLayoutParams(params);}
+        });
         setContentView(root);root.requestApplyInsets();
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::handleBack);
         search.addTextChangedListener(new TextWatcher(){
-            @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){if(s.length()==0&&after>0){preSearchPosition=list.getFirstVisiblePosition();preSearchTop=list.getChildCount()>0?list.getChildAt(0).getTop():0;}}
+            @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){if(!restoring&&s.length()==0&&after>0)preSearchAnchor=captureAnchor();}
             @Override public void onTextChanged(CharSequence s,int start,int before,int count){
-                queryGeneration++;
+                queryGeneration++;matchesReady=false;
+                if(!restoring)pendingAnchor=s.length()==0?preSearchAnchor:START;
                 clear.setVisibility(s.length()==0?View.GONE:View.VISIBLE);main.removeCallbacks(searchTask);main.postDelayed(searchTask,150);
-                if(s.length()==0)list.post(()->list.setSelectionFromTop(preSearchPosition,preSearchTop));
             }
             @Override public void afterTextChanged(Editable value){}
         });
-        if(state!=null)search.setText(state.getString("query",""));
     }
     private final Runnable searchTask=this::refresh;
     // API 29-32 fallback only; API 33+ registers the native dispatcher in onCreate.
@@ -135,11 +143,37 @@ public final class MainActivity extends Activity {
     @Override protected void onStop(){started=false;queryGeneration++;repository.removeListener(changed);main.removeCallbacks(searchTask);super.onStop();}
     @Override protected void onSaveInstanceState(Bundle out){
         out.putString("query",search.getText().toString());out.putLong("expanded",expanded);out.putBoolean("review",reviewExpanded);out.putBoolean("people",peopleExpanded);
-        out.putInt("position",list.getFirstVisiblePosition());out.putInt("top",list.getChildCount()>0?list.getChildAt(0).getTop():0);super.onSaveInstanceState(out);
+        out.putLong("namespace",renderNamespace);out.putString("dataIdentity",renderDataIdentity);
+        Account detail=repository.current().account(expanded);out.putString("expandedPhone",detail==null?"":detail.phone());
+        writeAnchor(out,"list",pendingAnchor==null?captureAnchor():pendingAnchor);writeAnchor(out,"preSearch",preSearchAnchor);
+        super.onSaveInstanceState(out);
+    }
+    private static void writeAnchor(Bundle out,String key,Anchor anchor){
+        out.putLong(key+"Id",anchor.id());out.putString(key+"Phone",anchor.phone());out.putInt(key+"Position",anchor.position());out.putInt(key+"Top",anchor.top());
+    }
+    private static Anchor readAnchor(Bundle state,String key){return new Anchor(state.getLong(key+"Id",Long.MIN_VALUE),state.getString(key+"Phone",""),Math.max(0,state.getInt(key+"Position")),state.getInt(key+"Top"));}
+    private Anchor captureAnchor(){
+        int position=list.getFirstVisiblePosition();Row row=position>=0&&position<rows.size()?rows.get(position):null;
+        return new Anchor(row==null?Long.MIN_VALUE:row.id(),row==null||row.account()==null?"":row.account().phone(),Math.max(0,position),list.getChildCount()>0?list.getChildAt(0).getTop():0);
+    }
+    private boolean sameAnchor(Row row,Anchor anchor){return row.id()==anchor.id()&&(row.account()==null?anchor.phone().isEmpty():row.account().phone().equals(anchor.phone()));}
+    private void restorePresentation(Snapshot current){
+        if(restoration==null)return;Bundle saved=restoration;restoration=null;
+        if(saved.getLong("namespace",-1)!=current.namespace()||!repository.dataIdentity().equals(saved.getString("dataIdentity","")))return;
+        renderNamespace=current.namespace();renderDataIdentity=repository.dataIdentity();reviewExpanded=saved.getBoolean("review");peopleExpanded=saved.getBoolean("people");
+        Account detail=current.account(saved.getLong("expanded",-1));expanded=detail!=null&&detail.phone().equals(saved.getString("expandedPhone",""))?detail.id():-1;
+        pendingAnchor=readAnchor(saved,"list");preSearchAnchor=readAnchor(saved,"preSearch");
+        restoring=true;search.setText(saved.getString("query",""));restoring=false;
+        main.removeCallbacks(searchTask);
     }
     private void refresh(){
         if(!started)return;for(Runnable binding:settingsBindings)binding.run();Snapshot s=repository.current();
-        if(renderNamespace!=s.namespace()){renderNamespace=s.namespace();matches=java.util.Collections.emptyList();expanded=-1;render();}
+        if(s.loaded())restorePresentation(s);
+        if(s.loaded()&&(renderNamespace!=s.namespace()||!renderDataIdentity.equals(repository.dataIdentity()))){
+            renderNamespace=s.namespace();renderDataIdentity=repository.dataIdentity();matches=java.util.Collections.emptyList();matchesReady=false;
+            expanded=-1;reviewExpanded=false;peopleExpanded=false;preSearchAnchor=START;pendingAnchor=START;
+            restoring=true;search.setText("");restoring=false;render();
+        }
         String text;
         if(!s.error().isEmpty())text=s.error();
         else if(!s.loaded())text="Loading your choices…";
@@ -152,13 +186,23 @@ public final class MainActivity extends Activity {
         else text=s.pending()>0?"Rule on · "+getResources().getQuantityString(R.plurals.waiting_actions,s.pending(),s.pending()):"Rule on · no action needed";
         if(!status.getText().toString().equals(text))status.setText(text);
         pause.setText(!repository.disarmed()&&s.enabled()&&!s.paused()?"Pause":"Resume");
-        batch.setVisibility(s.pending()>0?View.VISIBLE:View.GONE);batch.setText(getResources().getQuantityString(R.plurals.pending_actions,s.pending(),s.pending()));
+        int applicable=applicablePending(s);batch.setVisibility(applicable>0?View.VISIBLE:View.GONE);batch.setText(getResources().getQuantityString(R.plurals.pending_actions,applicable,applicable));
         int generation=++queryGeneration;
-        repository.search(search.getText().toString(),result->{if(!started||generation!=queryGeneration)return;matches=result;render();});
+        repository.search(search.getText().toString(),result->{if(!started||generation!=queryGeneration)return;matches=result;matchesReady=true;render();});
+    }
+    private int applicablePending(Snapshot state){
+        if(!app.registry().available()||!GateAccessibilityService.connected()||!state.binding().bound()||!repository.consented()||state.circuitOpen()||!state.error().isEmpty()||!repository.pendingChoices().isEmpty())return 0;
+        long now=System.currentTimeMillis();int count=0;
+        for(Account account:state.accounts()){
+            if(!account.pending()||account.jobState()==JobState.FAILED||account.kind()==Kind.NON_DIRECT||account.kind()==Kind.AMBIGUOUS)continue;
+            if(io.github.appunnim.businessgate.policy.RetryPolicy.eligibility(account.attempts(),account.jobUpdatedAt(),now)!=io.github.appunnim.businessgate.policy.RetryPolicy.Eligibility.READY)continue;
+            if(account.jobAction()==Action.BLOCK&&state.enabled()&&!state.paused()&&account.choice()!=Choice.ALLOW&&(account.choice()==Choice.DENY_MANUAL||account.kind()==Kind.BUSINESS_CONFIRMED))count++;
+            else if(account.jobAction()==Action.UNBLOCK&&account.choice()==Choice.ALLOW&&!account.nonce().isEmpty()&&now>=account.grantCreatedAt()&&now-account.grantCreatedAt()<io.github.appunnim.businessgate.policy.RuleEngine.GRANT_TTL_MS)count++;
+        }
+        return count;
     }
     private void render(){
-        long anchor=list.getFirstVisiblePosition()<rows.size()?rows.get(list.getFirstVisiblePosition()).id():Long.MIN_VALUE;
-        int top=list.getChildCount()>0?list.getChildAt(0).getTop():0;
+        Anchor anchor=pendingAnchor!=null&&matchesReady?pendingAnchor:captureAnchor();
         rows.clear();Snapshot s=repository.current();boolean searching=!search.getText().toString().trim().isEmpty();
         if(!s.error().isEmpty()||!repository.pendingChoices().isEmpty())rows.add(new Row(-16,"storage","",null));
         if(!searching){
@@ -181,8 +225,11 @@ public final class MainActivity extends Activity {
         if(matches.isEmpty())rows.add(new Row(-14,"empty",searching?"No matching accounts":"No businesses found yet",null));
         rows.add(new Row(-15,"footer","Local by design. Personal and uncertain accounts are not automatically blocked.",null));
         adapter.notifyDataSetChanged();
-        for(int i=0;i<rows.size();i++)if(rows.get(i).id()==anchor){list.setSelectionFromTop(i,top);break;}
-        if(savedPosition>0){list.setSelectionFromTop(savedPosition,savedTop);savedPosition=0;}
+        if(matchesReady){
+            int position=Math.min(anchor.position(),Math.max(0,rows.size()-1));
+            for(int i=0;i<rows.size();i++)if(sameAnchor(rows.get(i),anchor)){position=i;break;}
+            list.setSelectionFromTop(Math.max(0,position),anchor.top());pendingAnchor=null;
+        }
     }
     private void group(long id,String title,List<Account> accounts){if(!accounts.isEmpty()){rows.add(new Row(id,"section",title+" · "+accounts.size(),null));for(Account a:accounts)rows.add(new Row(a.id(),"account","",a));}}
     private void overflow(View anchor){
