@@ -10,7 +10,7 @@ public final class AccountSearch {
     private final List<Entry> entries;
     public AccountSearch(List<Account> accounts){
         List<Entry> rows=new ArrayList<>(accounts.size());
-        for(Account account:accounts)rows.add(new Entry(account,Identity.searchKey(account.name())));
+        for(Account account:accounts)rows.add(new Entry(account,account.searchKey()));
         entries=List.copyOf(rows);
     }
     public List<Account> find(String input){

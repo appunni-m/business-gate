@@ -144,13 +144,13 @@ public final class GateRepository {
     private List<Account> readAccounts(SQLiteDatabase db, long namespace, String extra, String[] args) {
         List<Account> rows = new ArrayList<>(); String[] bound = new String[args.length+1]; bound[0]=""+namespace; System.arraycopy(args,0,bound,1,args.length);
         // Fixed projection avoids per-row column-name resolution and unused cursor payload at the account ceiling.
-        String projection="a.id,a.phone,a.name,a.kind,a.choice,a.observed_state,a.gate_owned,a.revision,a.ever_business,a.review,a.hint_bits,a.dismissed_until,a.checked_at,a.last_seen,j.state,j.action,j.nonce,j.grant_created_at,j.attempts,j.updated_at,j.reason";
+        String projection="a.id,a.phone,a.name,a.kind,a.choice,a.observed_state,a.gate_owned,a.revision,a.ever_business,a.review,a.hint_bits,a.dismissed_until,a.checked_at,a.last_seen,j.state,j.action,j.nonce,j.grant_created_at,j.attempts,j.updated_at,j.reason,a.search_key";
         try (Cursor c = db.rawQuery("SELECT "+projection+" FROM account a LEFT JOIN action_job j ON a.id=j.account_id WHERE a.namespace_id=? " + extra + " ORDER BY a.search_key,a.phone,a.id",bound)) {
             while(c.moveToNext()) rows.add(new Account(c.getLong(0),namespace,string(c,1),string(c,2),Kind.valueOf(string(c,3)),Choice.valueOf(string(c,4)),
                 BlockState.valueOf(string(c,5)),c.getInt(6)==1,c.getLong(7),c.getInt(8)==1,Review.valueOf(string(c,9)),
                 c.getInt(10),c.getLong(11),c.getLong(12),c.getLong(13),
                 c.isNull(14)?JobState.NONE:JobState.valueOf(c.getString(14)),
-                c.isNull(15)?Action.NONE:Action.valueOf(c.getString(15)),string(c,16),c.getLong(17),c.getInt(18),c.getLong(19),string(c,20)));
+                c.isNull(15)?Action.NONE:Action.valueOf(c.getString(15)),string(c,16),c.getLong(17),c.getInt(18),c.getLong(19),string(c,20),string(c,21)));
         }
         return rows;
     }

@@ -13,7 +13,13 @@ public final class Model {
     public record Account(long id, long namespace, String phone, String name, Kind kind, Choice choice,
         BlockState blockState, boolean gateOwned, long revision, boolean everBusiness, Review review,
         int hintBits, long dismissedUntil, long checkedAt, long lastSeen, JobState jobState,
-        Action jobAction, String nonce, long grantCreatedAt, int attempts, long jobUpdatedAt, String jobReason) {
+        Action jobAction, String nonce, long grantCreatedAt, int attempts, long jobUpdatedAt, String jobReason, String searchKey) {
+        public Account(long id,long namespace,String phone,String name,Kind kind,Choice choice,BlockState blockState,
+            boolean gateOwned,long revision,boolean everBusiness,Review review,int hintBits,long dismissedUntil,long checkedAt,long lastSeen,
+            JobState jobState,Action jobAction,String nonce,long grantCreatedAt,int attempts,long jobUpdatedAt,String jobReason){
+            this(id,namespace,phone,name,kind,choice,blockState,gateOwned,revision,everBusiness,review,hintBits,dismissedUntil,checkedAt,lastSeen,
+                jobState,jobAction,nonce,grantCreatedAt,attempts,jobUpdatedAt,jobReason,Identity.searchKey(name));
+        }
         public Account(long id,long namespace,String phone,String name,Kind kind,Choice choice,BlockState blockState,
             boolean gateOwned,long revision,boolean everBusiness,Review review,int hintBits,long dismissedUntil,long checkedAt,long lastSeen,
             JobState jobState,Action jobAction,String nonce,long grantCreatedAt){
