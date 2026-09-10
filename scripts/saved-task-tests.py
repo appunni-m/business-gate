@@ -51,12 +51,21 @@ def main():
             raise SystemExit('No owned process to test')
         run('shell', 'input', 'keyevent', 'KEYCODE_HOME')
         time.sleep(2)
-        run('shell', 'am', 'kill', target)
         deadline = time.monotonic() + 10
-        while pid():
+        attempts = 0
+        while True:
+            current_pid = pid()
+            if not current_pid:
+                break
+            if current_pid != before:
+                raise SystemExit('Owned process changed before the controlled death observation')
             if time.monotonic() >= deadline:
                 raise SystemExit('Background debug process did not die; task restoration is unverified')
-            time.sleep(.2)
+            # A kill request may be ignored while Android completes its foreground transition.
+            # This stays scoped to the current user and lets Android refuse a foreground kill.
+            run('shell', 'am', 'kill', '--user', 'current', target)
+            attempts += 1
+            time.sleep(1)
         launch()
         after = pid()
         if not after or before == after:
@@ -66,6 +75,7 @@ def main():
         (Path('output') / os.environ.get('GATE_TEST_REPORTS', 'device-tests') / 'saved-task-evidence.json').write_text(json.dumps({
             'schemaVersion': 1, 'apkSha256': hashlib.sha256(apk.read_bytes()).hexdigest(),
             'processDeathObserved': True, 'processChanged': True, 'result': 'passed',
+            'killAttempts': attempts, 'killUser': 'current',
             'scope': 'Existing debug task restored after background am kill; no force-stop between preparation and restoration.'}, indent=2) + '\n')
     finally:
         run('uninstall', 'io.github.appunnim.businessgate.probe')

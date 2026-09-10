@@ -18,12 +18,19 @@ NAVIGATION = {
 }
 
 
-def navigation_snapshot(run):
+def parse_probe_navigation(report):
+    modes = re.findall(r'(?m)^INSTRUMENTATION_RESULT: stream=NAVIGATION_MODE ([012])\s*$', report)
+    if len(report) > 4000 or 'FAIL' in report or len(modes) != 1 or not re.search(r'(?m)^INSTRUMENTATION_CODE: -1\s*$', report):
+        raise RuntimeError('Invalid owned navigation resource result: ' + report[:1600])
+    return modes[0]
+
+
+def navigation_snapshot(run, read_mode=None):
     overlays = run('shell', 'cmd', 'overlay', 'list', 'android')
     entries = re.findall(r'^\[([ x])\] (com\.android\.internal\.systemui\.navbar\.(?:threebutton|twobutton|gestural))$', overlays, re.M)
     active = sorted(package for enabled, package in entries if enabled == 'x')
     available = sorted(package for _, package in entries)
-    raw_mode = run('shell', 'cmd', 'overlay', 'lookup', 'android', 'android:integer/config_navBarInteractionMode')
+    raw_mode = read_mode() if read_mode else run('shell', 'cmd', 'overlay', 'lookup', 'android', 'android:integer/config_navBarInteractionMode')
     try:
         mode = int(raw_mode, 0)
     except ValueError as error:
@@ -56,15 +63,28 @@ def main():
         except subprocess.CalledProcessError as error:
             detail = ((error.stdout or '') + (error.stderr or '')).strip()[-1600:]
             raise RuntimeError('Navigation command ' + ' '.join(args) + f' exited {error.returncode}: ' + detail) from error
-    saved = {'navigation': navigation_snapshot(run), 'size': run('shell', 'wm', 'size'), 'density': run('shell', 'wm', 'density'),
-             'font': run('shell', 'settings', 'get', 'system', 'font_scale'), 'night': run('shell', 'cmd', 'uimode', 'night').split()[-1]}
     api = run('shell', 'getprop', 'ro.build.version.sdk')
     if api not in ('29', '36'):
         raise SystemExit('Navigation matrix is defined for API 29 and 36')
+    if api == '29':
+        run('install', '-r', 'release-probe/build/outputs/apk/debug/release-probe-debug.apk')
+    try:
+        read_mode = (lambda: parse_probe_navigation(run('shell', 'am', 'instrument', '-r', '-w', '-e', 'mode', 'system-navigation',
+                     'io.github.appunnim.businessgate.probe/.ReleaseProbe'))) if api == '29' else None
+        run_matrix(run, api, read_mode)
+    finally:
+        if api == '29':
+            run('uninstall', 'io.github.appunnim.businessgate.probe')
+
+
+def run_matrix(run, api, read_mode):
+    saved = {'navigation': navigation_snapshot(run, read_mode), 'size': run('shell', 'wm', 'size'), 'density': run('shell', 'wm', 'density'),
+             'font': run('shell', 'settings', 'get', 'system', 'font_scale'), 'night': run('shell', 'cmd', 'uimode', 'night').split()[-1]}
     path = Path('output/verification') / f'navigation-api{api}.json'
     path.parent.mkdir(parents=True, exist_ok=True)
     result = {'schemaVersion': 1, 'api': api, 'complete': False, 'cases': [],
               'originalNavigation': saved['navigation'],
+              'modeReadMethod': 'owned framework-resource probe' if read_mode else 'Android shell overlay lookup',
               'scope': 'Owned keyboard Back/IME and compact 200% layouts in both system navigation configurations. No gesture input or physical qualification.'}
     try:
         run('shell', 'am', 'force-stop', 'io.github.appunnim.businessgate.debug')
@@ -74,7 +94,7 @@ def main():
         run('shell', 'cmd', 'uimode', 'night', 'no')
         for name, package in NAVIGATION.items():
             run('shell', 'cmd', 'overlay', 'enable-exclusive', '--category', '--user', '0', package)
-            selected = navigation_snapshot(run)
+            selected = navigation_snapshot(run, read_mode)
             if selected['active'] != [package] or selected['mode'] != {'threebutton': 0, 'gestural': 2}[name]:
                 raise RuntimeError('Requested navigation configuration did not apply')
             folder = f'navigation-api{api}-{name}'
@@ -134,7 +154,7 @@ def main():
                 errors.append('font readback')
             if run('shell', 'cmd', 'uimode', 'night').split()[-1] != saved['night']:
                 errors.append('theme readback')
-            if navigation_snapshot(run) != saved['navigation']:
+            if navigation_snapshot(run, read_mode) != saved['navigation']:
                 errors.append('navigation readback')
         except (OSError, RuntimeError, subprocess.SubprocessError):
             errors.append('settings readback')

@@ -22,9 +22,13 @@ public final class ReleaseProbe extends Instrumentation {
     @Override public void onStart(){
         Bundle result=new Bundle();
         try{
-            check(android.os.Build.FINGERPRINT.contains("generic")||android.os.Build.MODEL.contains("sdk"),"dedicated emulator required");
-            automation=getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+            check(android.os.Build.FINGERPRINT.contains("generic")||android.os.Build.MODEL.toLowerCase(java.util.Locale.ROOT).contains("sdk"),"dedicated emulator required");
             String mode=arguments.getString("mode","verify-upgrade");
+            if(mode.equals("system-navigation")){
+                int navigation=systemNavigationMode();check(navigation>=0&&navigation<=2,"known Android navigation mode");
+                result.putString("stream","NAVIGATION_MODE "+navigation+"\n");finish(Activity.RESULT_OK,result);return;
+            }
+            automation=getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
             if(mode.equals("prepare-task")||mode.equals("verify-task")){
                 target="io.github.appunnim.businessgate.debug";savedTask(mode);
                 result.putString("stream","PASS "+assertions+" installed-release assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);return;
@@ -57,6 +61,12 @@ public final class ReleaseProbe extends Instrumentation {
             check(find(node->text(node).startsWith("Rule on"))==null,"external intent cannot activate actions");
             result.putString("stream","PASS "+assertions+" installed-release assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream","FAIL "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
+    }
+    @android.annotation.SuppressLint("DiscouragedApi") // Read the framework resource; API 29 has no shell overlay lookup command.
+    private int systemNavigationMode(){
+        android.content.res.Resources resources=getContext().getResources();
+        int id=resources.getIdentifier("config_navBarInteractionMode","integer","android");
+        check(id!=0,"Android navigation resource exists");return resources.getInteger(id);
     }
     private void savedTask(String mode)throws Exception{
         String draftPhone="+12025550196",draftName="Unsent owned draft";

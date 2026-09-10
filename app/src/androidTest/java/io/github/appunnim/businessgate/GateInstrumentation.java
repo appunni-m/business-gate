@@ -289,12 +289,18 @@ public final class GateInstrumentation extends Instrumentation {
     }
     private void focusRegressions()throws Exception{
         Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
-        setInTouchMode(false);waitForIdleSync();boolean[] accepted={false};
+        until(activity::hasWindowFocus);sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_TAB);
+        until(()->!activity.getWindow().getDecorView().isInTouchMode());waitForIdleSync();
+        check(!activity.getWindow().getDecorView().isInTouchMode(),"real Tab enters keyboard mode in the owned focused window");
+        boolean[] accepted={false};String[] inputState={"number switch absent"};
         runOnMainSync(()->{
             View control=ownView(activity.getWindow().getDecorView(),v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101"));
-            if(control!=null)accepted[0]=control.requestFocus();
+            if(control!=null){
+                accepted[0]=control.requestFocus();
+                inputState[0]="window="+activity.hasWindowFocus()+", shown="+control.isShown()+", attached="+control.isAttachedToWindow()+", focusable="+control.isFocusable()+", touch="+control.isInTouchMode()+", touchFocusable="+control.isFocusableInTouchMode()+", enabled="+control.isEnabled()+", size="+control.getWidth()+"x"+control.getHeight();
+            }
         });
-        check(accepted[0],"exact-number switch accepts keyboard focus");
+        check(accepted[0],"exact-number switch accepts keyboard focus; "+inputState[0]);
         waitForIdleSync();check(focusedNumber(activity,"+12025550101"),"keyboard focus starts on the selected exact number");
         int[] painted={0};
         runOnMainSync(()->{View control=activity.getCurrentFocus();android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(control.getWidth(),control.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);try{control.draw(new android.graphics.Canvas(bitmap));int color=activity.getColor(R.color.focus);for(int y=0;y<bitmap.getHeight();y++)for(int x=0;x<bitmap.getWidth();x++)if(bitmap.getPixel(x,y)==color)painted[0]++;}finally{bitmap.recycle();}});
@@ -354,6 +360,17 @@ public final class GateInstrumentation extends Instrumentation {
             if(getTargetContext().getPackageName().contentEquals(event.getPackageName()==null?"":event.getPackageName())&&event.getEventType()==android.view.accessibility.AccessibilityEvent.TYPE_ANNOUNCEMENT)announcements.incrementAndGet();
         });
         Activity activity=launch();
+        java.util.concurrent.atomic.AtomicBoolean homePaused=new java.util.concurrent.atomic.AtomicBoolean(),homeStopped=new java.util.concurrent.atomic.AtomicBoolean();
+        android.app.Application.ActivityLifecycleCallbacks lifecycle=new android.app.Application.ActivityLifecycleCallbacks(){
+            @Override public void onActivityCreated(Activity value,Bundle state){}
+            @Override public void onActivityStarted(Activity value){}
+            @Override public void onActivityResumed(Activity value){}
+            @Override public void onActivityPaused(Activity value){if(value==activity)homePaused.set(true);}
+            @Override public void onActivityStopped(Activity value){if(value==activity)homeStopped.set(true);}
+            @Override public void onActivitySaveInstanceState(Activity value,Bundle state){}
+            @Override public void onActivityDestroyed(Activity value){}
+        };
+        runOnMainSync(()->activity.getApplication().registerActivityLifecycleCallbacks(lifecycle));
         try{
             search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));until(activity::hasWindowFocus);
             check(!ownsView(activity,v->v.getAccessibilityLiveRegion()!=View.ACCESSIBILITY_LIVE_REGION_NONE),"background status refreshes do not create repeated live-region announcements");
@@ -366,12 +383,16 @@ public final class GateInstrumentation extends Instrumentation {
             check(held.await(10,TimeUnit.SECONDS),"hold the actual user save before leaving the management page");
             try{
                 clickOwn(activity,v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101"));
-                check(activity.hasWindowFocus(),"leave only the owned focused Activity");sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_HOME);until(()->!activity.hasWindowFocus());
+                check(activity.hasWindowFocus(),"leave only the owned focused Activity");
+                check(automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME),"Android accepts Home for the owned foreground test");
+                try{until(homeStopped::get);}
+                catch(AssertionError failure){throw new AssertionError("Home lifecycle: paused="+homePaused.get()+", stopped="+homeStopped.get()+", windowFocus="+activity.hasWindowFocus(),failure);}
+                check(homePaused.get(),"Home pauses and stops the owned Activity before the held save completes");
             }finally{release.countDown();}
             writerBarrier();until(()->repository.current().account(1).choice()==Choice.ALLOW);Thread.sleep(500);
             check(announcements.get()==1,"a save completing after Home cannot announce from the background");
             check(repository.disarmed()&&repository.current().account(2).choice()==Choice.ALLOW,"announcement handling leaves authority inactive and other choices unchanged");
-        }finally{automation.setOnAccessibilityEventListener(null);runOnMainSync(activity::finish);}
+        }finally{automation.setOnAccessibilityEventListener(null);runOnMainSync(()->{activity.getApplication().unregisterActivityLifecycleCallbacks(lifecycle);activity.finish();});}
     }
     private void serviceLifecycleRegressions()throws Exception{
         android.app.UiAutomation automation=getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);

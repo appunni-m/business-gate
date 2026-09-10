@@ -55,6 +55,18 @@ class NavigationTests(unittest.TestCase):
     def test_restoration_detects_same_visible_mode_with_different_overlay_selection(self):
         self.assertNotEqual(self.state(), self.state(active=('threebutton',)))
 
+    def test_probe_modes_require_a_successful_raw_instrumentation_result(self):
+        for mode in ('0', '1', '2'):
+            self.assertEqual(navigation.parse_probe_navigation('INSTRUMENTATION_RESULT: stream=NAVIGATION_MODE ' + mode + '\n\nINSTRUMENTATION_CODE: -1\n'), mode)
+
+    def test_probe_rejects_failure_missing_status_duplicate_and_unknown_modes(self):
+        for report in ('NAVIGATION_MODE 0\n', 'INSTRUMENTATION_RESULT: stream=NAVIGATION_MODE 0\nINSTRUMENTATION_CODE: 0',
+                       'INSTRUMENTATION_RESULT: stream=NAVIGATION_MODE 3\nINSTRUMENTATION_CODE: -1',
+                       'INSTRUMENTATION_RESULT: stream=NAVIGATION_MODE 0\nINSTRUMENTATION_RESULT: stream=NAVIGATION_MODE 2\nINSTRUMENTATION_CODE: -1',
+                       'INSTRUMENTATION_RESULT: stream=NAVIGATION_MODE 0\nFAIL synthetic error\nINSTRUMENTATION_CODE: -1'):
+            with self.assertRaises(RuntimeError):
+                navigation.parse_probe_navigation(report)
+
     def test_early_failure_is_retained_and_public_without_invoking_a_device(self):
         with tempfile.TemporaryDirectory(prefix='business-gate-navigation-') as directory:
             result = subprocess.run([sys.executable, str(Path(navigation.__file__).resolve())], cwd=directory,
