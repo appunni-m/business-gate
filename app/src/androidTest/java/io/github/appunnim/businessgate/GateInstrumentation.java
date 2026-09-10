@@ -304,11 +304,22 @@ public final class GateInstrumentation extends Instrumentation {
         check(focusedNumber(activity,"+12025550101"),"unchanged committed refresh preserves exact-number switch focus");
         long revision=repository.current().account(1).revision();
         check(activity.hasWindowFocus(),"hardware Space is confined to the owned exact-number switch");
-        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_SPACE);
-        until(()->repository.current().account(1).choice()==Choice.DEFAULT);until(()->focusedNumber(activity,"+12025550101"));
+        android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);
+        runOnMainSync(()->list.suppressLayout(true));
+        try{
+            sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_SPACE);
+            until(()->repository.current().account(1).choice()==Choice.DEFAULT);until(()->focusedNumber(activity,"+12025550101"));
+            long previousEpoch=repository.epoch();
+            sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_ENTER);waitForIdleSync();writerBarrier();
+            check(repository.current().account(1).choice()==Choice.DEFAULT&&repository.current().account(1).revision()==revision+1&&repository.epoch()>previousEpoch,"Enter before row rebinding rejects the old revision without another mutation");
+        }finally{runOnMainSync(()->list.suppressLayout(false));}
+        until(()->ownsView(activity,v->v instanceof android.widget.Switch sw&&sw.isFocused()&&!sw.isChecked()&&String.valueOf(sw.getContentDescription()).endsWith("+12025550101. Block pending")));
+        waitForIdleSync();
         check(repository.current().account(1).revision()==revision+1&&repository.current().account(2).choice()==Choice.ALLOW,"focused section move commits exactly one choice for the selected number");
         check(focusedNumber(activity,"+12025550101"),"section move preserves exact-number switch focus");
         sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_ENTER);until(()->repository.current().account(1).choice()==Choice.ALLOW);until(()->focusedNumber(activity,"+12025550101"));
+        until(()->ownsView(activity,v->v instanceof android.widget.Switch sw&&sw.isFocused()&&sw.isChecked()&&String.valueOf(sw.getContentDescription()).endsWith("+12025550101. Enabled · unblocking pending")));
+        waitForIdleSync();
         check(repository.current().account(1).revision()==revision+2,"hardware Enter commits exactly one change to the same number");
         long now=android.os.SystemClock.uptimeMillis();
         sendKeySync(new android.view.KeyEvent(now,now,android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_TAB,0,android.view.KeyEvent.META_SHIFT_ON));
