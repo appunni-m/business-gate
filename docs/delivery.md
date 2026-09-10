@@ -16,6 +16,8 @@ The [Android build and delivery workflow](../.github/workflows/android.yml) runs
 
 The publishing job uses GitHub's automatic token with `contents: write`. Verification uses read-only permissions and does not receive the signing secret. Pull requests, fork runs, non-main pushes, and non-main manual runs cannot publish. Checkout does not persist credentials. An unsuccessful verification or installation prevents publication. Build reports are retained for 14 days, signed Actions artifacts for 90 days, and versioned releases remain available until the owner removes them.
 
+The target/compile baseline is deliberately API 36. Lint's `OldTargetApi` update advisory is excluded for both app and probe so a runner learning about a newer SDK does not silently change the supported build baseline. Other warnings remain errors. Moving to a newer target requires a separate behavior and qualification review; this development APK is not a claim of current store submission compliance.
+
 ## One-time signing setup
 
 Signing is already configured for this repository. The instructions below describe initial setup and backup ownership; an ordinary build or update does not require a new secret.

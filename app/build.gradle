@@ -34,7 +34,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-    lint { abortOnError true; checkReleaseBuilds true; warningsAsErrors true }
+    lint {
+        abortOnError true; checkReleaseBuilds true; warningsAsErrors true
+        // API 36 is the tested distribution baseline. A newly published SDK is a separate qualification change.
+        disable 'OldTargetApi'
+    }
 }
 
 // The application has no runtime dependencies. The platform-only test harness
