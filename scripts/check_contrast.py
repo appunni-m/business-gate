@@ -25,3 +25,12 @@ for theme in ('values', 'values-night'):
         checks += 1
         lowest = min(lowest, ratio)
 print(f'PASS {checks} declared light/dark text contrast pairs; minimum {lowest:.2f}:1')
+focus_checks = 0
+for theme in ('values', 'values-night'):
+    colors = {node.attrib['name']: node.text.strip() for node in ET.parse(Path('app/src/main/res') / theme / 'colors.xml').getroot()}
+    for foreground, background in [('focus', surface) for surface in ('background', 'surface', 'accent_surface', 'amber_surface')] + [('on_accent', 'accent')]:
+        levels = sorted((luminance(colors[foreground]), luminance(colors[background])))
+        ratio = (levels[1] + .05) / (levels[0] + .05)
+        assert ratio >= 3, f'{theme} focus {foreground}/{background}: {ratio:.2f}:1 is below 3:1'
+        focus_checks += 1
+print(f'PASS {focus_checks} declared focus indicator pairs; rendered indicators still require device checks')

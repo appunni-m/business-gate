@@ -1,0 +1,992 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-10T17:57:36.493345+00:00",
+  "scope": "Completed local engineering checkpoint before its source commit is published. Synthetic owned-app evidence; no physical or connected-app qualification.",
+  "sourceBaseCommit": "408eb9d9226072f8fda2d341e1fddb3d72ddf8e4",
+  "workingTreeModified": true,
+  "implementationTreeSha256": "735e25bd0d5c52042b2e834cb91235bb9ef9063d23075104b9abab1dc82a7777",
+  "implementationTreeHashFormat": "SHA-256 of sorted file-hash, two spaces, relative path, newline; app, release-probe, scripts, workflow, config and Gradle inputs. Documentation and generated outputs excluded.",
+  "artifacts": {
+    "app/build/outputs/apk/debug/app-debug.apk": "521eede36156ea2733af4f28f487a5494d698ddd4ebb7ed5b4ec33352927aa4e",
+    "app/build/outputs/apk/release/app-release-unsigned.apk": "265fd0ec2ecf244e75f417f293db6013df4f9f296391936d4fe5e91e36880a8d",
+    "app/build/outputs/bundle/release/app-release.aab": "62b5bd1ef28765c8ac467a11913b15281380af72d5702d62a6bed6b44e4ad81d",
+    "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "f0cedb40318d5900b68454d5ebc2c1e99772f701190117358359581ccb782d90",
+    "release-probe/build/outputs/apk/debug/release-probe-debug.apk": "a2a9c03406d74b782231c46216cc195437ca8557e5eb230f615e687ed0560da7"
+  },
+  "environment": {
+    "schemaVersion": 1,
+    "sourceCommit": "408eb9d9226072f8fda2d341e1fddb3d72ddf8e4",
+    "workingTreeModified": true,
+    "runId": null,
+    "runAttempt": null,
+    "runnerImage": "Darwin",
+    "runnerVersion": "",
+    "hostArchitecture": "arm64",
+    "java": "openjdk version \"17.0.20.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 17.0.20.1+0)\nOpenJDK 64-Bit Server VM Homebrew (build 17.0.20.1+0, mixed mode, sharing)",
+    "gradle": "------------------------------------------------------------\nGradle 8.13\n------------------------------------------------------------\n\nBuild time:    2025-02-25 09:22:14 UTC\nRevision:      073314332697ba45c16c0a0ce1891fa6794179ff\n\nKotlin:        2.0.21\nGroovy:        3.0.22\nAnt:           Apache Ant(TM) version 1.10.15 compiled on August 25 2024\nLauncher JVM:  17.0.20.1 (Homebrew 17.0.20.1+0)\nDaemon JVM:    /opt/homebrew/Cellar/openjdk@17/17.0.20.1/libexec/openjdk.jdk/Contents/Home (no JDK specified, using current Java home)\nOS:            Mac OS X 15.7.7 aarch64",
+    "adb": "Android Debug Bridge version 1.0.41\nVersion 37.0.1-15733141\nInstalled as /opt/homebrew/share/android-commandlinetools/platform-tools/adb\nRunning on Darwin 24.6.0 (arm64)",
+    "emulator": "Android emulator version 37.1.11.0 (build_id 15917651) (CL:N/A)\nCopyright (C) 2006-2024 The Android Open Source Project and many others.\nThis program is a derivative of the QEMU CPU emulator (www.qemu.org).\n\n  This software is licensed under the terms of the GNU General Public\n  License version 2, as published by the Free Software Foundation, and\n  may be copied, distributed, and modified under those terms.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.",
+    "buildTools": "Pkg.UserSrc=false\nPkg.Revision=35.0.0\n#Pkg.Revision=35.0.0 rc4\n",
+    "systemImage": "system-images;android-36;google_apis_playstore;arm64-v8a",
+    "systemImageRevision": "Pkg.Desc=System Image arm64-v8a with Google Play.\nPkg.Revision=7\nPkg.Dependencies=emulator#35.4.9\nAndroidVersion.ApiLevel=36\nAndroidVersion.ExtensionLevel=17\nAndroidVersion.IsBaseSdk=true\nSystemImage.Abi=arm64-v8a\nSystemImage.TagId=google_apis_playstore\nSystemImage.TagDisplay=Google Play\nSystemImage.GpuSupport=true\nAddon.VendorId=google\nAddon.VendorDisplay=Google Inc.\n",
+    "device": {
+      "api": "36",
+      "abi": "arm64-v8a",
+      "fingerprint": "google/sdk_gphone64_arm64/emu64a:16/BE2A.250530.026.D1/13818094:user/release-keys",
+      "size": "Physical size: 1080x2400",
+      "density": "Physical density: 420",
+      "fontScale": "1.0",
+      "night": "Night mode: no",
+      "navigationSetting": "2"
+    },
+    "scope": "Owned synthetic emulator evidence. No physical or connected-app qualification."
+  },
+  "nativeAndBaseLayouts": {
+    "complete": true,
+    "caseCount": 42,
+    "assertions": 950,
+    "imageCount": 152,
+    "cases": [
+      {
+        "mode": "all",
+        "status": "passed",
+        "assertions": 253,
+        "report": "all.txt",
+        "reportSha256": "506f36d0ea87c808b8178fe15409e6ae9655669f72f4b742f1aea978e3ed59b1",
+        "metrics": []
+      },
+      {
+        "mode": "ui",
+        "status": "passed",
+        "assertions": 20,
+        "report": "ui.txt",
+        "reportSha256": "db3c9935b1b7036327bfc43fd6f04a62686a355ca3b4be0ca6a4d1741de957bb",
+        "metrics": []
+      },
+      {
+        "mode": "focus",
+        "status": "passed",
+        "assertions": 31,
+        "report": "focus.txt",
+        "reportSha256": "c7a7e0b4593a0c8d444331a909cb56589a6ea5d0984673cc3cf1dd24570ed61b",
+        "metrics": []
+      },
+      {
+        "mode": "dialogs",
+        "status": "passed",
+        "assertions": 48,
+        "report": "dialogs.txt",
+        "reportSha256": "92a4c435ce2f3a0d1cb9b2eaba4a35c6702ad3c5cf663855cf841d21d5e2370e",
+        "metrics": []
+      },
+      {
+        "mode": "interaction",
+        "status": "passed",
+        "assertions": 18,
+        "report": "interaction.txt",
+        "reportSha256": "f2f1e723515e0d35569bdeb040c504eff4d32269001b69a33ff9660a53096c88",
+        "metrics": []
+      },
+      {
+        "mode": "service-lifecycle",
+        "status": "passed",
+        "assertions": 17,
+        "report": "service-lifecycle.txt",
+        "reportSha256": "d5d4cfb9108df75ec42f6b1b2cc71e20e8747b392d89f4cebe01507ead5e42bb",
+        "metrics": []
+      },
+      {
+        "mode": "privacy-boundary",
+        "status": "passed",
+        "assertions": 32,
+        "report": "privacy-boundary.txt",
+        "reportSha256": "c1f04de50d79a20f82c9651a41beb09fd2d03940caaadbbbc840e21c7b2a22a6",
+        "metrics": [
+          {
+            "committed_reset_rows": "0",
+            "snapshot_rows": "0",
+            "search_rows": "0"
+          }
+        ]
+      },
+      {
+        "mode": "performance",
+        "status": "passed",
+        "assertions": 80,
+        "report": "performance.txt",
+        "reportSha256": "74e9f80febd9f9194cb0d1ceb6080ee2de0322f8b7d277e490ac82fdc0c55bbb",
+        "metrics": [
+          {
+            "records": "10000",
+            "query_p95_ms": "6",
+            "database_and_wal_bytes": "3594376"
+          },
+          {
+            "writer_cpu_p95_ms": "5",
+            "writer_wall_p95_ms": "5",
+            "writer_queue_p95_ms": "0"
+          },
+          {
+            "records": "50000",
+            "snapshot_load_ms": "978"
+          }
+        ]
+      },
+      {
+        "mode": "prepare-attention",
+        "status": "passed",
+        "assertions": 3,
+        "report": "prepare-attention.txt",
+        "reportSha256": "5077248e9d523679673623264dc63197f3f8e018e1f229bd5e532ae45c0aec49",
+        "metrics": []
+      },
+      {
+        "mode": "verify-attention",
+        "status": "passed",
+        "assertions": 3,
+        "report": "verify-attention.txt",
+        "reportSha256": "dc6d2e1f11c124d41f7ef1f1dbe8877158350e5d3c327720c43da74ff0b41e8f",
+        "metrics": []
+      },
+      {
+        "mode": "prepare-recovery-entry",
+        "status": "passed",
+        "assertions": 3,
+        "report": "prepare-recovery-entry.txt",
+        "reportSha256": "359b2e565d9cd94c6d7af79d52a9703837b825ef87433596709e5ccab0daaae6",
+        "metrics": []
+      },
+      {
+        "mode": "verify-recovery-entry",
+        "status": "passed",
+        "assertions": 4,
+        "report": "verify-recovery-entry.txt",
+        "reportSha256": "dc0bcd6d910be0fd4c670f5cb024c288c9f6a241a33b6c6d29667a59bd7ddb98",
+        "metrics": []
+      },
+      {
+        "mode": "prepare-recovery-confirm",
+        "status": "passed",
+        "assertions": 3,
+        "report": "prepare-recovery-confirm.txt",
+        "reportSha256": "8a879c180af813ddc618d40b7348f6c0c26cd4d6eba8c4417ef309e1b38c5038",
+        "metrics": []
+      },
+      {
+        "mode": "verify-recovery-confirm",
+        "status": "passed",
+        "assertions": 4,
+        "report": "verify-recovery-confirm.txt",
+        "reportSha256": "80d0aae4d42dd2fb543fcd65f3867ec8127603a0f075c10c5bcd9bac94350d42",
+        "metrics": []
+      },
+      {
+        "mode": "layout-light-normal-portrait-standard",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-light-normal-portrait-standard.txt",
+        "reportSha256": "0c70f151ff0fe8d9fee4100351a9af1005614b5f9e33ad391796926cf11bd9aa",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "420",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-normal-portrait-large",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-light-normal-portrait-large.txt",
+        "reportSha256": "bb44d79da42900ca54717a1d97e7c269a0b466816d12ba4eeae3e5dde4f53aa9",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "525",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-normal-landscape-standard",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-light-normal-landscape-standard.txt",
+        "reportSha256": "3c0ddaf26ae6c28651bbecdc4de7b1b3b104bfe0f09b5fdcec2a4ebc9d410d14",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "420",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-normal-landscape-large",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-light-normal-landscape-large.txt",
+        "reportSha256": "015b7d374407c37bfe075a67c05a3831141b1598eeba5008fae602f8067b4f8a",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "525",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-large-portrait-standard",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-light-large-portrait-standard.txt",
+        "reportSha256": "920a0bb76ba4a9e7746df20345b295cf869565283e8262e2aef7f5a75ffc2205",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "420",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-large-portrait-large",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-light-large-portrait-large.txt",
+        "reportSha256": "5289b3e8c5913fbbb28582f71cc5fa82ca5633569e4e288489b5d4ed594fe221",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "525",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-large-landscape-standard",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-light-large-landscape-standard.txt",
+        "reportSha256": "4e27b6edac9f7771547e68cdcaa13daa561634fadcecd661601975bff5c57771",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "420",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-large-landscape-large",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-light-large-landscape-large.txt",
+        "reportSha256": "c9007fe257ffab395e4a262b80829ea4522a46e0ba0427f422c191fec0594e61",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "525",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-largest-portrait-standard",
+        "status": "passed",
+        "assertions": 21,
+        "report": "layout-light-largest-portrait-standard.txt",
+        "reportSha256": "d07f1f6541c6cbedee49fbd8981deb17bccd3954eccd405cf2aa5278cfd7def5",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "420",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-largest-portrait-large",
+        "status": "passed",
+        "assertions": 21,
+        "report": "layout-light-largest-portrait-large.txt",
+        "reportSha256": "29194dc70ca61e176dcf0c4bee7786ad2ab4b532c4133f7c3c58c25013d27b04",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "525",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-largest-landscape-standard",
+        "status": "passed",
+        "assertions": 23,
+        "report": "layout-light-largest-landscape-standard.txt",
+        "reportSha256": "a5b6c736c0a584ffc139d356f2d9ff50a747972bcbdc1585a3386c2aaf7ccc30",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "420",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "layout-light-largest-landscape-large",
+        "status": "passed",
+        "assertions": 23,
+        "report": "layout-light-largest-landscape-large.txt",
+        "reportSha256": "8e0d090bdfa7afafad2e7495703f6cdade5d32dfe904f27bdae262d2845166ff",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "525",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-normal-portrait-standard",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-dark-normal-portrait-standard.txt",
+        "reportSha256": "102f2eb25328f7b4641b58a185263073ea2f82dcfcb73ddc01209bdc05a7d903",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "420",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-normal-portrait-large",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-dark-normal-portrait-large.txt",
+        "reportSha256": "422acaf1a8c81db5e67686d6b525946b523dd666af97ac11f6c2ca578e97d379",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "525",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-normal-landscape-standard",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-dark-normal-landscape-standard.txt",
+        "reportSha256": "edad3958960cf36e42408ca0c266815996ae7c5c819526082bd9824615979500",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "420",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-normal-landscape-large",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-dark-normal-landscape-large.txt",
+        "reportSha256": "3e52d968b4e93fcec72e0d2e336ee1e113acc40ac6d6cef8ecce5dac6f9ef5dc",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "525",
+            "font_percent": "100"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-large-portrait-standard",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-dark-large-portrait-standard.txt",
+        "reportSha256": "cc965afccc86814a94993c7d49be3b856ab82af7a5d7089771f868201df7068c",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "420",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-large-portrait-large",
+        "status": "passed",
+        "assertions": 10,
+        "report": "layout-dark-large-portrait-large.txt",
+        "reportSha256": "486c7a73a84183078fc86dababce5fc77f703c5f13757f787ab71fc8e0880978",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "525",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-large-landscape-standard",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-dark-large-landscape-standard.txt",
+        "reportSha256": "67708be60dd1e944195c56ad50119ec6f455a5ee2d77e32c7eabcc92627118a7",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "420",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-large-landscape-large",
+        "status": "passed",
+        "assertions": 12,
+        "report": "layout-dark-large-landscape-large.txt",
+        "reportSha256": "8868746038b43391c026a57d404c7c2fee7fd092152bb4c50a09500dc490f4db",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "525",
+            "font_percent": "150"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-largest-portrait-standard",
+        "status": "passed",
+        "assertions": 21,
+        "report": "layout-dark-largest-portrait-standard.txt",
+        "reportSha256": "c393a76b8b43bc0ccf896087aaf1f261f035d7de7f4e5da097a49c8590174944",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "420",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-largest-portrait-large",
+        "status": "passed",
+        "assertions": 21,
+        "report": "layout-dark-largest-portrait-large.txt",
+        "reportSha256": "25de1fb944e66bbb461d423c99dd1c65ab7da113922ea4758c2ac0a575135509",
+        "metrics": [
+          {
+            "width_px": "1080",
+            "height_px": "2400",
+            "density_dpi": "525",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-largest-landscape-standard",
+        "status": "passed",
+        "assertions": 23,
+        "report": "layout-dark-largest-landscape-standard.txt",
+        "reportSha256": "5d18c9777bd873f93c23be3f686df95a5e33ccd820e63293a7caff6af1759d89",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "420",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "layout-dark-largest-landscape-large",
+        "status": "passed",
+        "assertions": 23,
+        "report": "layout-dark-largest-landscape-large.txt",
+        "reportSha256": "039c2337c22ad02aa75cc126b2bb799bc6202348e9321a5fb5e10a0bc74d7b13",
+        "metrics": [
+          {
+            "width_px": "2400",
+            "height_px": "1080",
+            "density_dpi": "525",
+            "font_percent": "200"
+          }
+        ]
+      },
+      {
+        "mode": "prepare-task",
+        "status": "passed",
+        "assertions": 30,
+        "report": "prepare-task.txt",
+        "reportSha256": "864579717f5f563066b8aca95ca007934e988834ea17bb002cec37f8885bf920",
+        "metrics": []
+      },
+      {
+        "mode": "verify-task",
+        "status": "passed",
+        "assertions": 14,
+        "report": "verify-task.txt",
+        "reportSha256": "13d147f570b2c25f3986980ca3b05382ffabe6721d18300cbb8e8797c47fb7a3",
+        "metrics": []
+      },
+      {
+        "mode": "reminder",
+        "status": "passed",
+        "assertions": 23,
+        "report": "reminder.txt",
+        "reportSha256": "dd646a3d73ab8357d3c2251b5b6d05f3e01a52f1baa492211ccc97176bcb2814",
+        "metrics": []
+      },
+      {
+        "mode": "reminder-channel",
+        "status": "passed",
+        "assertions": 12,
+        "report": "reminder-channel.txt",
+        "reportSha256": "0ff19e7a45c23461ebda11b5f209e96e06421ac807729546c1a14f3f13b652b4",
+        "metrics": []
+      }
+    ],
+    "manifestSha256": "632fccec17139ffd8a3a7d6797fda44176a04aad5fd6bca993519140642393a2"
+  },
+  "compactNavigation": {
+    "schemaVersion": 1,
+    "api": "36",
+    "complete": true,
+    "cases": [
+      {
+        "navigation": "threebutton",
+        "status": "passed",
+        "environment": {
+          "schemaVersion": 1,
+          "sourceCommit": "408eb9d9226072f8fda2d341e1fddb3d72ddf8e4",
+          "workingTreeModified": true,
+          "runId": null,
+          "runAttempt": null,
+          "runnerImage": "Darwin",
+          "runnerVersion": "",
+          "hostArchitecture": "arm64",
+          "java": "openjdk version \"17.0.20.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 17.0.20.1+0)\nOpenJDK 64-Bit Server VM Homebrew (build 17.0.20.1+0, mixed mode, sharing)",
+          "gradle": "------------------------------------------------------------\nGradle 8.13\n------------------------------------------------------------\n\nBuild time:    2025-02-25 09:22:14 UTC\nRevision:      073314332697ba45c16c0a0ce1891fa6794179ff\n\nKotlin:        2.0.21\nGroovy:        3.0.22\nAnt:           Apache Ant(TM) version 1.10.15 compiled on August 25 2024\nLauncher JVM:  17.0.20.1 (Homebrew 17.0.20.1+0)\nDaemon JVM:    /opt/homebrew/Cellar/openjdk@17/17.0.20.1/libexec/openjdk.jdk/Contents/Home (no JDK specified, using current Java home)\nOS:            Mac OS X 15.7.7 aarch64",
+          "adb": "Android Debug Bridge version 1.0.41\nVersion 37.0.1-15733141\nInstalled as /opt/homebrew/share/android-commandlinetools/platform-tools/adb\nRunning on Darwin 24.6.0 (arm64)",
+          "emulator": "Android emulator version 37.1.11.0 (build_id 15917651) (CL:N/A)\nCopyright (C) 2006-2024 The Android Open Source Project and many others.\nThis program is a derivative of the QEMU CPU emulator (www.qemu.org).\n\n  This software is licensed under the terms of the GNU General Public\n  License version 2, as published by the Free Software Foundation, and\n  may be copied, distributed, and modified under those terms.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.",
+          "buildTools": "Pkg.UserSrc=false\nPkg.Revision=35.0.0\n#Pkg.Revision=35.0.0 rc4\n",
+          "systemImage": "system-images;android-36;google_apis_playstore;arm64-v8a",
+          "systemImageRevision": "Pkg.Desc=System Image arm64-v8a with Google Play.\nPkg.Revision=7\nPkg.Dependencies=emulator#35.4.9\nAndroidVersion.ApiLevel=36\nAndroidVersion.ExtensionLevel=17\nAndroidVersion.IsBaseSdk=true\nSystemImage.Abi=arm64-v8a\nSystemImage.TagId=google_apis_playstore\nSystemImage.TagDisplay=Google Play\nSystemImage.GpuSupport=true\nAddon.VendorId=google\nAddon.VendorDisplay=Google Inc.\n",
+          "device": {
+            "api": "36",
+            "abi": "arm64-v8a",
+            "fingerprint": "google/sdk_gphone64_arm64/emu64a:16/BE2A.250530.026.D1/13818094:user/release-keys",
+            "size": "Physical size: 1080x2400\nOverride size: 720x1280",
+            "density": "Physical density: 420\nOverride density: 360",
+            "fontScale": "1.0",
+            "night": "Night mode: no",
+            "navigationSetting": "0"
+          },
+          "scope": "Owned synthetic emulator evidence. No physical or connected-app qualification."
+        },
+        "reports": [
+          {
+            "mode": "interaction",
+            "assertions": 18,
+            "sha256": "32917a1f124123ec8986b99d3d3e48a3ce61981696b9d58141492f7c15d7dc42",
+            "metrics": []
+          },
+          {
+            "mode": "layout-light-largest-portrait-large",
+            "assertions": 22,
+            "sha256": "88c5a8eea6707159d763664d1456d1970e6ba8b84b3af0adac381611b2aa821f",
+            "metrics": [
+              {
+                "width_px": "720",
+                "height_px": "1280",
+                "density_dpi": "450",
+                "font_percent": "200"
+              }
+            ]
+          },
+          {
+            "mode": "layout-light-largest-landscape-large",
+            "assertions": 23,
+            "sha256": "b121d2c2a8ff5c036f9f1553936e92f1fd54493d4d72b534f7729f23363c3c12",
+            "metrics": [
+              {
+                "width_px": "1280",
+                "height_px": "720",
+                "density_dpi": "450",
+                "font_percent": "200"
+              }
+            ]
+          }
+        ],
+        "images": [
+          {
+            "file": "layout-light-largest-portrait-large-layout.png",
+            "sha256": "802bd5cda75de5e3521ab038e76e4164f29801f321423272452cd2e3bb80d259"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-layout-expanded.png",
+            "sha256": "393187e8ced16b8b3445c5958e9e500700a43abf8f8ea95affc7dc81bf2eaea7"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-layout-action.png",
+            "sha256": "4f37e1e6a100dafe6ee717adcfdaf03ba363749938b70df147e63c2c268d1a40"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-addNumber.png",
+            "sha256": "a01d74b8589fc91094d6f2720f2cfda74682525f8740fdfa556f6218d879a870"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-settings.png",
+            "sha256": "8c4dc04d88a0a435c5e2f99444ab4a86384cc238f62673463f05c2adec817d82"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-compatibility.png",
+            "sha256": "d7652b49de113b4d120a1b6dcd348a9bb8bdcbd2427002e267e2417a3ede9c01"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-diagnostics.png",
+            "sha256": "378d6b2a5fb129273ef82b8d4c0710cc3e241e0f1024aa8d8701b3edf13666fd"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-accessDisclosure.png",
+            "sha256": "1bab2ead63a241b20defb6d1368cbafc29a54ba7dbeff83230a473b02d6f8f06"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-notificationDisclosure.png",
+            "sha256": "e896f515b20c9185bd1d5d603f2805d256eb8525b0aa2b2b097c21999c47fef5"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-salesDisclosure.png",
+            "sha256": "abd0fd9b4c817d80c85c2373174f520a79b9b93fa8ef507b633e10e7f1ada300"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-clearLocal.png",
+            "sha256": "84316ef483c97f1ac48f391c30804c911c710d8a2c4eee3b4784219109938e30"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-manualBlock.png",
+            "sha256": "4364b729ef26930d2bf7cc7e793838bac1396b9a3308733498308fc0a2f7ffea"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-unblockNow.png",
+            "sha256": "7ed6e45637b81907a32c9ab1698b6fc696a2e63b7b298ca1e94f044deecb4ca2"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-layout.png",
+            "sha256": "d180cef4fad7de8f495fcc1e10d05e60c92df6aa7e427c2f46f78272664d2e6e"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-layout-expanded.png",
+            "sha256": "5afe274a855606028c6eaaefde343571e3cae129e679f5c7a53e1a17a72f06a7"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-layout-action.png",
+            "sha256": "49eb2e7b632bab05fa442ee8d7b62b0cc9e1c4d78b4af7e483511f6a27a6e4ac"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-addNumber.png",
+            "sha256": "f72ea5d32c7112b50de9ca3df518f071f53502e20eaef0b26ac5a88cfbf1b403"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-settings.png",
+            "sha256": "9d5d4014a9217f156af0a904176492699cd7aa018ea30692bda0d483c6d5f4a1"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-compatibility.png",
+            "sha256": "97bbb76fd8df6b44bfc537f95f215694ea39d2d26b833f6e35f27278d7ee7b38"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-diagnostics.png",
+            "sha256": "e58c36f2e6b3acb4281a5b9ebbcb2153abcf760f0a73f534ebadaec73a078860"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-accessDisclosure.png",
+            "sha256": "db1f840f55d364739ed33c37b33096db3d9902dde15a5635c572a7637d47d0ef"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-notificationDisclosure.png",
+            "sha256": "352572b1f52e0d5dff6b7fc9bc39d64bb5f84f6da784bef3a6a5324abf50ad97"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-salesDisclosure.png",
+            "sha256": "7ae532698793b7e8a2d42ae55b5017fa1d3979d6515b6245331794660ce2524f"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-clearLocal.png",
+            "sha256": "b3c35016a16bb10adea54b2dd36a5b85405b235eb34eabae1270afb7a34d51f0"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-manualBlock.png",
+            "sha256": "cc2548cea8adea2fb42adc9c58d6159dfe3eb66e0f2dc81bd9b6563d47c6906a"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-unblockNow.png",
+            "sha256": "9059f3cd096b50fd38beda17b96b34f1ab5a0a20068b443afe8d06817c152c97"
+          }
+        ]
+      },
+      {
+        "navigation": "gestural",
+        "status": "passed",
+        "environment": {
+          "schemaVersion": 1,
+          "sourceCommit": "408eb9d9226072f8fda2d341e1fddb3d72ddf8e4",
+          "workingTreeModified": true,
+          "runId": null,
+          "runAttempt": null,
+          "runnerImage": "Darwin",
+          "runnerVersion": "",
+          "hostArchitecture": "arm64",
+          "java": "openjdk version \"17.0.20.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 17.0.20.1+0)\nOpenJDK 64-Bit Server VM Homebrew (build 17.0.20.1+0, mixed mode, sharing)",
+          "gradle": "------------------------------------------------------------\nGradle 8.13\n------------------------------------------------------------\n\nBuild time:    2025-02-25 09:22:14 UTC\nRevision:      073314332697ba45c16c0a0ce1891fa6794179ff\n\nKotlin:        2.0.21\nGroovy:        3.0.22\nAnt:           Apache Ant(TM) version 1.10.15 compiled on August 25 2024\nLauncher JVM:  17.0.20.1 (Homebrew 17.0.20.1+0)\nDaemon JVM:    /opt/homebrew/Cellar/openjdk@17/17.0.20.1/libexec/openjdk.jdk/Contents/Home (no JDK specified, using current Java home)\nOS:            Mac OS X 15.7.7 aarch64",
+          "adb": "Android Debug Bridge version 1.0.41\nVersion 37.0.1-15733141\nInstalled as /opt/homebrew/share/android-commandlinetools/platform-tools/adb\nRunning on Darwin 24.6.0 (arm64)",
+          "emulator": "Android emulator version 37.1.11.0 (build_id 15917651) (CL:N/A)\nCopyright (C) 2006-2024 The Android Open Source Project and many others.\nThis program is a derivative of the QEMU CPU emulator (www.qemu.org).\n\n  This software is licensed under the terms of the GNU General Public\n  License version 2, as published by the Free Software Foundation, and\n  may be copied, distributed, and modified under those terms.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.",
+          "buildTools": "Pkg.UserSrc=false\nPkg.Revision=35.0.0\n#Pkg.Revision=35.0.0 rc4\n",
+          "systemImage": "system-images;android-36;google_apis_playstore;arm64-v8a",
+          "systemImageRevision": "Pkg.Desc=System Image arm64-v8a with Google Play.\nPkg.Revision=7\nPkg.Dependencies=emulator#35.4.9\nAndroidVersion.ApiLevel=36\nAndroidVersion.ExtensionLevel=17\nAndroidVersion.IsBaseSdk=true\nSystemImage.Abi=arm64-v8a\nSystemImage.TagId=google_apis_playstore\nSystemImage.TagDisplay=Google Play\nSystemImage.GpuSupport=true\nAddon.VendorId=google\nAddon.VendorDisplay=Google Inc.\n",
+          "device": {
+            "api": "36",
+            "abi": "arm64-v8a",
+            "fingerprint": "google/sdk_gphone64_arm64/emu64a:16/BE2A.250530.026.D1/13818094:user/release-keys",
+            "size": "Physical size: 1080x2400\nOverride size: 720x1280",
+            "density": "Physical density: 420\nOverride density: 360",
+            "fontScale": "1.0",
+            "night": "Night mode: no",
+            "navigationSetting": "2"
+          },
+          "scope": "Owned synthetic emulator evidence. No physical or connected-app qualification."
+        },
+        "reports": [
+          {
+            "mode": "interaction",
+            "assertions": 18,
+            "sha256": "32917a1f124123ec8986b99d3d3e48a3ce61981696b9d58141492f7c15d7dc42",
+            "metrics": []
+          },
+          {
+            "mode": "layout-light-largest-portrait-large",
+            "assertions": 22,
+            "sha256": "88c5a8eea6707159d763664d1456d1970e6ba8b84b3af0adac381611b2aa821f",
+            "metrics": [
+              {
+                "width_px": "720",
+                "height_px": "1280",
+                "density_dpi": "450",
+                "font_percent": "200"
+              }
+            ]
+          },
+          {
+            "mode": "layout-light-largest-landscape-large",
+            "assertions": 23,
+            "sha256": "b121d2c2a8ff5c036f9f1553936e92f1fd54493d4d72b534f7729f23363c3c12",
+            "metrics": [
+              {
+                "width_px": "1280",
+                "height_px": "720",
+                "density_dpi": "450",
+                "font_percent": "200"
+              }
+            ]
+          }
+        ],
+        "images": [
+          {
+            "file": "layout-light-largest-portrait-large-layout.png",
+            "sha256": "435301f7a08b1fb60dba64e35fd283070f383dccf5ab339d052269dfb1c68aec"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-layout-expanded.png",
+            "sha256": "506b628e5ec88250937f0e8d6291caa35eef36797716b5239acef2bb3e03a1fd"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-layout-action.png",
+            "sha256": "a4f8d3f70dbf73d85d395d31e2de849645af6a6342bae2cab8dbd2961982c092"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-addNumber.png",
+            "sha256": "6fbcdf0e1a7533f65a4d2b982d3501519257283bc240a26952c24c562272a06a"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-settings.png",
+            "sha256": "c2995ca8ef7888023887c560bc0865a61873d3098aa3599e2846c86802c249cd"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-compatibility.png",
+            "sha256": "cf1447757e84540eba7d9099bc40f575999428cf35257be7bb31756b41b8460a"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-diagnostics.png",
+            "sha256": "35664471df4574b63f99199de47084abc0898d5d80a5b2f59cf0c426c0ce39cc"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-accessDisclosure.png",
+            "sha256": "631ae4ed1a2d67820d8981d8d07499795428bfc7adbeb0929f54944cf72fb5a7"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-notificationDisclosure.png",
+            "sha256": "9f5457a95a9f3e316680a9aa3eb7d6d2490f870b034757120b5f33c263af945d"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-salesDisclosure.png",
+            "sha256": "0596f9e704b46aaad560684ee299e575db8e709b38b9ce2cad8988361fbd7c1e"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-clearLocal.png",
+            "sha256": "81a1c158d0801d5c2adf58884cc18a2504845ec295c1eabedf81b14304971f5e"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-manualBlock.png",
+            "sha256": "289ad92336dd86d9ca3b08b27006fbd21341846092c8f37181b5e6db83a13f3b"
+          },
+          {
+            "file": "layout-light-largest-portrait-large-dialog-unblockNow.png",
+            "sha256": "b073d090a132977f80484630fd257d2b6fadec4327dfdcad5865f8d4728b3710"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-layout.png",
+            "sha256": "2c479d8c1883efa1f0bceb93c6cb6077803d1b4e5f190c611ff68bbd818c1dcb"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-layout-expanded.png",
+            "sha256": "9032f3c3b62b01f57bc85988b7a148eb7b8a4fcd6e0d91687d880462111a211d"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-layout-action.png",
+            "sha256": "c9f4d0c2a3e20fdde82cfc6f048d21013bf1706b5c3e8206bc6e96c15e9ca2c2"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-addNumber.png",
+            "sha256": "77307ddf7d652f55629bb2a5eb6d512e2f2d45e952575aeed4eb18a7fbd0b11c"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-settings.png",
+            "sha256": "a871280ebdb576280d83a33317214952d2fd9bad466145d675511a3118997d1c"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-compatibility.png",
+            "sha256": "6cb912169e2a7efd8d7ec4798b723506b993fd1101db10a04b110f3ea27cfda9"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-diagnostics.png",
+            "sha256": "fc4c0ececdedbb0db9db5631373c964f839747a8c91b12186cc9ea9e5dfd1cef"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-accessDisclosure.png",
+            "sha256": "3f484f85411b48011e6d3a70be7bf69079631c73056e18043cc47ac15d797819"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-notificationDisclosure.png",
+            "sha256": "d557656c5879114d0bcfae0b6c27ea3967965dc151f23cdfc32d388c3b0fb3d6"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-salesDisclosure.png",
+            "sha256": "98c844f8cc4b22f29b0d1e17974dfc8a2aa65790caf380fa5c8084194c10cc70"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-clearLocal.png",
+            "sha256": "5ec53bbbe249c45944f09dbce2777faf6d188a1ee613b94080c28a0de6b3b902"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-manualBlock.png",
+            "sha256": "68df171d64db9ae740ab4555cca9064cf0ea5f7b7d1478a1ec1982fa65f92dde"
+          },
+          {
+            "file": "layout-light-largest-landscape-large-dialog-unblockNow.png",
+            "sha256": "3710f9caddcd4e36ce3d064a17ed1c8feb9ce5cc4dc7ea50b537cc5b90b5993c"
+          }
+        ]
+      }
+    ],
+    "scope": "Owned keyboard Back/IME and compact 200% layouts in both system navigation configurations. No gesture input or physical qualification.",
+    "settingsRestored": true
+  },
+  "talkBack": {
+    "schemaVersion": 1,
+    "provider": "TalkBack",
+    "providerVersionCode": "60149341",
+    "androidApi": "36",
+    "apkSha256": "521eede36156ea2733af4f28f487a5494d698ddd4ebb7ed5b4ec33352927aa4e",
+    "result": "passed",
+    "settingsRestored": true,
+    "scope": "Actual TalkBack native Tab traversal and owned-node focus/state checks. Speech audio, reader-specific shortcuts and physical qualification are not measured."
+  },
+  "signedUpdate": {
+    "androidApi": "36",
+    "fromVersionCode": 101601,
+    "toVersionCode": 102001,
+    "apkSha256": "a000c944e6303c9264d00b6cd83beb2f70cd7156c22f5365ca33fd1c9d334ed2",
+    "cases": [
+      {
+        "mode": "prepare-upgrade",
+        "assertions": 32,
+        "reportSha256": "527dd6560e17499841d9fb2b8e98f6569464e6e67f47a3f2cee659355564fd35"
+      },
+      {
+        "mode": "verify-upgrade",
+        "assertions": 18,
+        "reportSha256": "6a8a42fededf98617b3f5f9257ed6e580db2504c4acd03b1395f02cc3032bf19"
+      }
+    ],
+    "logSha256": "aaffbc382d7fce6a7433ebd50afd82d08e84816cd6c33a48e3e2ce7215506501"
+  },
+  "signedReboot": {
+    "schemaVersion": 1,
+    "result": "passed",
+    "androidApi": "36",
+    "versionCode": 102001,
+    "apkSha256": "a000c944e6303c9264d00b6cd83beb2f70cd7156c22f5365ca33fd1c9d334ed2",
+    "bootChanged": true,
+    "probeRemoved": true,
+    "scope": "Actual emulator reboot after signed update; retained exact-number test choice and inactive visible rule. No signed-app data reset or physical/connected-app qualification."
+  },
+  "checks": {
+    "policyAssertions": 196833,
+    "structuralAssertions": 310,
+    "schemaChecks": 31,
+    "declaredTextPairs": 28,
+    "declaredFocusPairs": 10,
+    "acceptanceReferencesValidated": 193,
+    "publicationTests": 20,
+    "publicVerificationTests": 15,
+    "evidenceTests": 9,
+    "releaseMetadataTests": 8,
+    "strictLint": "passed",
+    "debugReleaseBundleProbeBuilds": "passed",
+    "wrapperAndWorkflowLint": "passed",
+    "sourceAndArtifactBrandGate": "passed",
+    "releaseArtifactAudit": "passed"
+  },
+  "postCommitGates": {
+    "api29ForThisSource": "awaiting CI",
+    "signedApkForThisSource": "awaiting CI and independent public verification"
+  },
+  "physicalQualification": "unrun"
+}

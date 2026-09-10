@@ -2017,9 +2017,14 @@
         {
           "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
           "method": "onStart"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "serviceLifecycleRegressions"
         }
       ],
-      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
+      "remaining": "Native service connection, permission revocation and reconnection are exercised with an empty registry. Live interruption and physical reboot/session qualification remain unrun.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T079",
@@ -2174,9 +2179,15 @@
         "F26",
         "F27"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "reminderRegressions"
+        }
+      ],
+      "remaining": "Actual owned notification denial, delivery, silent channel, cap and consent withdrawal are exercised. A qualified live Stop route and repeated Settings permission-prompt journey remain unrun.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T085",
@@ -2212,9 +2223,18 @@
         {
           "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
           "method": "uiRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "focusRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "talkBackRegressions"
         }
       ],
-      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T086",
@@ -2242,9 +2262,18 @@
         {
           "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
           "method": "uiRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "focusRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "talkBackRegressions"
         }
       ],
-      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T087",
@@ -2266,7 +2295,8 @@
           "method": "performance"
         }
       ],
-      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects."
+      "remaining": "Linked tests cover owned engineering subsets only. The complete scenario and real/physical environment remain unqualified; synthetic paths and timing do not establish live effects.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T088",
@@ -2286,9 +2316,14 @@
         {
           "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
           "method": "layoutRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "dialogLayouts"
         }
       ],
-      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T089",
@@ -2303,9 +2338,23 @@
         "F24",
         "F25"
       ],
-      "status": "unrun",
-      "tests": [],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "status": "synthetic-only",
+      "tests": [
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "focusRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "talkBackRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "announcementRegressions"
+        }
+      ],
+      "remaining": "Actual installed TalkBack native Tab traversal and owned accessibility events are measured separately. Spoken audio, full reading order, reader-specific shortcuts and physical behavior remain unverified.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T090",
@@ -2329,9 +2378,18 @@
         {
           "path": "scripts/check_contrast.py",
           "method": ""
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "dialogLayouts"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "interactionRegressions"
         }
       ],
-      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun."
+      "remaining": "Owned native restoration/layout and declared-palette checks cover engineering subsets. Full keyboard, TalkBack focus, dialog/navigation and physical qualification remain unrun.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T091",
@@ -2372,9 +2430,22 @@
         {
           "path": "scripts/check_schema.py",
           "method": ""
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "dialogRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "uiRegressions"
+        },
+        {
+          "path": "app/src/androidTest/java/io/github/appunnim/businessgate/GateInstrumentation.java",
+          "method": "interactionRegressions"
         }
       ],
-      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests."
+      "remaining": "Full scenario requires execution and recorded evidence; no physical result is inferred from pure or emulator tests.",
+      "engineeringEvidence": "docs/design-execution.md"
     },
     {
       "id": "full:T093",

@@ -6,6 +6,9 @@ cd "$(dirname "$0")/.."
 : "${GATE_TEST_SERIAL:?Set GATE_TEST_SERIAL}"
 case "$GATE_TEST_SERIAL" in emulator-*) ;; *) echo 'Use a dedicated emulator for owned layout tests.' >&2; exit 1;; esac
 adb_bin="$ANDROID_HOME/platform-tools/adb"
+layout_folder=${GATE_LAYOUT_REPORTS:-ui-layout}
+case "$layout_folder" in ''|*[!a-z0-9-]*) echo 'Invalid owned rendering folder.' >&2; exit 1;; esac
+layout_dir="output/$layout_folder"
 original_font=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell settings get system font_scale | tr -d '\r')
 original_night=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell cmd uimode night | awk '{print $NF}' | tr -d '\r')
 density_state=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell wm density | tr -d '\r')
@@ -35,12 +38,17 @@ for display in ${GATE_LAYOUT_DISPLAYS:-standard large}; do
                 "$adb_bin" -s "$GATE_TEST_SERIAL" shell am force-stop io.github.appunnim.businessgate.debug
                 "$adb_bin" -s "$GATE_TEST_SERIAL" shell run-as io.github.appunnim.businessgate.debug rm -f cache/layout.png cache/layout-expanded.png cache/layout-action.png
                 result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e mode "$mode" -e font "$font" -e night "$theme" -e orientation "$orientation" io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation)
-                mkdir -p output/ui-layout
+                mkdir -p "$layout_dir"
                 for view in layout layout-expanded layout-action; do
-                    "$adb_bin" -s "$GATE_TEST_SERIAL" exec-out run-as io.github.appunnim.businessgate.debug cat "cache/$view.png" > "output/ui-layout/$mode-$view.png" 2>/dev/null || true
+                    "$adb_bin" -s "$GATE_TEST_SERIAL" exec-out run-as io.github.appunnim.businessgate.debug cat "cache/$view.png" > "$layout_dir/$mode-$view.png" 2>/dev/null || true
                 done
+                if [ "$scale" = largest ]; then
+                    for dialog in addNumber settings compatibility diagnostics accessDisclosure notificationDisclosure salesDisclosure clearLocal manualBlock unblockNow; do
+                        "$adb_bin" -s "$GATE_TEST_SERIAL" exec-out run-as io.github.appunnim.businessgate.debug cat "cache/dialog-$dialog.png" > "$layout_dir/$mode-dialog-$dialog.png" 2>/dev/null || true
+                    done
+                fi
                 printf '%s\n' "$result" | python3 scripts/assert_instrumentation.py "$mode"
-                python3 -c 'from pathlib import Path; import sys; files=[Path("output/ui-layout") / (sys.argv[1]+"-"+view+".png") for view in ("layout","layout-expanded","layout-action")]; assert all(path.read_bytes()[:8] == bytes([137,80,78,71,13,10,26,10]) for path in files), "Owned rendering missing or invalid"' "$mode"
+                python3 -c 'from pathlib import Path; import sys; files=[Path(sys.argv[2]) / (sys.argv[1]+"-"+view+".png") for view in ("layout","layout-expanded","layout-action")]; assert all(path.read_bytes()[:8] == bytes([137,80,78,71,13,10,26,10]) for path in files), "Owned rendering missing or invalid"' "$mode" "$layout_dir"
             done
         done
     done

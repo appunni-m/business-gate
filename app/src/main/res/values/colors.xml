@@ -5,4 +5,5 @@
     <color name="line">#D9DFE7</color><color name="accent_surface">#EDF2FF</color>
     <color name="amber">#855100</color><color name="amber_surface">#FFF1D6</color>
     <color name="danger">#A32525</color>
+    <color name="focus">#255DB1</color>
 </resources>

@@ -23,6 +23,8 @@ pages = json.loads(gh('api', '--paginate', '--slurp', f'repos/{repository}/relea
 releases = [release for page in pages for release in page]
 existing = next((release for release in releases if release['tag_name'] == tag), None)
 assets = ['business-gate.apk', 'SHA256SUMS', 'build-info.json']
+if 'verificationSha256' in info:
+    assets.append('verification.json')
 # A retry can resume an interrupted draft, but cannot change a published binary.
 if existing and not existing['draft']:
     with tempfile.TemporaryDirectory(prefix='business-gate-release-') as temporary:

@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "reviewedAtUtc": "2026-09-10T09:46:29.847254+00:00",
+  "sourceCommit": "408eb9d9226072f8fda2d341e1fddb3d72ddf8e4",
+  "scope": "Planning and read-only workflow review. No APK installed, workflow changed, run dispatched, secret read or physical qualification performed.",
+  "recentRuns": [
+    {
+      "id": 34456095039,
+      "run_number": 20,
+      "head_sha": "408eb9d9226072f8fda2d341e1fddb3d72ddf8e4",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/appunni-m/business-gate/actions/runs/34456095039",
+      "updated_at": "2026-09-10T08:44:02Z"
+    },
+    {
+      "id": 34453034270,
+      "run_number": 19,
+      "head_sha": "cf8545251057bfefb85f156371c36191ebeaf61a",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/appunni-m/business-gate/actions/runs/34453034270",
+      "updated_at": "2026-09-10T08:08:08Z"
+    },
+    {
+      "id": 34451758306,
+      "run_number": 18,
+      "head_sha": "1a39df6decd02009c843a7f6ee97ea2e5b8db27a",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/appunni-m/business-gate/actions/runs/34451758306",
+      "updated_at": "2026-09-10T07:51:34Z"
+    },
+    {
+      "id": 34449903447,
+      "run_number": 17,
+      "head_sha": "655d6337339d099c6b0c569cf950451af61ba2ce",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/appunni-m/business-gate/actions/runs/34449903447",
+      "updated_at": "2026-09-10T07:29:43Z"
+    },
+    {
+      "id": 34445510013,
+      "run_number": 16,
+      "head_sha": "52823d48dd5dd0c7cd7931197ad5785de88e6af9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/appunni-m/business-gate/actions/runs/34445510013",
+      "updated_at": "2026-09-10T06:37:35Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": 102802707873,
+      "name": "verify",
+      "conclusion": "success",
+      "html_url": "https://github.com/appunni-m/business-gate/actions/runs/34456095039/job/102802707873",
+      "started_at": "2026-09-10T08:36:40Z",
+      "completed_at": "2026-09-10T08:42:10Z"
+    },
+    {
+      "id": 102804297879,
+      "name": "deliver",
+      "conclusion": "success",
+      "html_url": "https://github.com/appunni-m/business-gate/actions/runs/34456095039/job/102804297879",
+      "started_at": "2026-09-10T08:42:13Z",
+      "completed_at": "2026-09-10T08:44:01Z"
+    }
+  ],
+  "testAnnotations": [
+    {
+      "title": "Android verify-attention",
+      "message": "PASS 3 Android persistence, permission, recovery and native UI assertions; mode=verify-attention"
+    },
+    {
+      "title": "Android prepare-attention",
+      "message": "PASS 3 Android persistence, permission, recovery and native UI assertions; mode=prepare-attention"
+    },
+    {
+      "title": "Android performance",
+      "message": "PASS 80 Android persistence, permission, recovery and native UI assertions; mode=performance"
+    },
+    {
+      "title": "Android performance metrics",
+      "message": "METRIC records=50000 snapshot_load_ms=1114"
+    },
+    {
+      "title": "Android performance metrics",
+      "message": "METRIC writer_cpu_p95_ms=2 writer_wall_p95_ms=41 writer_queue_p95_ms=2"
+    },
+    {
+      "title": "Android performance metrics",
+      "message": "METRIC records=10000 query_p95_ms=60 database_and_wal_bytes=3734456"
+    },
+    {
+      "title": "Android privacy-boundary",
+      "message": "PASS 32 Android persistence, permission, recovery and native UI assertions; mode=privacy-boundary"
+    },
+    {
+      "title": "Android privacy-boundary metrics",
+      "message": "METRIC committed_reset_rows=0 snapshot_rows=0 search_rows=0"
+    },
+    {
+      "title": "Android ui",
+      "message": "PASS 20 Android persistence, permission, recovery and native UI assertions; mode=ui"
+    },
+    {
+      "title": "Android all",
+      "message": "PASS 253 Android persistence, permission, recovery and native UI assertions; mode=all"
+    },
+    {
+      "title": "Android verify-upgrade",
+      "message": "PASS 18 installed-release assertions; mode=verify-upgrade"
+    },
+    {
+      "title": "Android prepare-upgrade",
+      "message": "PASS 32 installed-release assertions; mode=prepare-upgrade"
+    }
+  ],
+  "downloadVerification": {
+    "versionCode": 102001,
+    "commit": "408eb9d9226072f8fda2d341e1fddb3d72ddf8e4",
+    "sha256": "a000c944e6303c9264d00b6cd83beb2f70cd7156c22f5365ca33fd1c9d334ed2",
+    "signingCertificateSha256": "c6c88c88271d2b702e7ebfb3717c59e2663a6fdee82c01a95118f10689061564",
+    "versionedAndRollingIdentical": true,
+    "metadataChecksumsValid": true,
+    "signatureVerified": true,
+    "minimumAndroidApi": 29,
+    "targetAndroidApi": 36,
+    "connectedAppActionsEnabled": false,
+    "qualifiedAdapters": [],
+    "compatibilitySha256": "536c70438818ffe68d124782226696bedf80560a498c2e81a1666578853fe681",
+    "anonymousDownloads": true,
+    "rollingTagMatchesCommit": true,
+    "rollingNotesVersionAndHashMatch": true,
+    "checksumFiles": [
+      "business-gate.apk",
+      "build-info.json"
+    ]
+  },
+  "reviewChecks": {
+    "actionlint": "passed",
+    "offlineDeliveryTests": 13
+  },
+  "localSignedUpgrade": {
+    "latestVerifiedTarget": 101601,
+    "target102001": "not run in this review"
+  },
+  "sources": {
+    "run": "https://api.github.com/repos/appunni-m/business-gate/actions/runs/34456095039",
+    "jobs": "https://api.github.com/repos/appunni-m/business-gate/actions/runs/34456095039/jobs",
+    "verifyAnnotations": "https://api.github.com/repos/appunni-m/business-gate/check-runs/102802707873/annotations?per_page=100",
+    "deliverAnnotations": "https://api.github.com/repos/appunni-m/business-gate/check-runs/102804297879/annotations?per_page=100",
+    "release": "https://github.com/appunni-m/business-gate/releases/tag/build-102001",
+    "versionedApk": "https://github.com/appunni-m/business-gate/releases/download/build-102001/business-gate.apk",
+    "metadata": "https://github.com/appunni-m/business-gate/releases/download/build-102001/build-info.json",
+    "checksums": "https://github.com/appunni-m/business-gate/releases/download/build-102001/SHA256SUMS",
+    "rollingApk": "https://github.com/appunni-m/business-gate/releases/download/development/business-gate.apk",
+    "rollingRef": "https://api.github.com/repos/appunni-m/business-gate/git/ref/tags/development"
+  }
+}

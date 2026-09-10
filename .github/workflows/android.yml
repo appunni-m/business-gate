@@ -13,20 +13,27 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Two API images, 24 base layouts and four compact navigation layouts with full dialog coverage.
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v6.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v4.0.1
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
       - name: Install pinned SDK components
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - name: Verify wrapper checksum
         run: python3 scripts/check_wrapper.py
+      - name: Validate workflow with pinned actionlint
+        run: |
+          curl --fail --location --retry 3 --max-time 60 https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o "$RUNNER_TEMP/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" .github/workflows/android.yml
       - name: Pure safety, schema and independent-branding rules
         run: scripts/test.sh
       - name: Compile and lint
@@ -59,34 +66,59 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: GATE_TEST_SERIAL=emulator-5554 scripts/device-tests.sh && GATE_TEST_SERIAL=emulator-5554 scripts/ui-layout-tests.sh
+          script: GATE_SYSTEM_IMAGE='system-images;android-36;google_apis;x86_64' GATE_TEST_SERIAL=emulator-5554 scripts/verified-device-tests.sh
+      - name: Minimum Android UI, IME and saved-task tests
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: GATE_SYSTEM_IMAGE='system-images;android-29;default;x86_64' GATE_TEST_SERIAL=emulator-5554 python3 scripts/minimum-ui-tests.py
+      - name: Preserve complete verification manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verification-manifest
+          overwrite: true
+          retention-days: 14
+          if-no-files-found: error
+          path: output/verification/verification.json
       - name: Preserve verified build inputs
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verified-android-build
+          overwrite: true
           retention-days: 14
           if-no-files-found: error
           path: |
             app/build/outputs/apk/release/app-release-unsigned.apk
             app/build/outputs/mapping/release/mapping.txt
       - name: Preserve isolated release test tool
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-upgrade-probe
+          overwrite: true
           retention-days: 14
           if-no-files-found: error
           path: release-probe/build/outputs/apk/debug/release-probe-debug.apk
       - name: Preserve reports and development build
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: verification-reports
+          overwrite: true
           retention-days: 14
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/reports/lint-results-*.html
+            release-probe/build/reports/lint-results-*.html
             output/device-tests/*.txt
+            output/device-tests/*-evidence.json
+            output/api29-device-tests/*
+            output/navigation-*/*
             output/ui-layout/*.png
+            output/verification/*.json
 
   deliver:
     needs: verify
@@ -96,16 +128,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v6.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v4.0.1
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
       - name: Install pinned build tools
         run: sdkmanager 'build-tools;35.0.0'
+      - name: Prepare verified evidence toolchain
+        run: |
+          python3 scripts/check_wrapper.py
+          ./gradlew --version
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verified-android-build
@@ -122,8 +158,11 @@ jobs:
         run: |
           python3 scripts/audit_artifact.py output/delivery/business-gate.apk
           python3 scripts/check_brand.py output/delivery/business-gate.apk
-          python3 scripts/release_metadata.py
-          python3 scripts/check_brand.py output/delivery/build-info.json output/delivery/RELEASE_NOTES.md
+      - name: Restore exact build verification manifest
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verification-manifest
+          path: output/delivery
       - name: Download previous release for update verification
         env:
           GH_TOKEN: ${{ github.token }}
@@ -150,25 +189,42 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: GATE_TEST_SERIAL=emulator-5554 scripts/release-upgrade-test.sh output/probe/release-probe-debug.apk output/delivery/business-gate.apk output/previous/business-gate.apk
+          script: GATE_SYSTEM_IMAGE='system-images;android-29;default;x86_64' GATE_TEST_SERIAL=emulator-5554 scripts/release-upgrade-test.sh output/probe/release-probe-debug.apk output/delivery/business-gate.apk output/previous/business-gate.apk
+      - name: Bind release metadata to build and signed upgrade evidence
+        run: |
+          python3 scripts/release_metadata.py
+          python3 scripts/check_brand.py output/delivery/build-info.json output/delivery/RELEASE_NOTES.md output/delivery/verification.json
       - name: Preserve signed download
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: business-gate-installable-apk
+          overwrite: true
           retention-days: 90
           if-no-files-found: error
           path: |
             output/delivery/business-gate.apk
             output/delivery/SHA256SUMS
             output/delivery/build-info.json
+            output/delivery/verification.json
       - name: Preserve signed upgrade evidence
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: signed-upgrade-evidence
+          overwrite: true
           retention-days: 14
           path: output/device-tests/*.txt
       - name: Publish versioned release and continuous APK link
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/publish_release.py
+      - name: Verify anonymous public APK downloads
+        run: python3 scripts/verify_public_release.py
+      - name: Preserve independent public verification
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: public-download-verification
+          overwrite: true
+          retention-days: 90
+          if-no-files-found: error
+          path: output/delivery/public-verification.json

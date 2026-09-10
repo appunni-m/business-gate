@@ -8,11 +8,13 @@ import sys
 mode = sys.argv[1]
 assert re.fullmatch(r'[a-z-]{1,64}', mode)
 report = sys.stdin.read(64_001)
-directory = Path('output/device-tests')
+folder = os.environ.get('GATE_TEST_REPORTS', 'device-tests')
+assert re.fullmatch(r'[a-z0-9-]{1,64}', folder)
+directory = Path('output') / folder
 directory.mkdir(parents=True, exist_ok=True)
 (directory / f'{mode}.txt').write_text(report)
 print(report, end='')
-success = re.search(r'(?m)^(?:INSTRUMENTATION_RESULT: stream=)?PASS [0-9]+ [^\n]+; mode='+re.escape(mode)+r'\s*$',report)
+success = re.search(r'(?m)^(?:INSTRUMENTATION_RESULT: stream=)?PASS [1-9][0-9]* [^\n]+; mode='+re.escape(mode)+r'\s*$',report)
 if os.environ.get('GITHUB_ACTIONS') == 'true':
     for metric in re.findall(r'(?m)^(?:INSTRUMENTATION_RESULT: stream=)?(METRIC(?: [a-z][a-z0-9_]{0,39}=[0-9]{1,20}){1,12})$', report)[:8]:
         print(f'::notice title=Android {mode} metrics::{metric}')

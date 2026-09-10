@@ -2,9 +2,13 @@
 
 Updated 10 September 2026. The [plan](implementation-plan.md) is **partially implemented, not complete**. Independent fixes have been implemented in storage, authority, controller, UI and delivery code; each remaining acceptance gap is listed below. The production registry remains empty; connected-app actions remain unavailable.
 
+The owner authorized the [design and completion plan](completion-design-plan.md) on 10 September 2026. The [execution record](design-execution.md) tracks the current row-focus, dialog/lifecycle, IME/Back and delivery work. The [workflow review](workflow-review.md) remains the read-only baseline review of successful run 20 and build `102001`; it is not a claim that later changes have already passed CI.
+
 The receiver is reported to be signed in on the existing API 36 emulator. A consenting sender and physical qualification device are not available. No receiver message content was inspected, no real message was sent, and no external block/unblock or physical qualification result is claimed. A spare phone with a second test number, or an explicitly consenting test participant, can supply the sender. Synthetic fixtures cannot establish real delivery effects.
 
 ## Recorded engineering checks
+
+This subsection preserves the earlier committed baseline. Current design work, expanded test counts and the subsequent release checkpoint are tracked in [the execution record](design-execution.md).
 
 - Pure suite: 196,833 policy/controller assertions plus 310 owned structural assertions; 31 SQLite schema/migration checks; 28 declared text contrast pairs (minimum 5.44:1); 193 document-qualified acceptance references validated. These counts do not establish 193 completed acceptance cases.
 - Android harness: 253 persistence, permission, recovery and UI checks; 20 Activity/search/anchor restoration checks; 32 committed-reset, rollback and receiver-publication checks; 80 performance/capacity and timing-probe checks; 20 checks across visible-effort and entry/confirmation process-restart preparation and verification. Includes receiver isolation, stale verification, completed-job reinspection, Stop/reset/consent races, corruption-file preservation and rejected downgrade with choices intact.
@@ -42,18 +46,18 @@ Local command output is retained under `/tmp/business-gate/` during execution. I
 | F18 | Blocked | One current profile per finite session is wired. Navigation, five-change batches and separately consented scans need implementation after measurement. |
 | F19 | Blocked | Opaque bounded notification cache is scoped and cleared. Provenance/candidate consumer and discovery bridge remain unimplemented. |
 | F20 | Partial | Bounded classifier, immediate option veto, global consent withdrawal and metadata cleanup. Qualified incoming-text and review-promotion integration remain unimplemented. |
-| F21 | Partial | Reminder rechecks consent/options, namespace, permission/channel and 30-day cap. Device delivery/revocation/clock matrix remains. |
+| F21 | Partial | Actual owned notification denial/grant, silent/private delivery, blocked channel, 30-day/future-clock boundaries and consent withdrawal are exercised in the debug harness. Qualified incoming-notification provenance and full repeated-prompt/physical behavior remain. |
 | F22 | Partial | Monotonic intervals, UTC splitting, union accounting and visible-only checkpoints implemented. Checkpoint process-death tests pass locally; scan/repair attention and pilot remain. |
 | F23 | Partial | Runtime disarm, failed-job copy, receiver/local-choice management and readiness requests improved. Storage-error refresh no longer loops; committed choices remain searchable. Explicit non-destructive storage checks and revision-bound unsaved-choice retry are implemented and covered by owned fault regressions. The full setup/recovery state matrix remains. |
-| F24 | Partial | Reproduced and fixed lost expanded rows, premature scroll restoration and insufficient landscape list space. Same-data/receiver restoration, exact-number anchors, filtered toggles and reset isolation pass native tests. All 24 native layout configurations (252 assertions, 72 owned renderings) and 28 text contrast pairs pass locally. TalkBack focus, keyboard/IME, dialogs and the full navigation/physical matrix remain. |
+| F24 | Partial | Reproduced and fixed row focus loss, compact viewports, clipped dialogs, missing native Back dispatch and repeated/background announcements. Native focus, actual TalkBack Tab traversal, IME/Back, stale dialog callbacks and saved-task process death have measured engineering coverage. The expanded 24-case and compact two-navigation suites retain full-text and target-size requirements. See the execution record for current results; complete speech/reading order and physical accessibility remain unverified. |
 | F25 | Partial | Write-time retention, account ceiling and optional-cache eviction; all-protected capacity rejection and continued editing of existing choices pass locally. Cached committed-snapshot search is implemented. The published baseline passed CI query/capacity limits. Physical scrolling/performance remain unmeasured. |
-| F26 | Partial | Artifact/runtime/permission/backup audit, reset/restart and corruption/downgrade checks. Committed-reset, rollback and receiver-publication faults now clear uncertain projections without discarding durable choices; 32 owned checks pass. Full permission/reboot/disk-full/intent/privacy matrix remains. |
+| F26 | Partial | Artifact/runtime/permission/backup audit, reset/restart and corruption/downgrade checks. Committed-reset, rollback and receiver-publication faults clear uncertain projections without discarding durable choices. Actual owned screen-service enable/revoke/reconnect preserves choices, invalidates authority and restores emulator settings. Full live permission/reboot/intent/privacy qualification remains. |
 | F27 | Implemented for inactive distribution | Capability/support metadata derive from validated APK evidence. No nonempty measured qualification has been supplied. |
 | F28 | Partial | Separate signed-upgrade probe, publisher-only key use, cleanup and offline failure regressions. Actual signed predecessor upgrades pass on API 29 and API 36; complete grant/namespace and fault matrix remains. |
 | F29 | Implemented | Signing, installation, migration, capability and provenance documents aligned. Owner license and support/privacy endpoints remain explicit owner decisions. |
 | F30 | Blocked | Physical attempt/delivery/coverage matrix and 30-day pilot have not started. No product-rate or monthly-effort target is claimed. |
 
-## Verified published baseline
+## Earlier published baseline and signed-upgrade record
 
 Build `101601` (`0.1.0-dev.16.1`) from commit `52823d48dd5dd0c7cd7931197ad5785de88e6af9` passed [GitHub verification and delivery](https://github.com/appunni-m/business-gate/actions/runs/34445510013). Its [versioned APK](https://github.com/appunni-m/business-gate/releases/download/build-101601/business-gate.apk) and rolling download were independently downloaded and byte-compared. Checksums, source metadata, SDK baseline, rolling version/hash and pinned signing certificate matched. APK SHA-256: `5c8860d44366172f7e348446c790e693d7518f9f22bdb65e9bd8599d28346f38`.
 

@@ -19,34 +19,46 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class Publication:
-    def __init__(self, releases=(), changed_download=False, fail_upload=False):
+    def __init__(self, releases=(), changed_download=False, fail_upload=False, fail_at=(), paginated=False):
         self.releases = [dict(value) for value in releases]
         self.calls = []
         self.changed_download = changed_download
         self.fail_upload = fail_upload
+        self.fail_at = fail_at
+        self.paginated = paginated
+        self.refs = {}
+        self.assets = {release['tag_name']: {path.name: path.read_bytes() for path in Path('output/delivery').iterdir() if path.name in ('business-gate.apk', 'SHA256SUMS', 'build-info.json', 'verification.json')} for release in releases}
 
     def run(self, args, **kwargs):
         assert args[0] == 'gh', 'Unexpected subprocess: offline test must not run a command'
         command = args[1:]
         self.calls.append(command)
+        if self.fail_at and tuple(command[:len(self.fail_at)]) == self.fail_at:
+            self.fail_at = ()
+            raise subprocess.CalledProcessError(1, ['gh', 'synthetic-boundary-failure'])
         output = ''
         if command[:2] == ['api', '--paginate']:
-            output = json.dumps([self.releases])
+            output = json.dumps([self.releases[:1], self.releases[1:]] if self.paginated else [self.releases])
         elif command[:2] == ['release', 'download']:
             destination = Path(command[command.index('--dir') + 1])
-            for name in ('business-gate.apk', 'SHA256SUMS', 'build-info.json'):
-                source = Path('output/delivery') / name
-                (destination / name).write_bytes(b'changed' if self.changed_download else source.read_bytes())
+            for name in self.assets[command[2]]:
+                (destination / name).write_bytes(b'changed' if self.changed_download else self.assets[command[2]][name])
         elif command[:2] == ['release', 'create']:
-            self.releases.append({'tag_name': command[2], 'draft': True, 'body': ''})
+            body = Path(command[command.index('--notes-file') + 1]).read_text() if '--notes-file' in command else ''
+            self.releases.append({'tag_name': command[2], 'draft': True, 'body': body})
+            self.assets[command[2]] = {Path(arg).name: Path(arg).read_bytes() for arg in command[3:] if Path(arg).is_file() and Path(arg).suffix != '.md'}
         elif command[:2] == ['release', 'edit']:
             release = next(value for value in self.releases if value['tag_name'] == command[2])
             release['draft'] = False
             if '--notes-file' in command:
                 release['body'] = Path(command[command.index('--notes-file') + 1]).read_text()
-        elif command[:3] == ['release', 'upload', 'development'] and self.fail_upload:
-            self.fail_upload = False
-            raise subprocess.CalledProcessError(1, ['gh', 'release', 'upload'])
+        elif command[:2] == ['release', 'upload']:
+            if command[2] == 'development' and self.fail_upload:
+                self.fail_upload = False
+                raise subprocess.CalledProcessError(1, ['gh', 'release', 'upload'])
+            self.assets.setdefault(command[2], {}).update({Path(arg).name: Path(arg).read_bytes() for arg in command[3:] if Path(arg).is_file()})
+        elif command[:3] == ['api', '--method', 'PATCH']:
+            self.refs[command[3].split('/')[-1]] = next(arg[4:] for arg in command if arg.startswith('sha='))
         return subprocess.CompletedProcess(args, 0, stdout=output)
 
     def execute(self):
@@ -87,6 +99,21 @@ class DeliveryTests(unittest.TestCase):
         self.assertTrue(all('--draft' in call for call in creates))
         self.assertTrue(all(not release['draft'] for release in publisher.releases))
 
+    def test_evidence_asset_is_published_immutably_and_identical_retry_passes(self):
+        directory = Path('output/delivery')
+        info = json.loads((directory / 'build-info.json').read_text())
+        info['verificationSha256'] = 'c' * 64
+        (directory / 'build-info.json').write_text(json.dumps(info))
+        (directory / 'verification.json').write_text('synthetic retained evidence')
+        publisher = Publication()
+        publisher.execute()
+        self.assertEqual(publisher.assets['build-201']['verification.json'], b'synthetic retained evidence')
+        publisher.execute()
+        (directory / 'verification.json').write_text('new evidence for old version')
+        with self.assertRaises(SystemExit):
+            publisher.execute()
+        self.assertEqual(publisher.assets['build-201']['verification.json'], b'synthetic retained evidence')
+
     def test_published_version_is_not_replaced(self):
         publisher = Publication([{'tag_name': 'build-201', 'draft': False, 'body': ''}])
         publisher.execute()
@@ -112,6 +139,63 @@ class DeliveryTests(unittest.TestCase):
         publisher.execute()
         self.assertEqual(sum(call[:3] == ['release', 'create', 'build-201'] for call in publisher.calls), 1)
         self.assertIn('201', next(value for value in publisher.releases if value['tag_name'] == 'development')['body'])
+
+    def test_preexisting_draft_is_completed_with_all_assets(self):
+        publisher = Publication([{'tag_name': 'build-201', 'draft': True, 'body': ''}])
+        publisher.assets['build-201'] = {}
+        publisher.execute()
+        self.assertFalse(publisher.releases[0]['draft'])
+        self.assertEqual(set(publisher.assets['build-201']), {'business-gate.apk', 'SHA256SUMS', 'build-info.json'})
+        self.assertFalse(any(call[:3] == ['release', 'create', 'build-201'] for call in publisher.calls))
+
+    def test_versioned_publish_failure_leaves_draft_and_no_rolling_release(self):
+        publisher = Publication(fail_at=('release', 'edit', 'build-201'))
+        with self.assertRaises(subprocess.CalledProcessError):
+            publisher.execute()
+        self.assertEqual([r['tag_name'] for r in publisher.releases], ['build-201'])
+        self.assertTrue(publisher.releases[0]['draft'])
+        self.assertEqual(len(publisher.assets['build-201']), 3)
+        publisher.execute()
+        self.assertTrue(all(not r['draft'] for r in publisher.releases))
+
+    def test_tag_and_notes_failures_preserve_versioned_bytes_and_resume(self):
+        for boundary in (('api', '--method', 'PATCH'), ('release', 'edit', 'development')):
+            with self.subTest(boundary=boundary):
+                publisher = Publication([{'tag_name': 'development', 'draft': False, 'body': '<!-- version-code: 100 -->'}], fail_at=boundary)
+                with self.assertRaises(subprocess.CalledProcessError):
+                    publisher.execute()
+                versioned = dict(publisher.assets['build-201'])
+                self.assertFalse(next(r for r in publisher.releases if r['tag_name'] == 'build-201')['draft'])
+                self.assertIn('100', publisher.releases[0]['body'])
+                publisher.execute()
+                self.assertEqual(publisher.assets['build-201'], versioned)
+                self.assertEqual(publisher.refs['development'], 'a' * 40)
+                self.assertIn('201', publisher.releases[0]['body'])
+                self.assertEqual(publisher.assets['development']['business-gate.apk'], versioned['business-gate.apk'])
+
+    def test_missing_rolling_marker_cannot_replace_rolling_asset(self):
+        publisher = Publication([{'tag_name': 'development', 'draft': False, 'body': 'no version marker'}])
+        publisher.assets['development']['business-gate.apk'] = b'older public artifact'
+        with self.assertRaises(SystemExit):
+            publisher.execute()
+        self.assertEqual(publisher.assets['development']['business-gate.apk'], b'older public artifact')
+        self.assertIn('build-201', publisher.assets)
+
+    def test_newer_version_on_later_page_prevents_older_channel_update(self):
+        publisher = Publication([{'tag_name': 'development', 'draft': False, 'body': '<!-- version-code: 100 -->'},
+                                 {'tag_name': 'build-301', 'draft': False, 'body': ''}], paginated=True)
+        publisher.assets['development']['business-gate.apk'] = b'newer public artifact'
+        publisher.execute()
+        self.assertEqual(publisher.assets['development']['business-gate.apk'], b'newer public artifact')
+        self.assertFalse(publisher.refs)
+
+    def test_identical_rerun_does_not_recreate_published_version(self):
+        publisher = Publication()
+        publisher.execute()
+        versioned = dict(publisher.assets['build-201'])
+        publisher.execute()
+        self.assertEqual(publisher.assets['build-201'], versioned)
+        self.assertEqual(sum(call[:3] == ['release', 'create', 'build-201'] for call in publisher.calls), 1)
 
     def test_empty_registry_is_inactive(self):
         result = validate(lambda name: b'{"schemaVersion":1,"adapters":[]}')

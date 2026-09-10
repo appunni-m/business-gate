@@ -56,6 +56,18 @@ public final class GateInstrumentation extends Instrumentation {
                 seed();layoutRegressions();
             }else if(mode.equals("ui")){
                 seed();uiRegressions();
+            }else if(mode.equals("focus")){
+                seed();focusRegressions();seed();announcementRegressions();
+            }else if(mode.equals("dialogs")){
+                seed();dialogRegressions();
+            }else if(mode.equals("reminder")||mode.equals("reminder-channel")){
+                seed();reminderRegressions(mode.endsWith("channel"));
+            }else if(mode.equals("service-lifecycle")){
+                seed();serviceLifecycleRegressions();
+            }else if(mode.equals("interaction")){
+                seed();interactionRegressions();
+            }else if(mode.equals("talkback")){
+                seed();talkBackRegressions();seed();announcementRegressions();
             }else if(mode.equals("privacy-boundary")){
                 seed();publicationBoundaryRegressions();
             }else if(mode.equals("performance")){
@@ -81,11 +93,11 @@ public final class GateInstrumentation extends Instrumentation {
                 committed(cb->repository.choose(first.id(),Choice.ALLOW,cb));String nonce=repository.current().account(first.id()).nonce();check(!nonce.isEmpty(),"explicit enable grants nonce");
                 runOnMainSync(repository::pause);until(()->repository.current().accounts().stream().allMatch(a->a.nonce().isEmpty()));check(repository.current().account(first.id()).choice()==Choice.ALLOW,"pause cancels authority but retains choice");
                 foundationRegressions();recoveryRegressions();seed();Activity activity=launch();
-                until(()->hasText(activity,"Harbor Clinic"));check(hasText(activity,"Paused · compatibility check needed"),"unsupported status visible");scrollTo(activity,4,0);until(()->hasText(activity,"Block pending"));check(hasText(activity,"Block pending"),"pending subtitle visible after scrolling");
+                until(()->hasText(activity,"Harbor Clinic"));check(hasText(activity,"Blocking is unavailable in this build. You can save choices here."),"unsupported status visible");scrollTo(activity,4,0);until(()->hasText(activity,"Block pending"));check(hasText(activity,"Block pending"),"pending subtitle visible after scrolling");
                 long beforeSearchRow=visibleRow(activity);int beforeSearchTop=visibleTop(activity);
                 runOnMainSync(()->{EditText search=find(activity.getWindow().getDecorView(),EditText.class);search.setText("+12025550102");});
                 until(()->hasText(activity,"Parcel Desk")&&!hasText(activity,"Harbor Clinic"));check(!hasText(activity,"Harbor Clinic"),"search excludes other exact number");
-                runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("No such local account"));until(()->hasText(activity,"No matching accounts"));check(hasText(activity,"Enable a number"),"empty search offers explicit number entry");
+                runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText("No such local account"));until(()->hasText(activity,"No matching account on this phone"));check(hasText(activity,"Enable a number"),"empty search offers explicit number entry");
                 runOnMainSync(()->find(activity.getWindow().getDecorView(),EditText.class).setText(""));until(()->visibleRow(activity)==beforeSearchRow);
                 check(Math.abs(visibleTop(activity)-beforeSearchTop)<=1,"clearing an empty search restores the pre-search row and offset");
                 check(repository.current().accounts().size()==6,"UI search does not mutate repository");
@@ -95,7 +107,7 @@ public final class GateInstrumentation extends Instrumentation {
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"; recent="+recentChecks+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
     private void publicationBoundaryRegressions()throws Exception{
-        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic"));
+        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
         clickOwn(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&v.getContentDescription().toString().endsWith("Show details"));
         try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
             SQLiteDatabase db=helper.getWritableDatabase();
@@ -135,7 +147,7 @@ public final class GateInstrumentation extends Instrumentation {
         seed();long previousNamespace=repository.current().namespace();
         String digest=io.github.appunnim.businessgate.automation.AdapterRegistry.sha256("owned publication namespace fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         Binding receiver=new Binding(repository.installation(),digest,"synthetic-profile","+12025550009","synthetic-publication");
-        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic"));
+        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
         try(GateDbHelper helper=new GateDbHelper(getTargetContext())){
             SQLiteDatabase db=helper.getWritableDatabase();db.execSQL("CREATE TRIGGER remove_receiver_identity AFTER UPDATE OF active ON namespace WHEN NEW.active=1 BEGIN DELETE FROM app_meta WHERE key='ui_data_identity'; END");
             long active;
@@ -275,6 +287,321 @@ public final class GateInstrumentation extends Instrumentation {
         if(root instanceof ViewGroup group)for(int i=0;i<group.getChildCount();i++){View result=ownView(group.getChildAt(i),predicate);if(result!=null)return result;}
         return null;
     }
+    private void focusRegressions()throws Exception{
+        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
+        setInTouchMode(false);waitForIdleSync();boolean[] accepted={false};
+        runOnMainSync(()->{
+            View control=ownView(activity.getWindow().getDecorView(),v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101"));
+            if(control!=null)accepted[0]=control.requestFocus();
+        });
+        check(accepted[0],"exact-number switch accepts keyboard focus");
+        waitForIdleSync();check(focusedNumber(activity,"+12025550101"),"keyboard focus starts on the selected exact number");
+        int[] painted={0};
+        runOnMainSync(()->{View control=activity.getCurrentFocus();android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(control.getWidth(),control.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);try{control.draw(new android.graphics.Canvas(bitmap));int color=activity.getColor(R.color.focus);for(int y=0;y<bitmap.getHeight();y++)for(int x=0;x<bitmap.getWidth();x++)if(bitmap.getPixel(x,y)==color)painted[0]++;}finally{bitmap.recycle();}});
+        check(painted[0]>48,"rendered native switch retains an opaque focus outline without ripple dilution");
+        committed(repository::reload);waitForIdleSync();
+        until(()->focusedNumber(activity,"+12025550101"));
+        check(focusedNumber(activity,"+12025550101"),"unchanged committed refresh preserves exact-number switch focus");
+        long revision=repository.current().account(1).revision();
+        check(activity.hasWindowFocus(),"hardware Space is confined to the owned exact-number switch");
+        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_SPACE);
+        until(()->repository.current().account(1).choice()==Choice.DEFAULT);until(()->focusedNumber(activity,"+12025550101"));
+        check(repository.current().account(1).revision()==revision+1&&repository.current().account(2).choice()==Choice.ALLOW,"focused section move commits exactly one choice for the selected number");
+        check(focusedNumber(activity,"+12025550101"),"section move preserves exact-number switch focus");
+        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_ENTER);until(()->repository.current().account(1).choice()==Choice.ALLOW);until(()->focusedNumber(activity,"+12025550101"));
+        check(repository.current().account(1).revision()==revision+2,"hardware Enter commits exactly one change to the same number");
+        long now=android.os.SystemClock.uptimeMillis();
+        sendKeySync(new android.view.KeyEvent(now,now,android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_TAB,0,android.view.KeyEvent.META_SHIFT_ON));
+        sendKeySync(new android.view.KeyEvent(now,android.os.SystemClock.uptimeMillis(),android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_TAB,0,android.view.KeyEvent.META_SHIFT_ON));waitForIdleSync();
+        String backward=focusedControl(activity);
+        check(ownsView(activity,v->v.isFocused()&&v.isScreenReaderFocusable()&&v.getContentDescription()!=null&&v.getContentDescription().toString().startsWith("Harbor Clinic, +12025550101, ")),"hardware Shift-Tab returns to this number's summary without changing its choice");
+        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_TAB);waitForIdleSync();
+        check(focusedNumber(activity,"+12025550101")&&repository.current().account(1).revision()==revision+2,"hardware Tab returns to the same switch without mutating a choice; backward="+backward+"; forward="+focusedControl(activity));
+        CountDownLatch held=new CountDownLatch(1),release=new CountDownLatch(1);
+        writer().execute(()->{held.countDown();try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        check(held.await(10,TimeUnit.SECONDS),"writer held before the user changes focus");
+        runOnMainSync(()->{repository.reload(()->{});find(activity.getWindow().getDecorView(),EditText.class).requestFocus();});
+        release.countDown();writerBarrier();
+        check(ownsView(activity,v->v instanceof EditText&&v.isFocused()),"a late refresh does not steal focus after the user selects Search");
+        search(activity,"+12025550102");until(()->hasText(activity,"Parcel Desk")&&!hasText(activity,"Harbor Clinic"));
+        check(!focusedNumber(activity,"+12025550102"),"recycled row cannot inherit a different number's action focus");
+        committed(repository::reset);until(()->hasRow(activity,-14));
+        committed(cb->repository.enableNumber("+12025550101","Replacement choice",cb));
+        check(!focusedNumber(activity,"+12025550101")&&repository.disarmed(),"reset and reused number cannot restore old focus or action authority");
+        runOnMainSync(activity::finish);
+    }
+    private boolean focusedNumber(Activity activity,String phone){
+        boolean[] focused={false};runOnMainSync(()->{View v=activity.getCurrentFocus();focused[0]=v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains(phone);});return focused[0];
+    }
+    private String focusedControl(Activity activity){
+        String[] value={"none"};runOnMainSync(()->{View v=activity.getCurrentFocus();if(v!=null)value[0]=v.getClass().getSimpleName()+": "+v.getContentDescription();});return value[0];
+    }
+    private void announcementRegressions()throws Exception{
+        android.app.UiAutomation automation=getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        java.util.concurrent.atomic.AtomicInteger announcements=new java.util.concurrent.atomic.AtomicInteger();
+        automation.setOnAccessibilityEventListener(event->{
+            if(getTargetContext().getPackageName().contentEquals(event.getPackageName()==null?"":event.getPackageName())&&event.getEventType()==android.view.accessibility.AccessibilityEvent.TYPE_ANNOUNCEMENT)announcements.incrementAndGet();
+        });
+        Activity activity=launch();
+        try{
+            search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));until(activity::hasWindowFocus);
+            check(!ownsView(activity,v->v.getAccessibilityLiveRegion()!=View.ACCESSIBILITY_LIVE_REGION_NONE),"background status refreshes do not create repeated live-region announcements");
+            clickOwn(activity,v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101"));
+            until(()->repository.current().account(1).choice()==Choice.DEFAULT);until(()->announcements.get()>0);
+            committed(repository::reload);Thread.sleep(500);
+            check(announcements.get()==1,"one completed foreground choice emits exactly one owned accessibility announcement across refresh");
+            CountDownLatch held=new CountDownLatch(1),release=new CountDownLatch(1);
+            writer().execute(()->{held.countDown();try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+            check(held.await(10,TimeUnit.SECONDS),"hold the actual user save before leaving the management page");
+            try{
+                clickOwn(activity,v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101"));
+                check(activity.hasWindowFocus(),"leave only the owned focused Activity");sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_HOME);until(()->!activity.hasWindowFocus());
+            }finally{release.countDown();}
+            writerBarrier();until(()->repository.current().account(1).choice()==Choice.ALLOW);Thread.sleep(500);
+            check(announcements.get()==1,"a save completing after Home cannot announce from the background");
+            check(repository.disarmed()&&repository.current().account(2).choice()==Choice.ALLOW,"announcement handling leaves authority inactive and other choices unchanged");
+        }finally{automation.setOnAccessibilityEventListener(null);runOnMainSync(activity::finish);}
+    }
+    private void serviceLifecycleRegressions()throws Exception{
+        android.app.UiAutomation automation=getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        android.content.ContentResolver resolver=getTargetContext().getContentResolver();
+        String key=android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES;
+        String original=android.provider.Settings.Secure.getString(resolver,key);
+        String enabled=android.provider.Settings.Secure.getString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+        android.content.ComponentName component=new android.content.ComponentName(getTargetContext(),io.github.appunnim.businessgate.service.GateAccessibilityService.class);
+        java.util.ArrayList<String> other=new java.util.ArrayList<>();
+        if(original!=null&&!original.isEmpty())for(String entry:original.split(":"))if(!component.equals(android.content.ComponentName.unflattenFromString(entry)))other.add(entry);
+        String without=String.join(":",other),with=without.isEmpty()?component.flattenToString():without+":"+component.flattenToString();
+        automation.adoptShellPermissionIdentity(android.Manifest.permission.WRITE_SECURE_SETTINGS);
+        try{
+            check(android.provider.Settings.Secure.putString(resolver,key,without),"remove only owned debug screen service before permission test");
+            until(()->!io.github.appunnim.businessgate.service.GateAccessibilityService.connected());
+            check(android.provider.Settings.Secure.putString(resolver,key,with),"enable owned debug screen service through Android");
+            until(io.github.appunnim.businessgate.service.GateAccessibilityService::connected);writerBarrier();
+            check(repository.disarmed()&&repository.current().account(1).choice()==Choice.ALLOW,"actual service connection preserves durable choice and stops authority");
+            check(!io.github.appunnim.businessgate.service.GateAccessibilityService.requestActivation()&&!io.github.appunnim.businessgate.service.GateAccessibilityService.requestApply(1),"enabled screen access cannot bypass the empty registry");
+            long before=repository.epoch();
+            check(android.provider.Settings.Secure.putString(resolver,key,without),"revoke actual owned screen access");
+            until(()->!io.github.appunnim.businessgate.service.GateAccessibilityService.connected());writerBarrier();
+            check(repository.epoch()>before&&repository.disarmed(),"actual permission revocation invalidates the authority epoch");
+            check(repository.current().account(1).choice()==Choice.ALLOW&&repository.current().accounts().stream().allMatch(a->a.nonce().isEmpty()),"revocation retains choices and removes one-shot grants");
+            check(android.provider.Settings.Secure.putString(resolver,key,with),"reconnect owned service after permission returns");
+            until(io.github.appunnim.businessgate.service.GateAccessibilityService::connected);writerBarrier();
+            check(repository.disarmed()&&io.github.appunnim.businessgate.service.GateAccessibilityService.packageSelected().isEmpty(),"reconnection does not restore a selected target or session");
+            Activity activity=launch();until(activity::hasWindowFocus);
+            check(hasText(activity,"Blocking is unavailable in this build. You can save choices here."),"management page reports compatibility truthfully after service reconnect");
+            runOnMainSync(activity::finish);
+        }finally{
+            try{
+                android.provider.Settings.Secure.putString(resolver,key,original);
+                android.provider.Settings.Secure.putString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED,enabled);
+                check(java.util.Objects.equals(original,android.provider.Settings.Secure.getString(resolver,key))&&java.util.Objects.equals(enabled,android.provider.Settings.Secure.getString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED)),"original emulator accessibility settings restored exactly");
+            }finally{automation.dropShellPermissionIdentity();}
+        }
+    }
+    private void reminderRegressions(boolean blockedChannel)throws Exception{
+        android.app.NotificationManager manager=getTargetContext().getSystemService(android.app.NotificationManager.class);
+        io.github.appunnim.businessgate.support.QuietReminder reminder=new io.github.appunnim.businessgate.support.QuietReminder(getTargetContext(),repository);
+        check(manager.getActiveNotifications().length==0&&manager.getNotificationChannel("attention")==null,"notification matrix starts in the isolated debug installation");
+        if(blockedChannel){
+            manager.createNotificationChannel(new android.app.NotificationChannel("attention","Optional review",android.app.NotificationManager.IMPORTANCE_NONE));
+            check(manager.getNotificationChannel("attention").getImportance()==android.app.NotificationManager.IMPORTANCE_NONE,"actual owned channel is blocked");
+        }
+        runOnMainSync(()->{repository.setting("sales_hints",true);repository.setting("digest",true);});writerBarrier();waitForIdleSync();
+        if(android.os.Build.VERSION.SDK_INT>=33){
+            check(getTargetContext().checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED,"actual own notification permission starts denied");
+            runOnMainSync(reminder::onNewReviewEvidence);writerBarrier();waitForIdleSync();
+            check(manager.getActiveNotifications().length==0,"permission denial prevents reminder delivery");
+            getUiAutomation().grantRuntimePermission(getTargetContext().getPackageName(),android.Manifest.permission.POST_NOTIFICATIONS);
+        }
+        until(manager::areNotificationsEnabled);
+        runOnMainSync(reminder::onNewReviewEvidence);writerBarrier();waitForIdleSync();
+        if(blockedChannel){
+            Thread.sleep(250);check(manager.getActiveNotifications().length==0,"blocked channel prevents actual reminder delivery");
+            check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"blocked notifications do not alter choices or enable actions");return;
+        }
+        until(()->manager.getActiveNotifications().length==1);
+        android.app.Notification notification=manager.getActiveNotifications()[0].getNotification();
+        android.app.NotificationChannel channel=manager.getNotificationChannel("attention");
+        check(channel.getImportance()==android.app.NotificationManager.IMPORTANCE_LOW&&channel.getSound()==null&&!channel.shouldVibrate(),"actual reminder channel is low importance, silent and nonvibrating");
+        check(notification.visibility==android.app.Notification.VISIBILITY_PRIVATE&&notification.fullScreenIntent==null,"reminder is private and has no foreground takeover");
+        check(notification.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString().equals(getTargetContext().getString(R.string.reminder_title))&&notification.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString().equals(getTargetContext().getString(R.string.reminder_detail)),"actual notification contains only generic owned copy, no sender number or message text");
+        if(android.os.Build.VERSION.SDK_INT>=31)check(notification.contentIntent.isImmutable(),"reminder PendingIntent cannot accept caller modifications");
+        runOnMainSync(reminder::clear);until(()->manager.getActiveNotifications().length==0);
+        for(long previous:new long[]{System.currentTimeMillis(),System.currentTimeMillis()+86400000L,System.currentTimeMillis()-29L*86400000}){
+            try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE app_meta SET value=? WHERE key='last_digest_ms'",new Object[]{""+previous});}
+            runOnMainSync(reminder::onNewReviewEvidence);writerBarrier();waitForIdleSync();Thread.sleep(100);
+            check(manager.getActiveNotifications().length==0,"30-day cap and stored future-clock boundary prevent repeated delivery");
+        }
+        try(GateDbHelper helper=new GateDbHelper(getTargetContext())){helper.getWritableDatabase().execSQL("UPDATE app_meta SET value=? WHERE key='last_digest_ms'",new Object[]{""+(System.currentTimeMillis()-31L*86400000)});}
+        runOnMainSync(reminder::onNewReviewEvidence);until(()->manager.getActiveNotifications().length==1);
+        check(manager.getActiveNotifications().length==1,"eligible evidence can produce a reminder after the cap window");
+        committed(cb->repository.updateSetup("WELCOME",false,cb));until(()->manager.getActiveNotifications().length==0);
+        check(!repository.optionEnabled("digest")&&!repository.optionEnabled("sales_hints"),"consent withdrawal clears reminder options and actual notification");
+        check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"reminder lifecycle preserves exact choices and inactive authority");
+    }
+    private EditText ownInput(android.app.AlertDialog dialog,String label){
+        EditText[] result={null};runOnMainSync(()->result[0]=(EditText)ownView(dialog.getWindow().getDecorView(),v->label.equals(v.getContentDescription())));return result[0];
+    }
+    private boolean imeVisible(Activity activity){
+        boolean[] value={false};runOnMainSync(()->{android.view.WindowInsets insets=activity.getWindow().getDecorView().getRootWindowInsets();value[0]=insets!=null&&(android.os.Build.VERSION.SDK_INT>=30?insets.isVisible(android.view.WindowInsets.Type.ime()):insets.getSystemWindowInsetBottom()>activity.getResources().getDisplayMetrics().density*100);});return value[0];
+    }
+    private boolean dialogImeVisible(android.app.AlertDialog dialog){
+        boolean[] visible={false};runOnMainSync(()->{android.view.WindowInsets insets=dialog.getWindow().getDecorView().getRootWindowInsets();visible[0]=insets!=null&&(android.os.Build.VERSION.SDK_INT>=30?insets.isVisible(android.view.WindowInsets.Type.ime()):insets.getSystemWindowInsetBottom()>dialog.getContext().getResources().getDisplayMetrics().density*100);});return visible[0];
+    }
+    private void ownedBack(Activity activity)throws Exception{
+        check(activity.hasWindowFocus(),"Back is sent only while the owned Activity has input focus");
+        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);waitForIdleSync();Thread.sleep(250);
+    }
+    private void interactionRegressions()throws Exception{
+        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
+        clickOwn(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&v.getContentDescription().toString().endsWith("Show details"));
+        runOnMainSync(()->{EditText field=find(activity.getWindow().getDecorView(),EditText.class);field.requestFocus();activity.getSystemService(android.view.inputmethod.InputMethodManager.class).showSoftInput(field,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);});
+        until(()->imeVisible(activity));check(imeVisible(activity),"real search IME is visible");
+        ownedBack(activity);until(()->!imeVisible(activity));
+        check(!activity.isFinishing()&&ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details")),"first Back dismisses IME and preserves expanded details");
+        check(ownsView(activity,v->v instanceof EditText text&&text.getText().toString().equals("+12025550101")),"IME dismissal preserves query");
+        ownedBack(activity);check(!activity.isFinishing(),"Back must collapse details before finishing");
+        try{until(()->ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Show details")));}
+        catch(AssertionError failure){throw new AssertionError("Second Back did not expose the collapsed summary: ime="+imeVisible(activity)+", focused="+activity.hasWindowFocus()+", expandedControl="+ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().endsWith("Collapse details"))+", accountMounted="+hasText(activity,"Harbor Clinic"),failure);}
+        check(!activity.isFinishing(),"second Back collapses details without leaving the page");
+        invokeOwned(activity,"addNumber",null);until(()->ownDialog(activity)!=null);android.app.AlertDialog form=ownDialog(activity);
+        until(()->form.getWindow().getDecorView().hasWindowFocus());check(true,"number dialog input window is ready");
+        EditText phone=ownInput(form,"Full phone number with country code");
+        runOnMainSync(()->{phone.setText("+12025550195");phone.requestFocus();});
+        android.view.inputmethod.InputMethodManager input=activity.getSystemService(android.view.inputmethod.InputMethodManager.class);
+        until(()->input.isActive(phone));check(input.isActive(phone),"number field has a real input connection");
+        runOnMainSync(()->input.showSoftInput(phone,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT));
+        until(()->imeVisible(activity)||dialogImeVisible(form));
+        check(form.getWindow().getDecorView().hasWindowFocus(),"owned number form has input focus");sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);Thread.sleep(300);
+        check(form.isShowing(),"first form Back dismisses IME without canceling unsent text");
+        check(ownInput(form,"Full phone number with country code").getText().toString().equals("+12025550195"),"number text survives IME dismissal");
+        sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);until(()->ownDialog(activity)==null);
+        check(repository.current().accounts().stream().noneMatch(a->a.phone().equals("+12025550195")),"second form Back cancels without saving");
+        until(activity::hasWindowFocus);ownedBack(activity);until(activity::isFinishing);
+        check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"exit retains choices and never activates actions");
+    }
+    private void talkBackRegressions()throws Exception{
+        android.app.UiAutomation automation=getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        android.view.accessibility.AccessibilityManager manager=getTargetContext().getSystemService(android.view.accessibility.AccessibilityManager.class);
+        until(()->manager.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_SPOKEN).stream().anyMatch(s->s.getResolveInfo().serviceInfo.packageName.equals("com.google.android.marvin.talkback")));
+        until(manager::isTouchExplorationEnabled);
+        check(manager.isTouchExplorationEnabled(),"TalkBack touch exploration is actually enabled");
+        Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));
+        java.util.function.Predicate<View> summary=v->v.isAccessibilityFocused()&&v.isScreenReaderFocusable()&&v.getContentDescription()!=null&&v.getContentDescription().toString().startsWith("Harbor Clinic, +12025550101, ");
+        for(int step=0;step<20&&!ownsView(activity,summary);step++){
+            until(activity::hasWindowFocus);
+            android.view.accessibility.AccessibilityNodeInfo root=automation.getRootInActiveWindow();
+            check(root!=null&&getTargetContext().getPackageName().equals(String.valueOf(root.getPackageName())),"Native Tab with TalkBack is confined to the owned debug window");
+            long now=android.os.SystemClock.uptimeMillis();
+            injectOwnedKey(automation,now,android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_TAB,0);
+            injectOwnedKey(automation,now,android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_TAB,0);
+            Thread.sleep(450);
+        }
+        check(ownsView(activity,summary),"actual TalkBack native Tab traversal reaches the grouped exact-number summary");
+        long navigation=android.os.SystemClock.uptimeMillis();
+        injectOwnedKey(automation,navigation,android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_TAB,0);
+        injectOwnedKey(automation,navigation,android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_TAB,0);
+        until(()->ownsView(activity,v->v.isAccessibilityFocused()&&v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")));
+        check(repository.current().account(1).choice()==Choice.ALLOW,"actual TalkBack traversal reaches this number's switch without changing its choice");
+        navigation=android.os.SystemClock.uptimeMillis();
+        injectOwnedKey(automation,navigation,android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_TAB,android.view.KeyEvent.META_SHIFT_ON);
+        injectOwnedKey(automation,navigation,android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_TAB,android.view.KeyEvent.META_SHIFT_ON);
+        until(()->ownsView(activity,summary));check(ownsView(activity,summary),"actual TalkBack reverse traversal returns to this number's summary");
+        committed(repository::reload);writerBarrier();Thread.sleep(350);
+        check(ownsView(activity,summary),"TalkBack focus stays on the same summary after committed refresh");
+        Account account=repository.current().account(1);committed(cb->repository.choose(account,Choice.DEFAULT,cb));writerBarrier();Thread.sleep(350);
+        check(ownsView(activity,summary),"TalkBack focus stays on the same number when its section and saved choice change");
+        check(ownsView(activity,v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+12025550101")&&!((android.widget.Switch)v).isChecked()),"TalkBack sees the current native checked state and full number");
+        search(activity,"+12025550102");until(()->hasText(activity,"Parcel Desk")&&!hasText(activity,"Harbor Clinic"));Thread.sleep(350);
+        check(!ownsView(activity,v->v.isAccessibilityFocused()&&v instanceof android.widget.Switch),"a filtered-out sender cannot transfer TalkBack focus to a different number's switch");
+        check(repository.current().account(2).choice()==Choice.ALLOW&&repository.disarmed(),"screen-reader traversal leaves other exact-number choices and action inactivity intact");
+        runOnMainSync(activity::finish);
+    }
+    private void injectOwnedKey(android.app.UiAutomation automation,long down,int action,int code,int meta){
+        android.view.KeyEvent event=new android.view.KeyEvent(down,android.os.SystemClock.uptimeMillis(),action,code,0,meta,android.view.KeyCharacterMap.VIRTUAL_KEYBOARD,0,android.view.KeyEvent.FLAG_FROM_SYSTEM,android.view.InputDevice.SOURCE_KEYBOARD);
+        if(!automation.injectInputEvent(event,true))throw new AssertionError("Owned keyboard event rejected");
+    }
+    private android.app.AlertDialog ownDialog(Activity activity){
+        android.app.AlertDialog[] found={null};runOnMainSync(()->{
+            try{
+                java.lang.reflect.Field field=activity.getClass().getDeclaredField("dialogs");field.setAccessible(true);
+                for(Object value:(java.util.List<?>)field.get(activity))if(value instanceof android.app.AlertDialog dialog&&dialog.isShowing())found[0]=dialog;
+            }catch(ReflectiveOperationException error){throw new IllegalStateException(error);}
+        });return found[0];
+    }
+    private void invokeOwned(Activity activity,String method,Account account){
+        runOnMainSync(()->{
+            try{
+                java.lang.reflect.Method action=account==null?activity.getClass().getDeclaredMethod(method):activity.getClass().getDeclaredMethod(method,Account.class);
+                action.setAccessible(true);if(account==null)action.invoke(activity);else action.invoke(activity,account);
+            }catch(ReflectiveOperationException error){throw new IllegalStateException(error);}
+        });
+    }
+    private void dialogRegressions()throws Exception{
+        Activity first=launch();until(()->hasText(first,"Business Gate"));
+        invokeOwned(first,"addNumber",null);android.app.AlertDialog form=ownDialog(first);check(form!=null,"owned number form opens");
+        runOnMainSync(()->{
+            EditText phone=(EditText)ownView(form.getWindow().getDecorView(),v->"Full phone number with country code".equals(v.getContentDescription()));
+            EditText name=(EditText)ownView(form.getWindow().getDecorView(),v->"Optional local name".equals(v.getContentDescription()));
+            phone.setText("+12025550181");name.setText("Unsent local form");
+        });
+        Activity restored=recreate(first);until(()->ownDialog(restored)!=null);android.app.AlertDialog resumedForm=ownDialog(restored);
+        check(ownView(resumedForm.getWindow().getDecorView(),v->v instanceof EditText e&&e.getText().toString().equals("+12025550181"))!=null,"rotation restores the unsent exact number");
+        check(ownView(resumedForm.getWindow().getDecorView(),v->v instanceof EditText e&&e.getText().toString().equals("Unsent local form"))!=null,"rotation restores the unsent optional name");
+        check(repository.current().accounts().stream().noneMatch(a->a.phone().equals("+12025550181")),"restored form never auto-submits a choice");
+        runOnMainSync(()->resumedForm.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).performClick());
+        until(()->ownDialog(restored)==null);
+        check(ownDialog(restored)==null&&repository.disarmed(),"Cancel closes the form without activating actions");
+        runOnMainSync(()->resumedForm.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick());writerBarrier();
+        check(repository.current().accounts().stream().noneMatch(a->a.phone().equals("+12025550181")),"a canceled form's late positive callback cannot save a number");
+        invokeOwned(restored,"addNumber",null);android.app.AlertDialog staleForm=ownDialog(restored);
+        runOnMainSync(()->((EditText)ownView(staleForm.getWindow().getDecorView(),v->"Full phone number with country code".equals(v.getContentDescription()))).setText("+12025550182"));
+        committed(repository::reset);until(()->ownDialog(restored)==null);
+        runOnMainSync(()->staleForm.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick());writerBarrier();
+        check(repository.current().accounts().isEmpty()&&repository.disarmed(),"a stale positive button cannot recreate choices after reset");
+        seed();until(()->repository.current().accounts().size()==6);until(()->hasText(restored,"Harbor Clinic"));
+        Account original=repository.current().account(1);long revision=original.revision();String nonce=original.nonce();
+        invokeOwned(restored,"unblockNow",original);android.app.AlertDialog unblock=ownDialog(restored);
+        check(unblock!=null,"Unblock now requires a separate exact-number review");
+        runOnMainSync(()->unblock.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).performClick());
+        until(()->ownDialog(restored)==null);
+        check(repository.current().account(1).revision()==revision&&repository.current().account(1).nonce().equals(nonce),"canceling unblock creates no new grant or revision");
+        runOnMainSync(()->unblock.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick());writerBarrier();
+        check(repository.current().account(1).revision()==revision&&repository.current().account(1).nonce().equals(nonce),"a canceled unblock review cannot execute a late positive callback");
+        invokeOwned(restored,"manualBlock",original);android.app.AlertDialog oldBlock=ownDialog(restored);
+        committed(cb->repository.choose(original,Choice.ALLOW,cb));long changed=repository.current().account(1).revision();
+        runOnMainSync(()->oldBlock.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick());writerBarrier();
+        check(repository.current().account(1).choice()==Choice.ALLOW&&repository.current().account(1).revision()==changed,"an older manual confirmation cannot override a newer exact-number choice");
+        invokeOwned(restored,"clearLocal",null);android.app.AlertDialog deletion=ownDialog(restored);
+        Activity recreated=recreate(restored);until(()->hasRow(recreated,1));
+        check(ownDialog(recreated)==null,"destructive confirmation is not restored after recreation");
+        runOnMainSync(()->deletion.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick());writerBarrier();
+        check(repository.current().accounts().size()==6,"a destroyed Activity's confirmation cannot delete local data");
+        search(recreated,"😀".repeat(130));
+        check(ownsView(recreated,v->v instanceof EditText e&&Character.codePointCount(e.getText(),0,e.length())==128&&e.length()==256),"search limit counts Unicode code points without splitting supplementary characters");
+        search(recreated,"");
+        for(String method:new String[]{"settings","compatibility","diagnostics","accessDisclosure","notificationDisclosure","salesDisclosure","clearLocal"}){
+            invokeOwned(recreated,method,null);android.app.AlertDialog dialog=ownDialog(recreated);check(dialog!=null,"owned supporting dialog opens: "+method);
+            runOnMainSync(dialog::cancel);until(()->ownDialog(recreated)==null);check(ownDialog(recreated)==null,"supporting dialog cancels without replay: "+method);
+        }
+        check(repository.current().accounts().size()==6&&repository.disarmed(),"supporting dialog cancellation preserves choices and inactive state");
+        invokeOwned(recreated,"settings",null);android.app.AlertDialog settings=ownDialog(recreated);until(()->settings.getWindow().getDecorView().hasWindowFocus());
+        View hints=ownView(settings.getWindow().getDecorView(),v->v instanceof android.widget.Switch sw&&sw.getText().toString().equals("Optional sales hints"));
+        View effort=ownView(settings.getWindow().getDecorView(),v->v instanceof android.widget.Button b&&b.getText().toString().equals("View local effort"));
+        CountDownLatch held=new CountDownLatch(1),release=new CountDownLatch(1);
+        writer().execute(()->{held.countDown();try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        check(held.await(10,TimeUnit.SECONDS),"hold the requested effort result before canceling Settings");
+        try{runOnMainSync(()->{effort.performClick();settings.cancel();hints.performClick();});}finally{release.countDown();}
+        writerBarrier();Thread.sleep(250);
+        check(ownDialog(recreated)==null&&!repository.current().salesHints(),"canceled settings cannot reopen through a delayed result or old switch callback");
+        invokeOwned(recreated,"compatibility",null);android.app.AlertDialog compatibility=ownDialog(recreated);until(()->compatibility.getWindow().getDecorView().hasWindowFocus());
+        View local=ownView(compatibility.getWindow().getDecorView(),v->v instanceof android.widget.Button b&&b.getText().toString().equals("Manage unconnected choices"));
+        GateRepository.ChoiceScope before=repository.choiceScope();
+        runOnMainSync(()->{compatibility.cancel();local.performClick();});writerBarrier();
+        check(before.equals(repository.choiceScope()),"a canceled connection dialog's old button cannot switch choice namespaces");
+        runOnMainSync(recreated::finish);
+    }
     private boolean ownsView(Activity activity,java.util.function.Predicate<View> predicate){
         boolean[] found={false};runOnMainSync(()->found[0]=ownView(activity.getWindow().getDecorView(),predicate)!=null);return found[0];
     }
@@ -302,6 +629,7 @@ public final class GateInstrumentation extends Instrumentation {
         boolean dark=arguments.getString("night","light").equals("dark");
         check((activity.getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK)==(dark?android.content.res.Configuration.UI_MODE_NIGHT_YES:android.content.res.Configuration.UI_MODE_NIGHT_NO),"requested theme is applied");
         until(()->ownsView(activity,v->v instanceof android.widget.ListView list&&list.getCount()>5));
+        metrics+="METRIC width_px="+activity.getWindow().getDecorView().getWidth()+" height_px="+activity.getWindow().getDecorView().getHeight()+" density_dpi="+activity.getResources().getDisplayMetrics().densityDpi+" font_percent="+Math.round(activity.getResources().getConfiguration().fontScale*100)+"\n";
         java.util.List<String> failures=new java.util.ArrayList<>();
         runOnMainSync(()->{
             android.widget.ListView list=find(activity.getWindow().getDecorView(),android.widget.ListView.class);
@@ -310,7 +638,8 @@ public final class GateInstrumentation extends Instrumentation {
         });
         captureOwnedView(activity,"layout.png");
         check(failures.isEmpty(),"visible layout: "+String.join(", ",failures));
-        search(activity,"+120255512345678");until(()->ownsView(activity,v->v instanceof android.widget.ListView list&&list.getCount()==(expectedOrientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE?4:3)));
+        boolean compactSummary=hasRow(activity,-18);
+        search(activity,"+120255512345678");until(()->ownsView(activity,v->v instanceof android.widget.ListView list&&list.getCount()==(compactSummary?4:3)));
         long target=repository.current().accounts().stream().filter(a->a.phone().equals("+120255512345678")).findFirst().orElseThrow().id();scrollTo(activity,target,0);
         until(()->ownsView(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")));
         clickOwn(activity,v->v.getContentDescription()!=null&&v.getContentDescription().toString().contains("+120255512345678")&&v.getContentDescription().toString().endsWith("Show details"));
@@ -331,15 +660,52 @@ public final class GateInstrumentation extends Instrumentation {
         }
         captureOwnedView(activity,"layout-action.png");check(reached[0],"expanded action remains reachable through the single list");
         check(repository.current().account(1).choice()==Choice.ALLOW&&repository.disarmed(),"layout changes never replay policy or resume actions");
-        if(expectedOrientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE){
+        if(compactSummary){
             search(activity,"");until(()->hasRow(activity,1));scrollTo(activity,-18,0);
-            until(()->hasText(activity,"Business Gate")&&hasText(activity,"Paused · compatibility check needed"));
-            check(hasText(activity,"Business Gate")&&hasText(activity,"Paused · compatibility check needed"),"landscape title and status return after filtered row recycling");
+            until(()->hasText(activity,"Business Gate")&&hasText(activity,"Blocking is unavailable in this build. You can save choices here."));
+            check(hasText(activity,"Business Gate")&&hasText(activity,"Blocking is unavailable in this build. You can save choices here."),"compact title and status return after filtered row recycling");
         }
+        if(activity.getResources().getConfiguration().fontScale>=1.99f)dialogLayouts(activity);
     }
-    private void captureOwnedView(Activity activity,String name)throws Exception{
+    private void dialogLayouts(Activity activity)throws Exception{
+        for(String method:new String[]{"addNumber","settings","compatibility","diagnostics","accessDisclosure","notificationDisclosure","salesDisclosure","clearLocal","manualBlock","unblockNow"}){
+            invokeOwned(activity,method,(method.equals("manualBlock")||method.equals("unblockNow"))?repository.current().account(1):null);
+            until(()->ownDialog(activity)!=null);android.app.AlertDialog dialog=ownDialog(activity);waitForIdleSync();
+            java.util.List<String> errors=new java.util.ArrayList<>();
+            runOnMainSync(()->{
+                inspectLayout(dialog.getWindow().getDecorView(),errors);
+                for(int which:new int[]{android.app.AlertDialog.BUTTON_POSITIVE,android.app.AlertDialog.BUTTON_NEGATIVE}){
+                    View button=dialog.getButton(which);if(button==null||button.getVisibility()!=View.VISIBLE)continue;
+                    android.graphics.Rect visible=new android.graphics.Rect();
+                    if((!button.getGlobalVisibleRect(visible)||visible.height()+1<button.getHeight()||visible.width()+1<button.getWidth())&&!scrollableAncestor(button))errors.add("fixed dialog action clipped");
+                    if(button.getHeight()+1<48*activity.getResources().getDisplayMetrics().density)errors.add("dialog action below 48dp");
+                }
+            });
+            java.util.List<View> controls=new java.util.ArrayList<>();
+            runOnMainSync(()->collectControls(dialog.getWindow().getDecorView(),controls));
+            for(View control:controls){
+                runOnMainSync(()->control.requestRectangleOnScreen(new android.graphics.Rect(0,0,control.getWidth(),control.getHeight()),true));waitForIdleSync();
+                runOnMainSync(()->{android.graphics.Rect visible=new android.graphics.Rect();if(!control.getGlobalVisibleRect(visible)||visible.height()+1<control.getHeight()||visible.width()+1<control.getWidth())errors.add("full dialog child control unreachable: "+control.getClass().getSimpleName()+" "+visible.width()+"x"+visible.height()+" of "+control.getWidth()+"x"+control.getHeight());});
+            }
+            captureOwnedRoot(dialog.getWindow().getDecorView(),"dialog-"+method+".png");
+            check(errors.isEmpty(),"large-text dialog "+method+": "+String.join(", ",errors));
+            runOnMainSync(dialog::cancel);until(()->ownDialog(activity)==null);
+        }
+        check(repository.disarmed(),"dialog layout checks leave action authority inactive");
+    }
+    private boolean scrollableAncestor(View view){
+        for(android.view.ViewParent parent=view.getParent();parent instanceof View ancestor;parent=ancestor.getParent())if(ancestor instanceof android.widget.ScrollView&&(ancestor.canScrollVertically(-1)||ancestor.canScrollVertically(1)))return true;
+        return false;
+    }
+    private void collectControls(View view,java.util.List<View> result){
+        if(!view.isShown())return;
+        if(view instanceof android.widget.Button||view instanceof EditText)result.add(view);
+        if(view instanceof ViewGroup group)for(int i=0;i<group.getChildCount();i++)collectControls(group.getChildAt(i),result);
+    }
+    private void captureOwnedView(Activity activity,String name)throws Exception{captureOwnedRoot(activity.getWindow().getDecorView(),name);}
+    private void captureOwnedRoot(View root,String name)throws Exception{
         android.graphics.Bitmap[] rendered={null};
-        runOnMainSync(()->{View root=activity.getWindow().getDecorView();rendered[0]=android.graphics.Bitmap.createBitmap(root.getWidth(),root.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(rendered[0]));});
+        runOnMainSync(()->{rendered[0]=android.graphics.Bitmap.createBitmap(root.getWidth(),root.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(rendered[0]));});
         try(var stream=new java.io.FileOutputStream(new java.io.File(getTargetContext().getCacheDir(),name))){if(!rendered[0].compress(android.graphics.Bitmap.CompressFormat.PNG,100,stream))throw new java.io.IOException("OWN_RENDER_FAILED");}
         finally{rendered[0].recycle();}
     }

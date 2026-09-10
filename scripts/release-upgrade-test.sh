@@ -8,6 +8,8 @@ adb_bin="$ANDROID_HOME/platform-tools/adb"
 probe=${1:?Provide the separate test APK}
 current=${2:?Provide the signed release APK}
 previous=${3:-}
+python3 scripts/verification_evidence.py environment
+rm -f output/device-tests/prepare-upgrade.txt output/device-tests/verify-upgrade.txt
 "$adb_bin" -s "$GATE_TEST_SERIAL" install -r "$probe"
 trap '"$adb_bin" -s "$GATE_TEST_SERIAL" uninstall io.github.appunnim.businessgate.probe >/dev/null 2>&1 || true' EXIT HUP INT TERM
 run_probe() {

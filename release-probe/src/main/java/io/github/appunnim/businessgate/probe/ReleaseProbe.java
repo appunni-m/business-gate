@@ -13,6 +13,7 @@ import java.util.function.Predicate;
 public final class ReleaseProbe extends Instrumentation {
     private static final String PACKAGE="io.github.appunnim.businessgate";
     private static final String PHONE="+12025550197", LABEL="Upgrade fixture";
+    private String target=PACKAGE;
     private Bundle arguments;
     private UiAutomation automation;
     private int assertions;
@@ -23,19 +24,23 @@ public final class ReleaseProbe extends Instrumentation {
         try{
             check(android.os.Build.FINGERPRINT.contains("generic")||android.os.Build.MODEL.contains("sdk"),"dedicated emulator required");
             automation=getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
-            waitFor(node->"Business Gate".contentEquals(text(node)),"Business Gate rendered");
             String mode=arguments.getString("mode","verify-upgrade");
+            if(mode.equals("prepare-task")||mode.equals("verify-task")){
+                target="io.github.appunnim.businessgate.debug";savedTask(mode);
+                result.putString("stream","PASS "+assertions+" installed-release assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);return;
+            }
+            waitFor(node->"Business Gate".contentEquals(text(node)),"Business Gate rendered");
             if(mode.equals("prepare-upgrade")){
                 setText("Search local accounts by name or number","Business Gate test "+java.util.UUID.randomUUID());
-                waitFor(node->"No matching accounts".contentEquals(text(node)),"empty search available");
+                waitFor(node->"No matching accounts".contentEquals(text(node))||"No matching account on this phone".contentEquals(text(node)),"empty search available");
                 click(node->"Enable a number".contentEquals(text(node)),"open exact-number form");
                 setText("Full phone number with country code",PHONE);setText("Optional local name",LABEL);
                 click(node->("Enable".contentEquals(text(node))||"ENABLE".contentEquals(text(node)))&&node.isClickable(),"save exact-number choice");
             }else if(!mode.equals("verify-upgrade"))throw new IllegalArgumentException("UNKNOWN_MODE");
             waitFor(node->"Search local accounts by name or number".contentEquals(description(node)),"management screen restored");
             setText("Search local accounts by name or number",PHONE);
-            waitFor(node->LABEL.contentEquals(text(node)),"saved name survives");
-            waitFor(node->PHONE.contentEquals(text(node))&&"android.widget.TextView".contentEquals(node.getClassName()==null?"":node.getClassName()),"saved exact number survives");
+            waitFor(node->ownedSummary(node)||ungroupedText(node,LABEL),"saved name survives");
+            waitFor(node->ownedSummary(node)||ungroupedText(node,PHONE),"saved exact number survives");
             AccessibilityNodeInfo choice=waitFor(node->"android.widget.Switch".contentEquals(node.getClassName()==null?"":node.getClassName())&&description(node).contains(PHONE),"correct number switch");
             check(choice.isChecked(),"ALLOW survives signed upgrade");
             check(find(node->text(node).startsWith("Rule on"))==null,"test install never silently activates rule");
@@ -53,15 +58,47 @@ public final class ReleaseProbe extends Instrumentation {
             result.putString("stream","PASS "+assertions+" installed-release assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream","FAIL "+error.getClass().getSimpleName()+": "+error.getMessage()+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
+    private void savedTask(String mode)throws Exception{
+        String draftPhone="+12025550196",draftName="Unsent owned draft";
+        if(mode.equals("prepare-task")){
+            waitFor(n->"Business Gate".contentEquals(text(n)),"owned debug management ready");
+            click(n->"More options".equals(description(n)),"open owned menu");
+            click(n->"Enable a number".equals(text(n)),"open saved fixture form");
+            setText("Full phone number with country code",PHONE);setText("Optional local name",LABEL);
+            click(n->"Enable".equalsIgnoreCase(text(n))&&n.isClickable(),"save task fixture");
+            setText("Search local accounts by name or number",PHONE);
+            click(n->description(n).startsWith(LABEL+", "+PHONE+", ")&&description(n).endsWith("Show details"),"expand exact task fixture");
+            waitFor(n->description(n).startsWith(LABEL+", "+PHONE+", ")&&description(n).endsWith("Collapse details"),"details are expanded");
+            click(n->"More options".equals(description(n)),"open menu for unsent form");
+            click(n->"Enable a number".equals(text(n)),"open unsent form");
+            setText("Full phone number with country code",draftPhone);setText("Optional local name",draftName);
+        }else{
+            waitFor(n->"Full phone number with country code".equals(description(n))&&draftPhone.equals(text(n)),"unsent phone survives actual saved-task process death");
+            waitFor(n->"Optional local name".equals(description(n))&&draftName.equals(text(n)),"unsent name survives actual saved-task process death");
+            click(n->"Cancel".equalsIgnoreCase(text(n))&&n.isClickable(),"cancel restored unsent form");
+            waitFor(n->"Search local accounts by name or number".equals(description(n))&&PHONE.equals(text(n)),"query survives actual process death");
+            waitFor(n->description(n).startsWith(LABEL+", "+PHONE+", ")&&description(n).endsWith("Collapse details"),"same-number expansion survives actual process death");
+            AccessibilityNodeInfo choice=waitFor(n->"android.widget.Switch".contentEquals(n.getClassName())&&description(n).contains(PHONE),"saved choice after process death");
+            check(choice.isChecked(),"durable ALLOW survives process death");
+            check(find(n->text(n).startsWith("Rule on"))==null,"restored task does not activate actions");
+            setText("Search local accounts by name or number",draftPhone);
+            waitFor(n->"No matching account on this phone".equals(text(n)),"restoration never submits the unsent form");
+        }
+    }
     private static String text(AccessibilityNodeInfo node){return node.getText()==null?"":node.getText().toString();}
     private static String description(AccessibilityNodeInfo node){return node.getContentDescription()==null?"":node.getContentDescription().toString();}
+    private static boolean ownedSummary(AccessibilityNodeInfo node){return node.isScreenReaderFocusable()&&description(node).startsWith(LABEL+", "+PHONE+", ");}
+    private boolean ungroupedText(AccessibilityNodeInfo node,String value){
+        if(!value.contentEquals(text(node))||!"android.widget.TextView".contentEquals(node.getClassName()==null?"":node.getClassName()))return false;
+        AccessibilityNodeInfo parent=node.getParent();return parent==null||(target.contentEquals(parent.getPackageName())&&!parent.isScreenReaderFocusable());
+    }
     private AccessibilityNodeInfo find(Predicate<AccessibilityNodeInfo> match){
         AccessibilityNodeInfo root=automation.getRootInActiveWindow();
-        if(root==null||!PACKAGE.contentEquals(root.getPackageName()==null?"":root.getPackageName()))return null;
+        if(root==null||!target.contentEquals(root.getPackageName()==null?"":root.getPackageName()))return null;
         ArrayDeque<AccessibilityNodeInfo> queue=new ArrayDeque<>();queue.add(root);AccessibilityNodeInfo found=null;int visited=0;
         while(!queue.isEmpty()&&visited++<250){
             AccessibilityNodeInfo node=queue.remove();
-            if(!PACKAGE.contentEquals(node.getPackageName()==null?"":node.getPackageName()))continue;
+            if(!target.contentEquals(node.getPackageName()==null?"":node.getPackageName()))continue;
             if(node.isVisibleToUser()&&match.test(node)){if(found!=null)return null;found=node;}
             if(node.getChildCount()>64)return null;
             for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)queue.add(child);}
@@ -75,8 +112,8 @@ public final class ReleaseProbe extends Instrumentation {
     }
     private void click(Predicate<AccessibilityNodeInfo> predicate,String label)throws InterruptedException{
         AccessibilityNodeInfo node=waitFor(predicate,label);
-        for(int depth=0;depth<3;depth++){
-            if(node==null||!PACKAGE.contentEquals(node.getPackageName()==null?"":node.getPackageName()))break;
+        for(int depth=0;depth<4;depth++){
+            if(node==null||!target.contentEquals(node.getPackageName()==null?"":node.getPackageName()))break;
             if(node.getActionList().stream().anyMatch(action->action.getId()==AccessibilityNodeInfo.ACTION_CLICK)){
                 check(node.performAction(AccessibilityNodeInfo.ACTION_CLICK),label+" dispatch");return;
             }

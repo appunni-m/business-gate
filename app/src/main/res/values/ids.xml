@@ -1,4 +1,6 @@
 <resources>
     <item name="account_search" type="id" />
     <item name="account_list" type="id" />
+    <item name="row_focus" type="id" />
+    <item name="account_header" type="id" />
 </resources>

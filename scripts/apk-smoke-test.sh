@@ -14,8 +14,6 @@ echo "$launch"
 case "$launch" in *'Status: ok'*) ;; *) exit 1;; esac
 "$adb_bin" -s "$GATE_TEST_SERIAL" shell input keyevent KEYCODE_WAKEUP
 "$adb_bin" -s "$GATE_TEST_SERIAL" shell wm dismiss-keyguard
-"$adb_bin" -s "$GATE_TEST_SERIAL" shell uiautomator dump /data/local/tmp/business-gate-window.xml
-screen=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell cat /data/local/tmp/business-gate-window.xml)
-case "$screen" in *"package=\"$package\""*'Business Gate'*) ;; *) echo 'App window was not rendered.' >&2; exit 1;; esac
 "$adb_bin" -s "$GATE_TEST_SERIAL" shell pidof "$package"
-echo 'PASS signed release installation and native launch'
+# The separate probe verifies rendering through package-checked Business Gate nodes.
+echo 'PASS signed release installation and activity start'

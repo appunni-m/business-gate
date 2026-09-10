@@ -5,6 +5,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -30,10 +31,17 @@ final class Ui {
         b.setMinWidth(dp(c,48));b.setMinimumWidth(dp(c,48));b.setPadding(dp(c,12),dp(c,8),dp(c,12),dp(c,8));
         b.setTextColor(c.getColor(primary?R.color.on_accent:R.color.accent));
         b.setStateListAnimator(null);b.setElevation(0);b.setTranslationZ(0);
-        b.setBackground(new RippleDrawable(ColorStateList.valueOf(c.getColor(R.color.line)),shape(c,primary?R.color.accent:android.R.color.transparent,false),null));
-        b.setOnClickListener(v->action.run());return b;
+        b.setBackground(controlBackground(c,primary?R.color.accent:android.R.color.transparent));
+        b.setOnClickListener(v->{if(v.isShown()&&v.hasWindowFocus())action.run();});return b;
     }
-    static android.widget.ScrollView scroll(Context context,View content){android.widget.ScrollView scroll=new android.widget.ScrollView(context);scroll.addView(content);return scroll;}
+    static RippleDrawable controlBackground(Context c,int color){
+        StateListDrawable states=new StateListDrawable();
+        GradientDrawable focused=shape(c,color,false);focused.setCornerRadius(dp(c,8));focused.setStroke(dp(c,2),c.getColor(color==R.color.accent?R.color.on_accent:R.color.focus));
+        GradientDrawable ordinary=shape(c,color,false);ordinary.setCornerRadius(dp(c,8));
+        states.addState(new int[]{android.R.attr.state_focused},focused);states.addState(new int[]{},ordinary);
+        return new RippleDrawable(new ColorStateList(new int[][]{new int[]{android.R.attr.state_focused},new int[]{android.R.attr.state_pressed},new int[]{}},new int[]{android.graphics.Color.TRANSPARENT,c.getColor(R.color.line),android.graphics.Color.TRANSPARENT}),states,null);
+    }
+    static android.widget.ScrollView scroll(Context context,View content){android.widget.ScrollView scroll=new android.widget.ScrollView(context);scroll.setDefaultFocusHighlightEnabled(false);scroll.setBackground(controlBackground(context,R.color.surface));scroll.addView(content);return scroll;}
     static void pad(View v,int horizontal,int vertical){v.setPadding(dp(v.getContext(),horizontal),dp(v.getContext(),vertical),dp(v.getContext(),horizontal),dp(v.getContext(),vertical));}
     static void gap(LinearLayout parent,int dp){View v=new View(parent.getContext());parent.addView(v,new LinearLayout.LayoutParams(1,dp(parent.getContext(),dp)));}
 }

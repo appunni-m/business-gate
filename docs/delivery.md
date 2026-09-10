@@ -6,13 +6,14 @@
 
 The [Android build and delivery workflow](../.github/workflows/android.yml) runs on branch pushes, pull requests, and manual dispatch. A successful run on `main` in the owner repository publishes automatically:
 
-1. Verify the official Gradle wrapper, pure safety suite, shipped-schema migration, acceptance inventory, publication retry tests, and independent-branding rules.
+1. Verify the official Gradle wrapper, pure safety suite, shipped-schema migration, acceptance inventory, publication/public-download/evidence rejection tests, pinned actionlint, and independent-branding rules.
 2. Build debug, instrumentation, minified release APK, release bundle, and separate test probe with Java 17 and the pinned SDK; lint application variants and the probe with warnings treated as errors.
 3. Inspect the actual release DEX, manifest, permissions, and bundled compatibility evidence. An empty registry is valid and inactive; a nonempty registry must pass the evidence gate. Capability metadata is derived from those validated APK contents.
-4. Run the native UI, receiver-isolation, consent/cancellation, migration, capacity, performance, and process-restart harness on an API 36 emulator.
+4. Run the native UI, receiver-isolation, consent/cancellation, migration, capacity, performance, and process-restart harness on an API 36 emulator. Verify native keyboard focus, dialog cancellation, real IME/Back handling and actual saved-task process death; retain the 24 layout cases and 200% dialog images. Repeat UI, focus, dialogs, IME/Back and saved-task checks on API 29.
 5. Transfer that verified unsigned APK and its mapping to a separate delivery job. Restore the private signing key only for the signing step, sign the APK, clean up the temporary key, and check its certificate against the public fingerprint in `config/signing-certificate.sha256`.
 6. Audit the signed binary again. On an API 29 emulator, install the previous delivered APK when available and save a fictional exact-number ALLOW choice through its native UI. Install the new APK as an update, then verify that the label, exact number, enabled choice, and inactive startup survive. The separate self-instrumenting probe uses its own debug key, operates only Business Gate's UI, and is removed afterward. It never receives the publisher key or becomes part of the delivered application.
-7. Publish a versioned GitHub prerelease containing `business-gate.apk`, `SHA256SUMS`, and `build-info.json`. Advance the `development` prerelease with the direct APK download. A newer delivered version cannot be replaced by an older queued run.
+7. Publish a versioned GitHub prerelease containing `business-gate.apk`, `SHA256SUMS`, `build-info.json`, and `verification.json`. Advance the `development` prerelease with the direct APK download. A newer delivered version cannot be replaced by an older queued run.
+8. Download the public versioned assets and rolling APK anonymously. Verify checksums, exact build metadata, the evidence manifest, publisher certificate, actual package/version/API/capability and both Git tag references. Bounded propagation retries end in a failed run if public consistency cannot be established.
 
 The publishing job uses GitHub's automatic token with `contents: write`. Verification uses read-only permissions and does not receive the signing secret. Pull requests, fork runs, non-main pushes, and non-main manual runs cannot publish. Checkout does not persist credentials. An unsuccessful verification or installation prevents publication. Build reports are retained for 14 days, signed Actions artifacts for 90 days, and versioned releases remain available until the owner removes them.
 
@@ -40,13 +41,17 @@ Android requires the same signing identity for ordinary in-place updates. Losing
 
 Each versioned release has a `build-<versionCode>` tag pointing at its source commit. The rolling `development` tag follows the most recently delivered version. Use the versioned release when referencing a particular binary; use the continuous download link for the newest build. Checksums and build metadata belong to the versioned release linked in the rolling release notes.
 
-After downloading all three versioned assets into the same directory:
+After downloading all four versioned assets into the same directory:
 
 ```sh
 shasum -a 256 -c SHA256SUMS
 "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs business-gate.apk
 "$ANDROID_HOME/platform-tools/adb" install -r business-gate.apk
 ```
+
+The compact `verification.json` persists with the release. It binds source/run/toolchain and emulator details to named test results, assertion counts, owned-image hashes and signed-upgrade evidence. It explicitly excludes physical qualification and reader-specific accessibility behavior that CI did not measure.
+
+Verification runs 42 named API 36 cases, including the 24 theme/font/orientation/density layouts and 152 owned renderings. Both API 36 and API 29 also run compact portrait/landscape at 200% text under three-button and gesture-navigation configurations, with real keyboard Back/IME checks and 52 additional owned images per API. API 29 repeats native UI/focus/dialog/IME, service lifecycle, reminders and saved-task process death. Navigation tests restore and read back prior emulator settings. The 60-minute verification job budget covers the expanded two-image suite; the 100 ms query and 10-second snapshot performance limits are unchanged.
 
 The certificate SHA-256 must match the fingerprint committed in `config/`. The source commit, build URL, app ID, Android API baseline, version, APK checksum, signing fingerprint, validated compatibility digest, and qualified adapter IDs are also in `build-info.json`.
 
@@ -59,3 +64,13 @@ Inspect the failed step in [Actions](https://github.com/appunni-m/business-gate/
 Published versioned assets are checked for byte equality before a rerun can reuse them. Both published version tags and rolling notes protect against an older queued build replacing a newer APK. Offline fault tests cover interrupted rolling uploads, stale notes, draft creation, immutable bytes, and retries. GitHub does not update a release asset, tag, and notes atomically: after a partial rolling update, use the complete versioned release while the failed job is corrected or retried.
 
 The automated device tests use synthetic local records on disposable emulators. They verify local behavior, installation, and Android's update acceptance; they do not qualify connected-app blocking on a physical device. The external signed probe verifies visible choice preservation; internal schema/grant assertions belong to the separate debug migration harness. Disk-full migration, the complete signing-fault matrix, and physical integration qualification remain unfinished. See the [execution status](execution-status.md).
+
+## Queue, reruns and dependency updates
+
+A running main workflow continues; the newest pending push takes precedence over an older pending run. Publish every successful main build, without promising an APK for every rapidly pushed commit. Pull-request runs may cancel their older running verification. The controlled rapid-push exercise remains unrun; offline publication tests cover stale and out-of-order release protection.
+
+Use **Run workflow** or **Re-run all jobs** to produce a new tested version after a fix. A delivery-only rerun uses the already-built APK version; if that version was published, its APK, metadata and evidence bytes must remain identical. A rerun that generates different evidence for the same published version fails instead of replacing the archive. Use a new full run for new evidence. The complete versioned release remains the recovery download if the rolling update or subsequent public check fails.
+
+The pinned upload action rejects an existing artifact name by default. Workflow artifacts explicitly allow replacement on reruns so fresh verification reports and build inputs can use their stable names within the same run. This applies to retained Actions artifacts; the publisher still refuses changes to public versioned release assets. See the [pinned action's input contract](https://github.com/actions/upload-artifact/blob/043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/action.yml).
+
+All external actions use full upstream commit hashes with version comments. For an intentional update, resolve the new upstream release to its commit, review its change notes and permissions/runtime requirements, update the SHA/comment together, run actionlint and all project gates, and verify a real delivered update. Record actual runner and toolchain revisions in the manifest; SHA pins alone do not make builds bit reproducible.

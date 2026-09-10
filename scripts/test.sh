@@ -17,4 +17,7 @@ python3 scripts/check_contrast.py
 python3 scripts/check_registry.py
 python3 scripts/check_traceability.py
 python3 scripts/test_delivery.py
+python3 scripts/test_public_release.py
+python3 scripts/test_verification_evidence.py
+python3 scripts/test_release_metadata.py
 python3 scripts/check_brand.py
