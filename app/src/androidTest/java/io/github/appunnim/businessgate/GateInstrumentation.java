@@ -226,9 +226,11 @@ public final class GateInstrumentation extends Instrumentation {
             db.execSQL("INSERT INTO namespace(id,installation) VALUES(1,'quota-fixture')");
             db.execSQL("INSERT INTO account(id,namespace_id,phone,choice,first_seen,last_seen) VALUES(1,1,'+12025550101','ALLOW',0,0)");
             db.enableWriteAheadLogging();
-            long pages=android.database.DatabaseUtils.longForQuery(db,"PRAGMA page_count",null);db.setMaximumSize(pages*db.getPageSize());
             boolean full=false;db.beginTransaction();
             try(GateDbHelper helper=new GateDbHelper(isolated)){
+                // WAL uses a connection pool. Bind the quota to this transaction's writer.
+                long pages=android.database.DatabaseUtils.longForQuery(db,"PRAGMA page_count",null);
+                check(db.setMaximumSize(pages*db.getPageSize())==pages*db.getPageSize(),"writer page quota applied");
                 helper.onUpgrade(db,1,2);db.setTransactionSuccessful();
             }catch(android.database.sqlite.SQLiteFullException expected){full=true;}
             finally{db.endTransaction();}
@@ -236,7 +238,8 @@ public final class GateInstrumentation extends Instrumentation {
             check(db.getVersion()==1,"quota failure preserves the shipped schema version");
             try(var cursor=db.rawQuery("SELECT choice FROM account WHERE id=1",null)){check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW"),"quota failure preserves durable ALLOW");}
             check(android.database.DatabaseUtils.stringForQuery(db,"PRAGMA integrity_check",null).equals("ok"),"quota rollback retains database integrity");
-            db.setMaximumSize(10L*1024*1024);
+            db.beginTransaction();
+            try{db.setMaximumSize(10L*1024*1024);db.setTransactionSuccessful();}finally{db.endTransaction();}
         }
         try(GateDbHelper helper=new GateDbHelper(isolated)){
             SQLiteDatabase recovered=helper.getWritableDatabase();check(recovered.getVersion()==2,"migration retries after storage capacity returns");
