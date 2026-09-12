@@ -19,6 +19,7 @@ for line in mapping_file.read_text().splitlines():
     if match:
         original, mapped = match.groups()
         assert original.startswith(allowed_originals) or original == 'java.lang.Record', f'Unexpected source/runtime class: {original}'
+        assert not original.startswith('io.github.appunnim.businessgate.measure.'), 'Developer measurement tool in release mapping'
         allowed_classes.add('L' + mapped.replace('.', '/') + ';')
 class_count = 0
 with zipfile.ZipFile(apk) as archive:

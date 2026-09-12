@@ -1,0 +1,23 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'io.github.appunnim.businessgate.measure'
+    compileSdk 36
+    buildToolsVersion '35.0.0'
+    defaultConfig {
+        applicationId 'io.github.appunnim.businessgate.measure'
+        minSdk 29
+        targetSdk 36
+        versionCode 1
+        versionName '1.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint {
+        abortOnError true
+        warningsAsErrors true
+        disable 'OldTargetApi'
+    }
+}
+// Separate developer tool, with no application dependency or publisher-key access.

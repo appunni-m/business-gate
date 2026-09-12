@@ -1,0 +1,5 @@
+<resources>
+    <item name="fixture_root" type="id" />
+    <item name="fixture_label" type="id" />
+    <item name="fixture_control" type="id" />
+</resources>

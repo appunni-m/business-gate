@@ -55,7 +55,7 @@ public final class GateInstrumentation extends Instrumentation {
             }else if(mode.startsWith("layout-")){
                 seed();layoutRegressions();
             }else if(mode.equals("ui")){
-                seed();uiRegressions();
+                resourceContractRegressions();seed();uiRegressions();
             }else if(mode.equals("focus")){
                 seed();focusRegressions();seed();announcementRegressions();
             }else if(mode.equals("dialogs")){
@@ -105,6 +105,32 @@ public final class GateInstrumentation extends Instrumentation {
             }
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"; recent="+recentChecks+"\n");finish(Activity.RESULT_CANCELED,result);}
+    }
+    private void resourceContractRegressions()throws Exception{
+        // Synthetic syntax only; this constructor call never enters the production registry.
+        org.json.JSONObject path=new org.json.JSONObject().put("children",new org.json.JSONArray().put(0).put(0))
+            .put("resourceSuffix","button1").put("resourceNamespace","android").put("className","android.widget.Button").put("expectedText","Block")
+            .put("ancestors",new org.json.JSONArray()
+                .put(new org.json.JSONObject().put("resourceSuffix","").put("resourceNamespace","none").put("className","android.widget.FrameLayout").put("childCount",1))
+                .put(new org.json.JSONObject().put("resourceSuffix","content").put("resourceNamespace","android").put("className","android.widget.FrameLayout").put("childCount",1)));
+        org.json.JSONArray screens=new org.json.JSONArray();
+        for(String role:new String[]{"PROFILE","BLOCK_DIALOG","UNBLOCK_DIALOG"}){
+            org.json.JSONObject screen=new org.json.JSONObject().put("role",role).put("forbiddenControls",new org.json.JSONArray().put(new org.json.JSONObject(path.toString())));
+            for(String field:new String[]{"signature","phone","receiver","business","regular","blocked","unblocked","blockControl","unblockControl"})screen.put(field,new org.json.JSONObject(path.toString()));
+            screens.put(screen);
+        }
+        org.json.JSONObject row=new org.json.JSONObject().put("id","owned-resource-syntax").put("screens",screens);
+        check(new io.github.appunnim.businessgate.automation.QualifiedAdapter(row).id().equals("owned-resource-syntax"),"runtime parser accepts explicit framework resources and absent ancestors");
+        for(int mutation=0;mutation<4;mutation++){
+            org.json.JSONObject bad=new org.json.JSONObject(row.toString()),field=bad.getJSONArray("screens").getJSONObject(0).getJSONObject("phone");
+            if(mutation==0)field.put("resourceNamespace","other");
+            else if(mutation==1)field.put("resourceNamespace","none").put("resourceSuffix","");
+            else if(mutation==2)field.getJSONArray("ancestors").getJSONObject(0).put("resourceSuffix","unexpected");
+            else field.put("resourceNamespace",true);
+            boolean rejected=false;try{new io.github.appunnim.businessgate.automation.QualifiedAdapter(bad);}catch(IllegalArgumentException|org.json.JSONException expected){rejected=true;}
+            check(rejected,"runtime resource contract rejects unsupported or ambiguous declaration "+mutation);
+        }
+        check(!((GateApplication)getTargetContext().getApplicationContext()).registry().available(),"synthetic syntax checks do not enable any connected adapter");
     }
     private void publicationBoundaryRegressions()throws Exception{
         Activity activity=launch();search(activity,"+12025550101");until(()->hasText(activity,"Harbor Clinic")&&!hasText(activity,"Parcel Desk"));

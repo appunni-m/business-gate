@@ -3,6 +3,7 @@ package io.github.appunnim.businessgate.policy;
 import io.github.appunnim.businessgate.automation.BoundedNodes;
 import io.github.appunnim.businessgate.automation.BoundedNodes.Ancestor;
 import io.github.appunnim.businessgate.automation.BoundedNodes.Path;
+import io.github.appunnim.businessgate.automation.BoundedNodes.ResourceOrigin;
 import java.util.List;
 
 /** Owned structural fixtures. These establish parser behavior, never live compatibility. */
@@ -11,13 +12,13 @@ public final class StructuralSuite {
     private static void check(boolean condition,String label){assertions++;if(!condition)throw new AssertionError(label);}
     private static final String PKG="io.github.appunnim.businessgate.fixture";
     private static final class Node {
-        String pkg=PKG,id,type="View",text="";boolean visible=true,throwOnChild;
+        String pkg=PKG,id,resourceNamespace,type="View",text="";boolean visible=true,throwOnChild;
         int calls,releases;List<Node> children=List.of();
         Node(String id,Node... children){this.id=id;this.children=List.of(children);}
     }
     private static final BoundedNodes.Access<Node> ACCESS=new BoundedNodes.Access<>(){
         public String packageName(Node n){return n.pkg;}
-        public String resource(Node n){return n.pkg+":id/"+n.id;}
+        public String resource(Node n){return n.id==null?null:(n.resourceNamespace==null?n.pkg:n.resourceNamespace)+":id/"+n.id;}
         public String className(Node n){return n.type;}
         public CharSequence text(Node n){return n.text;}
         public boolean visible(Node n){return n.visible;}
@@ -63,6 +64,20 @@ public final class StructuralSuite {
         profile.throwOnChild=true;releases=root.releases;
         try(var scope=new BoundedNodes<>(root,PKG,ACCESS,new BoundedNodes.Budget())){scope.resolve(path("Block"));throw new AssertionError("Missing source failure");}
         catch(IllegalStateException expected){check(root.releases==releases+1,"source exception closes previously acquired handles");}
+        Node nativeControl=new Node("button1"),content=new Node("content",nativeControl),decor=new Node(null,content);
+        nativeControl.text="Block";nativeControl.resourceNamespace="android";content.resourceNamespace="android";
+        Path nativePath=new Path(List.of(0,0),"button1","View","Block",List.of(
+            new Ancestor("","View",1,ResourceOrigin.NONE),new Ancestor("content","View",1,ResourceOrigin.ANDROID)),ResourceOrigin.ANDROID);
+        check(resolve(decor,nativePath),"explicit absent root and framework resources resolve in selected package");
+        decor.id="unexpected";check(!resolve(decor,nativePath),"absent ancestor contract rejects a newly supplied ID");decor.id=null;
+        content.resourceNamespace=null;check(!resolve(decor,nativePath),"same suffix in selected namespace cannot impersonate framework ancestor");content.resourceNamespace="android";
+        nativeControl.resourceNamespace=null;check(!resolve(decor,nativePath),"same suffix in selected namespace cannot impersonate framework control");nativeControl.resourceNamespace="android";
+        content.pkg="android";check(!resolve(decor,nativePath),"framework ID does not permit a foreign owning package");content.pkg=PKG;
+        content.type="Different";check(!resolve(decor,nativePath),"framework ancestor class remains exact");content.type="View";
+        content.children=List.of(nativeControl,new Node("extra"));check(!resolve(decor,nativePath),"framework ancestor count remains exact");content.children=List.of(nativeControl);
+        check(!resolve(decor,new Path(List.of(),"","View","",List.of(),ResourceOrigin.NONE)),"an absent resource is not an eligible field or control");
+        check(!resolve(decor,new Path(List.of(0),"content","View","",List.of(new Ancestor("wrong","View",1,ResourceOrigin.NONE)),ResourceOrigin.ANDROID)),"absent origin requires an empty expected suffix");
+        nativeControl.id=null;check(!resolve(decor,nativePath),"framework field cannot lose its required resource");
         System.out.println("PASS "+assertions+" owned structural path, acquisition-budget and lifetime assertions");
     }
 }

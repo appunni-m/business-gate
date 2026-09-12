@@ -14,15 +14,24 @@ def digest(value):
         raise ValueError('Invalid digest')
 
 
+def resource(value, ancestor=False):
+    namespace = value.get('resourceNamespace', 'selected')
+    assert namespace in ('selected', 'android', 'none')
+    if namespace == 'none':
+        assert ancestor and value['resourceSuffix'] == ''
+    else:
+        assert re.fullmatch(r'[a-zA-Z0-9_]{1,160}', value['resourceSuffix'])
+
+
 def path(value):
     children = value['children']
     assert len(children) <= 12 and all(type(i) is int and 0 <= i <= 63 for i in children)
-    assert re.fullmatch(r'[a-zA-Z0-9_]{1,160}', value['resourceSuffix'])
+    resource(value)
     assert re.fullmatch(r'[a-zA-Z0-9_.$]{1,160}', value['className'])
     assert len(value.get('expectedText', '')) <= 160
     assert len(value['ancestors']) == len(children)
     for index, ancestor in zip(children, value['ancestors']):
-        assert re.fullmatch(r'[a-zA-Z0-9_]{1,160}', ancestor['resourceSuffix'])
+        resource(ancestor, ancestor=True)
         assert re.fullmatch(r'[a-zA-Z0-9_.$]{1,160}', ancestor['className'])
         assert type(ancestor['childCount']) is int and index < ancestor['childCount'] <= 64
 

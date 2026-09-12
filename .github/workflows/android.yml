@@ -43,7 +43,8 @@ jobs:
           test "$GITHUB_RUN_ATTEMPT" -lt 100
           if ! ./gradlew -PgateVersionCode="$version_code" -PgateVersionName="$version_name" \
             :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleDebugAndroidTest \
-            :app:assembleRelease :app:bundleRelease :release-probe:lintDebug :release-probe:assembleDebug; then
+            :app:assembleRelease :app:bundleRelease :release-probe:lintDebug :release-probe:assembleDebug \
+            :qualification-probe:lintDebug :qualification-probe:assembleDebug; then
             for report in app/build/intermediates/lint_intermediate_text_report/*/lintReport*/lint-results-*.txt; do
               if [ -f "$report" ]; then cat "$report"; fi
             done
@@ -52,7 +53,7 @@ jobs:
       - name: Audit release contents
         run: python3 scripts/audit_artifact.py app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Enforce artifact naming rule
-        run: python3 scripts/check_brand.py app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/bundle/release/app-release.aab release-probe/build/outputs/apk/debug/release-probe-debug.apk
+        run: python3 scripts/check_brand.py app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/bundle/release/app-release.aab release-probe/build/outputs/apk/debug/release-probe-debug.apk qualification-probe/build/outputs/apk/debug/qualification-probe-debug.apk
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -113,6 +114,7 @@ jobs:
             app/build/outputs/apk/debug/*.apk
             app/build/reports/lint-results-*.html
             release-probe/build/reports/lint-results-*.html
+            qualification-probe/build/reports/lint-results-*.html
             output/device-tests/*.txt
             output/device-tests/*-evidence.json
             output/api29-device-tests/*

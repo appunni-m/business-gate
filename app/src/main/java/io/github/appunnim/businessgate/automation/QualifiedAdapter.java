@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import io.github.appunnim.businessgate.automation.BoundedNodes.Ancestor;
 import io.github.appunnim.businessgate.automation.BoundedNodes.Path;
+import io.github.appunnim.businessgate.automation.BoundedNodes.ResourceOrigin;
 
 /** Strict, measured root-to-field paths. Never searches arbitrary text or message subtrees. */
 public final class QualifiedAdapter {
@@ -40,6 +41,7 @@ public final class QualifiedAdapter {
     private static Path path(JSONObject p)throws org.json.JSONException {
         JSONArray indices=p.getJSONArray("children");if(indices.length()>12)throw new IllegalArgumentException("PATH_TOO_DEEP");
         List<Integer> children=new ArrayList<>();for(int i=0;i<indices.length();i++){int index=indices.getInt(i);if(index<0||index>63)throw new IllegalArgumentException("PATH_UNBOUNDED");children.add(index);}
+        ResourceOrigin origin=origin(p,false);
         String suffix=p.getString("resourceSuffix");if(!suffix.matches("[a-zA-Z0-9_]{1,160}"))throw new IllegalArgumentException("INVALID_RESOURCE");
         String className=p.getString("className"),expected=p.optString("expectedText","");
         if(!className.matches("[a-zA-Z0-9_.$]{1,160}")||expected.codePointCount(0,expected.length())>160)throw new IllegalArgumentException("INVALID_FIELD");
@@ -47,10 +49,21 @@ public final class QualifiedAdapter {
         List<Ancestor> ancestors=new ArrayList<>();
         for(int i=0;i<lineage.length();i++){
             JSONObject a=lineage.getJSONObject(i);String resource=a.getString("resourceSuffix"),type=a.getString("className");int count=a.getInt("childCount");
-            if(!resource.matches("[a-zA-Z0-9_]{1,160}")||!type.matches("[a-zA-Z0-9_.$]{1,160}")||count<1||count>64||children.get(i)>=count)throw new IllegalArgumentException("INVALID_ANCESTOR");
-            ancestors.add(new Ancestor(resource,type,count));
+            ResourceOrigin ancestorOrigin=origin(a,true);
+            boolean resourceValid=ancestorOrigin==ResourceOrigin.NONE?resource.isEmpty():resource.matches("[a-zA-Z0-9_]{1,160}");
+            if(!resourceValid||!type.matches("[a-zA-Z0-9_.$]{1,160}")||count<1||count>64||children.get(i)>=count)throw new IllegalArgumentException("INVALID_ANCESTOR");
+            ancestors.add(new Ancestor(resource,type,count,ancestorOrigin));
         }
-        return new Path(java.util.Collections.unmodifiableList(children),suffix,className,expected,java.util.Collections.unmodifiableList(ancestors));
+        return new Path(java.util.Collections.unmodifiableList(children),suffix,className,expected,java.util.Collections.unmodifiableList(ancestors),origin);
+    }
+    private static ResourceOrigin origin(JSONObject value,boolean ancestor)throws org.json.JSONException {
+        String scope=value.has("resourceNamespace")?value.getString("resourceNamespace"):"selected";
+        return switch(scope){
+            case "selected" -> ResourceOrigin.SELECTED;
+            case "android" -> ResourceOrigin.ANDROID;
+            case "none" -> {if(!ancestor)throw new IllegalArgumentException("FIELD_RESOURCE_REQUIRED");yield ResourceOrigin.NONE;}
+            default -> throw new IllegalArgumentException("INVALID_RESOURCE_NAMESPACE");
+        };
     }
     private static final BoundedNodes.Access<AccessibilityNodeInfo> ACCESS=new BoundedNodes.Access<>(){
         private String value(CharSequence value){return value==null?"":value.toString();}
