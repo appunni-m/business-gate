@@ -23,4 +23,16 @@ public final class Neutral {
         for (int i = 0; i + 8 <= lower.length(); i++) if (RESTRICTED.contains(digest(lower.substring(i, i + 8)))) return false;
         return true;
     }
+    /** Syntax parity with the production strict international-number parser; no value is exported. */
+    public static boolean internationalPhoneSyntax(String value) {
+        return value != null && value.length() <= 80 && value.replaceAll("[ ()-]", "").matches("\\+[1-9][0-9]{6,14}");
+    }
+    public static boolean safeNavigationLabel(String value) {
+        if (value == null || value.length() > 40 || !value.matches("[\\p{L}\\p{M} _'’-]{1,40}")) return false;
+        String lower = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        for (String candidate : new String[]{lower, lower.replaceAll("[ _'’-]", "")})
+            for (int i = 0; i + 8 <= candidate.length(); i++)
+                if (RESTRICTED.contains(digest(candidate.substring(i, i + 8)))) return false;
+        return true;
+    }
 }

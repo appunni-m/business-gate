@@ -63,6 +63,48 @@ class MeasurementReports(unittest.TestCase):
             with self.assertRaises(ValueError): module.parse_report(self.wire(changed), 'root')
         with self.assertRaises(ValueError): module.parse_report(self.wire(self.valid()), 'root')
 
+    def test_structure_can_select_a_path_but_cannot_export_text(self):
+        value = {**self.root_report(), 'mode': 'structure'}
+        value['measurement'].update(path=[0], ancestors=[{}], acquiredNodes=2)
+        self.assertEqual(module.parse_report(self.wire(value), 'structure'), value)
+        value['measurement']['selectedText'] = {'inspected': True, 'present': True}
+        with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'structure')
+
+    def test_read_only_modes_reject_focus_or_description_access(self):
+        for key, invalid in (('inputFocusRequested', True), ('selectedDescription', {'inspected': True, 'present': True})):
+            value = self.root_report(); value['measurement'][key] = invalid
+            with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'root')
+
+    def test_focus_requires_observed_focus_and_active_window(self):
+        value = {**self.root_report(), 'mode': 'focus-tab'}
+        value['measurement'].update(path=[7, 3], inputFocusRequested=True, node={'focused': True})
+        self.assertEqual(module.parse_report(self.wire(value), 'focus-tab'), value)
+        for key, invalid in (('inputFocusRequested', False), ('node', {'focused': False}), ('activeFocusedWindow', False)):
+            changed = {**value, 'measurement': {**value['measurement'], key: invalid}}
+            with self.assertRaises(ValueError): module.parse_report(self.wire(changed), 'focus-tab')
+
+    def test_navigation_titles_require_mode_surface_and_safe_text(self):
+        value = {**self.root_report(), 'mode': 'navigation-label', 'surfaceAttestation': 'navigation'}
+        value['measurement']['selectedText'] = {'inspected': True, 'navigationLabel': 'Settings X'}
+        self.assertEqual(module.parse_report(self.wire(value), 'navigation-label'), value)
+        for label in ('', '+12025550100', 'a.b', 'a\n', 'x' * 41, None):
+            changed = {**value, 'measurement': {**value['measurement'], 'selectedText': {'inspected': True, 'navigationLabel': label}}}
+            with self.assertRaises(ValueError): module.parse_report(self.wire(changed), 'navigation-label')
+        value['surfaceAttestation'] = 'receiver'
+        with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'navigation-label')
+        value['mode'] = 'node'
+        with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'node')
+
+    def test_profile_navigation_is_explicit_and_not_a_focus_result(self):
+        value = {**self.root_report(), 'mode': 'open-profile'}
+        value['measurement'].update(path=[0, 4], ancestors=[{}, {}], acquiredNodes=3, navigationAction='open-profile')
+        self.assertEqual(module.parse_report(self.wire(value), 'open-profile'), value)
+        for key, invalid in (('navigationAction', 'save-profile'), ('activeFocusedWindow', False), ('inputFocusRequested', True)):
+            changed = {**value, 'measurement': {**value['measurement'], key: invalid}}
+            with self.assertRaises(ValueError): module.parse_report(self.wire(changed), 'open-profile')
+        value['mode'] = 'structure'
+        with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'structure')
+
     def test_rotated_signer_uses_measured_android_version(self):
         earlier, later = 'a' * 64, 'b' * 64
         raw = f'Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-256 digest: {earlier}\nSigner (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: {later}'

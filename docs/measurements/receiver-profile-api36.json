@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "mode": "node",
+  "environment": {
+    "packageSha256": "04a1f5ddc4e1c6d0f4b29c1a47e8f0dbf56d3303995bdce4d6e0311afeb4d001",
+    "versionCode": 263507133,
+    "signingSha256": [
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "signingHistorySha256": [
+      "3987d043d10aefaf5a8710b3671418fe57e0e19b653c9df82558feb5ffce5d44",
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "api": 36,
+    "manufacturer": "Google",
+    "model": "sdk_gphone64_arm64",
+    "deviceLocale": "en-US",
+    "fontScalePercent": 100,
+    "densityDpi": 420,
+    "orientation": 1,
+    "emulatorHint": true
+  },
+  "physicalQualification": false,
+  "mutationPerformed": false,
+  "probeApkSha256": "d1056a10964b3b2d0ffa15d23d21f6d6c78f765b063a5d7db0c6a5d5cbcb1953",
+  "capturedAtUtc": "2026-09-12T14:10:07.433982Z",
+  "surfaceAttestation": "receiver",
+  "measurement": {
+    "path": [
+      2,
+      5,
+      1
+    ],
+    "ancestors": [
+      {
+        "visible": true,
+        "enabled": true,
+        "clickable": false,
+        "checkable": false,
+        "checked": false,
+        "focusable": false,
+        "focused": false,
+        "selected": false,
+        "childCount": 3,
+        "resourceAbsent": true,
+        "className": "android.widget.FrameLayout"
+      },
+      {
+        "visible": true,
+        "enabled": true,
+        "clickable": false,
+        "checkable": false,
+        "checked": false,
+        "focusable": true,
+        "focused": false,
+        "selected": false,
+        "childCount": 7,
+        "resourceNamespace": "selected",
+        "resourceSuffix": "profile_info_scroll_view",
+        "className": "android.widget.ScrollView"
+      },
+      {
+        "visible": true,
+        "enabled": true,
+        "clickable": true,
+        "checkable": false,
+        "checked": false,
+        "focusable": true,
+        "focused": false,
+        "selected": false,
+        "childCount": 2,
+        "resourceNamespace": "selected",
+        "resourceSuffix": "profile_phone_info",
+        "className": "android.widget.LinearLayout"
+      }
+    ],
+    "declaration": {
+      "canRetrieveWindowContent": true,
+      "canPerformGestures": false,
+      "isAccessibilityTool": false
+    },
+    "node": {
+      "visible": true,
+      "enabled": true,
+      "clickable": false,
+      "checkable": false,
+      "checked": false,
+      "focusable": false,
+      "focused": false,
+      "selected": false,
+      "childCount": 0,
+      "resourceNamespace": "selected",
+      "resourceSuffix": "profile_settings_row_subtext",
+      "className": "android.widget.TextView"
+    },
+    "windowId": 1259,
+    "activeFocusedWindow": true,
+    "acquiredNodes": 4,
+    "inputFocusRequested": false,
+    "selectedText": {
+      "inspected": true,
+      "present": true,
+      "codePoints": 15,
+      "internationalPhoneSyntax": true,
+      "letterScripts": []
+    },
+    "selectedDescription": {
+      "inspected": true,
+      "present": false
+    }
+  },
+  "source": "production-declaration developer measurement service",
+  "result": "observed",
+  "selectedApkSha256": "56c3717b1c994779a0e6fd966615567d5b097e7abcf3ba29d9e52ea8f2d0d590",
+  "accessibilitySettingsRestored": true
+}

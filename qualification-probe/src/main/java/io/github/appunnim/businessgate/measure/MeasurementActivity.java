@@ -22,24 +22,31 @@ public final class MeasurementActivity extends Activity {
     private static long generation;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        long owner = ++generation;
         TextView text = new TextView(this); text.setText(R.string.app_name); setContentView(text);
-        String request = getIntent().getStringExtra("request");
-        if (state != null || request == null || !request.matches("[a-f0-9]{32}")) { finish(); return; }
-        new CaptureTask(getApplicationContext(), getIntent(), request, owner, this::finish).start();
+        if (state != null) { finish(); return; }
+        begin(this, getIntent(), this::finish, () -> {});
+    }
+    static void begin(Context context, Intent input, Runnable returnToScreen, Runnable completed) {
+        String request = input.getStringExtra("request");
+        if (request == null || !request.matches("[a-f0-9]{32}")) { returnToScreen.run(); completed.run(); return; }
+        new CaptureTask(context.getApplicationContext(), input, request, ++generation, returnToScreen, completed).start();
     }
     private static final class CaptureTask {
         private final Context context;
+        private final Intent input;
         private final String request, mode, target, surface, rawPath;
-        private final long owner, deadline = SystemClock.elapsedRealtime() + 15_000;
+        private final long owner, deadline = SystemClock.elapsedRealtime() + 8_000;
         private final Handler handler = new Handler(Looper.getMainLooper());
         private Runnable returnToScreen;
+        private final Runnable completed;
         private JSONObject before, report;
         private List<Integer> path;
         private MeasurementService service;
         private boolean done;
-        CaptureTask(Context context, Intent input, String request, long owner, Runnable returnToScreen) {
+        CaptureTask(Context context, Intent input, String request, long owner, Runnable returnToScreen, Runnable completed) {
             this.context = context; this.request = request; this.owner = owner; this.returnToScreen = returnToScreen;
+            this.input = input;
+            this.completed = completed;
             mode = input.getStringExtra("mode"); target = input.getStringExtra("target");
             surface = input.getStringExtra("surface"); rawPath = input.getStringExtra("path");
         }
@@ -52,17 +59,25 @@ public final class MeasurementActivity extends Activity {
                     .put("probeApkSha256", Neutral.digest(java.nio.file.Files.readAllBytes(new File(context.getApplicationInfo().sourceDir).toPath())))
                     .put("capturedAtUtc", java.time.Instant.now().toString());
                 if ("environment".equals(mode)) { complete(); return; }
-                if ("root".equals(mode)) {
+                if ("focus-tab".equals(mode) || "focus-overflow".equals(mode) || "focus-profile".equals(mode) || "open-profile".equals(mode)) {
+                    if (!Long.toString(before.getLong("versionCode")).equals(input.getStringExtra("expectedVersion"))
+                        || !before.getJSONArray("signingSha256").getString(0).equals(input.getStringExtra("expectedSigner"))
+                        || before.getInt("api") != input.getIntExtra("expectedApi", -1))
+                        throw new IllegalArgumentException("INSTALLATION_CHANGED");
+                    path = "focus-tab".equals(mode) && rawPath == null ? List.of(7, 3) : ExactPath.parse(rawPath == null ? "" : rawPath);
+                    report.put("surfaceAttestation", "navigation");
+                } else if ("root".equals(mode)) {
                     path = List.of();
                     report.put("screenClassification", "unclassified");
                 } else if ("self-test".equals(mode)) {
                     if (!target.equals(context.getPackageName())) throw new IllegalArgumentException("SYNTHETIC_TARGET_REQUIRED");
                     path = List.of();
                     context.startActivity(new Intent(context, FixtureActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                } else if ("node".equals(mode)) {
-                    if (surface == null || !List.of("receiver", "profile", "block-confirmation", "unblock-confirmation", "synthetic").contains(surface))
+                } else if ("node".equals(mode) || "structure".equals(mode) || "navigation-label".equals(mode)) {
+                    if (surface == null || !List.of("navigation", "receiver", "profile", "block-confirmation", "unblock-confirmation", "synthetic").contains(surface))
                         throw new IllegalArgumentException("SURFACE_ATTESTATION_REQUIRED");
                     path = ExactPath.parse(rawPath == null ? "" : rawPath);
+                    if ("navigation-label".equals(mode) && !"navigation".equals(surface)) throw new IllegalArgumentException("NAVIGATION_SURFACE_REQUIRED");
                     report.put("surfaceAttestation", surface);
                 } else throw new IllegalArgumentException("UNKNOWN_MODE");
                 awaitService();
@@ -88,8 +103,8 @@ public final class MeasurementActivity extends Activity {
         private void capture() {
             if (!current()) return;
             try {
-                JSONObject measurement = service.capture(path, "node".equals(mode));
-                report.put("measurement", measurement).put("source", "production-declaration read-only developer service");
+                JSONObject measurement = service.capture(path, "node".equals(mode) || "navigation-label".equals(mode), mode.startsWith("focus-") || "open-profile".equals(mode) ? mode : "none", "navigation-label".equals(mode));
+                report.put("measurement", measurement).put("source", "production-declaration developer measurement service");
                 if ("self-test".equals(mode)) {
                     if (!measurement.getBoolean("activeFocusedWindow") || measurement.getInt("acquiredNodes") != 1
                         || measurement.getJSONObject("selectedText").getBoolean("inspected"))
@@ -126,10 +141,13 @@ public final class MeasurementActivity extends Activity {
         }
         private void closeActivity() { if (returnToScreen != null) { returnToScreen.run(); returnToScreen = null; } }
         private void cleanup() {
+            if (done) return;
             done = true; handler.removeCallbacksAndMessages(null);
-            if (owner == generation && service != null) service.end();
-            closeActivity();
-            if (owner == generation && "self-test".equals(mode) && FixtureActivity.active() != null) FixtureActivity.active().finish();
+            try {
+                if (owner == generation && service != null) service.end();
+                closeActivity();
+                if (owner == generation && "self-test".equals(mode) && FixtureActivity.active() != null) FixtureActivity.active().finish();
+            } finally { completed.run(); }
         }
     }
     private static JSONObject environment(Context context, String target) throws Exception {

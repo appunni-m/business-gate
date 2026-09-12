@@ -4,7 +4,7 @@ Updated 10 September 2026. The [plan](implementation-plan.md) is **partially imp
 
 The owner authorized the [design and completion plan](completion-design-plan.md) on 10 September 2026. The [execution record](design-execution.md) tracks the current row-focus, dialog/lifecycle, IME/Back and delivery work. The [workflow review](workflow-review.md) remains the read-only baseline review of successful run 20 and build `102001`; it is not a claim that later changes have already passed CI.
 
-The receiver is reported to be signed in on the existing API 36 emulator. A consenting sender and physical qualification device are not available. No receiver message content was inspected, no real message was sent, and no external block/unblock or physical qualification result is claimed. A spare phone with a second test number, or an explicitly consenting test participant, can supply the sender. Synthetic fixtures cannot establish real delivery effects.
+The receiver’s own profile and accessible phone field were measured on the persistent API 36 emulator on 12 September; see the [receiver follow-up](design-execution.md#receiver-profile-measurement-follow-up--12-september-2026). The field is not yet bound by a qualified production adapter. A consenting sender and physical qualification device are not available. No receiver message content was inspected, no real message was sent, and no external block/unblock or physical qualification result is claimed. A spare phone with a second test number, or an explicitly consenting test participant, can supply the sender. Synthetic fixtures cannot establish real delivery effects.
 
 ## Recorded engineering checks
 

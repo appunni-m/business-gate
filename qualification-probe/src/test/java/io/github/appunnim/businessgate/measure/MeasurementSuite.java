@@ -47,6 +47,12 @@ public final class MeasurementSuite {
         fails(() -> ExactPath.read(throwing, List.of(), new Access(), chain -> { throw new IllegalStateException("capture"); })); check(throwing.released == 1);
         check(Neutral.safeIdentifier("android.widget.Button")); check(Neutral.safeIdentifier("profile_action"));
         check(!Neutral.safeIdentifier("path/value")); check(!Neutral.safeIdentifier("private value")); check(!Neutral.safeIdentifier(null));
+        for (String number : new String[]{"+12025550100", "+1 (202) 555-0100", "+12025550123"}) check(Neutral.internationalPhoneSyntax(number));
+        for (String number : new String[]{"12025550100", "+01234567", "+123", "+1234567890123456", "+12025550100 ext 9", "+1\u200e2025550100", "+12025550100\n"}) check(!Neutral.internationalPhoneSyntax(number));
+        check(!Neutral.internationalPhoneSyntax(null));
+        for (String label : new String[]{"Settings X", "Profile", "Ayarlar", "Edit profile", "A-B", "Full width Ｓｅｔｔｉｎｇｓ"}) check(Neutral.safeNavigationLabel(label));
+        for (String label : new String[]{"", "1234567890", "+1 202 555 0100", "owner@example.test", "some.package", "Settings\nProfile", "A".repeat(41)}) check(!Neutral.safeNavigationLabel(label));
+        check(!Neutral.safeNavigationLabel(null));
         check(Neutral.digest("abc").equals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
         System.out.println("PASS " + assertions + " bounded measurement checks");
     }

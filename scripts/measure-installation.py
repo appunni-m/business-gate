@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 import uuid
+import unicodedata
 
 PACKAGE = 'io.github.appunnim.businessgate.measure'
 SERVICE = PACKAGE + '/.MeasurementService'
@@ -53,6 +54,18 @@ def decode_report(raw):
     return report
 
 
+def safe_navigation_label(value):
+    if not isinstance(value, str) or not 1 <= len(value) <= 40:
+        return False
+    separators = " _'’-"
+    if any(unicodedata.category(c)[0] not in ('L', 'M') and c not in separators for c in value):
+        return False
+    normalized = unicodedata.normalize('NFKC', value).lower()
+    compact = ''.join(c for c in normalized if c not in separators)
+    return all(hashlib.sha256(candidate[i:i + 8].encode()).hexdigest() != 'ec8202b6f9fb16f9e26b66367afa4e037752f3c09a18cefab426165e06a424b1'
+               for candidate in (normalized, compact) for i in range(len(candidate) - 7))
+
+
 def parse_report(raw, expected_mode=None):
     report = decode_report(raw)
     if report.get('result') == 'failed':
@@ -62,6 +75,33 @@ def parse_report(raw, expected_mode=None):
         raise ValueError('Invalid measurement scope')
     if expected_mode is not None and report.get('mode') != expected_mode:
         raise ValueError('Measurement result does not match the requested mode')
+    capture = report.get('measurement')
+    if expected_mode == 'navigation-label':
+        summary = capture.get('selectedText') if isinstance(capture, dict) else None
+        if (report.get('surfaceAttestation') != 'navigation' or not isinstance(summary, dict)
+                or summary.get('inspected') is not True or not safe_navigation_label(summary.get('navigationLabel'))):
+            raise ValueError('Invalid navigation title report')
+    elif isinstance(capture, dict) and isinstance(capture.get('selectedText'), dict) and 'navigationLabel' in capture['selectedText']:
+        raise ValueError('Unexpected navigation title')
+    if expected_mode == 'open-profile':
+        if not isinstance(capture, dict) or capture.get('navigationAction') != 'open-profile' or capture.get('activeFocusedWindow') is not True:
+            raise ValueError('Profile navigation was not dispatched')
+    elif isinstance(capture, dict) and 'navigationAction' in capture:
+        raise ValueError('Unexpected navigation action')
+    if expected_mode in ('focus-tab', 'focus-overflow', 'focus-profile'):
+        if (not isinstance(capture, dict) or capture.get('inputFocusRequested') is not True
+                or not isinstance(capture.get('node'), dict) or capture['node'].get('focused') is not True
+                or capture.get('activeFocusedWindow') is not True):
+            raise ValueError('Navigation input focus was not confirmed')
+    elif expected_mode is not None and isinstance(capture, dict) and capture.get('inputFocusRequested', False) is not False:
+        raise ValueError('Capture unexpectedly requested input focus')
+    if expected_mode in ('root', 'structure', 'self-test', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile') and isinstance(capture, dict):
+        if capture.get('selectedDescription', {'inspected': False}) != {'inspected': False}:
+            raise ValueError('Structural capture cannot inspect descriptions')
+    if expected_mode in ('structure', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile'):
+        capture = report.get('measurement')
+        if not isinstance(capture, dict) or capture.get('selectedText') != {'inspected': False}:
+            raise ValueError('Structural capture cannot inspect text')
     if expected_mode in ('root', 'self-test'):
         capture = report.get('measurement')
         if (not isinstance(capture, dict) or capture.get('path') != [] or capture.get('ancestors') != []
@@ -76,11 +116,11 @@ def parse_report(raw, expected_mode=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=('environment', 'root', 'node', 'self-test'))
+    parser.add_argument('mode', choices=('environment', 'root', 'structure', 'node', 'navigation-label', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'self-test'))
     parser.add_argument('--serial', required=True)
     parser.add_argument('--target-apk', type=Path)
     parser.add_argument('--path', default='')
-    parser.add_argument('--surface', choices=('receiver', 'profile', 'block-confirmation', 'unblock-confirmation', 'synthetic'))
+    parser.add_argument('--surface', choices=('navigation', 'receiver', 'profile', 'block-confirmation', 'unblock-confirmation', 'synthetic'))
     parser.add_argument('--enable-emulator-service', action='store_true', help='Temporarily enable only this tool on an emulator; restore exact settings afterward')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -88,10 +128,18 @@ def main():
         parser.error('The output already exists; choose a new measurement filename')
     if not re.fullmatch(r'[A-Za-z0-9._:-]{1,128}', args.serial):
         parser.error('Invalid serial')
-    if args.mode == 'node' and args.surface is None:
+    if args.mode in ('node', 'structure', 'navigation-label') and args.surface is None:
         parser.error('Node capture needs an explicitly established non-message surface')
-    if args.mode != 'node' and args.path:
-        parser.error('Only node mode can select a child path')
+    if args.mode == 'navigation-label' and args.surface != 'navigation':
+        parser.error('Navigation label reading requires the established options-menu surface')
+    if args.mode not in ('node', 'structure', 'navigation-label', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile') and args.path:
+        parser.error('This mode cannot select a child path')
+    if args.mode == 'focus-tab' and args.path not in ('', '5,0', '7,3'):
+        parser.error('Supply one of the measured navigation tab paths')
+    if args.mode in ('focus-profile', 'open-profile') and args.path != '0,4':
+        parser.error('Supply the measured profile navigation path, 0,4')
+    if args.mode == 'focus-overflow' and args.path not in ('3', '4'):
+        parser.error('Supply the measured overflow path, 3 or 4')
     if args.path and (not re.fullmatch(r'(0|[1-9][0-9]?)(,(0|[1-9][0-9]?)){0,11}', args.path) or any(int(i) > 63 for i in args.path.split(','))):
         parser.error('Path must contain at most 12 indices from 0 through 63')
     if args.enable_emulator_service and not args.serial.startswith('emulator-'):
@@ -138,12 +186,18 @@ def main():
         for key in ('enabled_accessibility_services', 'accessibility_enabled'):
             original[key] = shell('settings', 'get', 'secure', key)
     try:
-        command = adb + ['shell', 'am', 'start', '-W', '--es', 'mode', args.mode, '--es', 'target', target, '--es', 'request', request]
-        if args.mode == 'node':
+        self_test = args.mode == 'self-test'
+        command = adb + ['shell', 'am'] + (['start', '-W'] if self_test else ['broadcast'])
+        command += ['--es', 'mode', args.mode, '--es', 'target', target, '--es', 'request', request]
+        if args.mode in ('focus-tab', 'focus-overflow', 'focus-profile', 'open-profile'):
+            command += ['--es', 'expectedVersion', str(expected[0]), '--es', 'expectedSigner', expected[1][0], '--ei', 'expectedApi', str(expected[2])]
+        if args.mode in ('focus-tab', 'focus-overflow', 'focus-profile', 'open-profile') and args.path:
+            command += ['--es', 'path', args.path]
+        if args.mode in ('node', 'structure', 'navigation-label'):
             command += ['--es', 'surface', args.surface]
             if args.path:
                 command += ['--es', 'path', args.path]
-        command += ['-n', PACKAGE + '/.MeasurementActivity']
+        command += ['-n', PACKAGE + ('/.MeasurementActivity' if self_test else '/.MeasurementReceiver')]
         if original:
             services = [] if original['enabled_accessibility_services'] in ('null', '') else original['enabled_accessibility_services'].split(':')
             if SERVICE not in services and PACKAGE + '/' + PACKAGE + '.MeasurementService' not in services:
@@ -151,8 +205,8 @@ def main():
             shell('settings', 'put', 'secure', 'enabled_accessibility_services', ':'.join(services))
             shell('settings', 'put', 'secure', 'accessibility_enabled', '1')
         launch = run(command, 30)
-        if 'Status: ok' not in launch:
-            raise RuntimeError('Measurement activity did not start')
+        if ('Status: ok' if self_test else 'Broadcast completed: result=0') not in launch:
+            raise RuntimeError('Measurement entry did not complete')
         deadline = time.monotonic() + 25
         while time.monotonic() < deadline:
             response = subprocess.run(adb + ['shell', 'run-as', PACKAGE, 'cat', result_path], capture_output=True, text=True, timeout=5)
@@ -210,7 +264,7 @@ def main():
     with args.output.open('x') as stream:
         json.dump(report, stream, indent=2)
         stream.write('\n')
-    print('PASS read-only ' + args.mode + ' measurement; physical qualification remains false')
+    print('PASS bounded ' + args.mode + ' measurement; physical qualification remains false')
 
 
 if __name__ == '__main__':
