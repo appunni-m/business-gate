@@ -44,23 +44,39 @@ def selected_signer(certificates, api):
     return selected
 
 
-def parse_report(raw):
+def decode_report(raw):
     if len(raw.encode()) > 24_000:
         raise ValueError('Measurement exceeded the report limit')
     report = json.loads(raw)
     if not isinstance(report, dict):
         raise ValueError('Invalid measurement report')
+    return report
+
+
+def parse_report(raw, expected_mode=None):
+    report = decode_report(raw)
     if report.get('result') == 'failed':
         reason = report.get('reason', '')
         raise ValueError('Measurement rejected: ' + (reason if isinstance(reason, str) and re.fullmatch(r'[A-Z_]{1,64}', reason) else 'MEASUREMENT_FAILED'))
     if report.get('schemaVersion') != 1 or report.get('result') != 'observed' or report.get('physicalQualification') is not False or report.get('mutationPerformed') is not False:
         raise ValueError('Invalid measurement scope')
+    if expected_mode is not None and report.get('mode') != expected_mode:
+        raise ValueError('Measurement result does not match the requested mode')
+    if expected_mode in ('root', 'self-test'):
+        capture = report.get('measurement')
+        if (not isinstance(capture, dict) or capture.get('path') != [] or capture.get('ancestors') != []
+                or type(capture.get('acquiredNodes')) is not int or capture['acquiredNodes'] != 1
+                or capture.get('selectedText') != {'inspected': False}
+                or capture.get('activeFocusedWindow') is not True):
+            raise ValueError('Root capture exceeded its scope')
+        if expected_mode == 'root' and report.get('screenClassification') != 'unclassified':
+            raise ValueError('Root capture cannot establish screen identity')
     return report
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=('environment', 'node', 'self-test'))
+    parser.add_argument('mode', choices=('environment', 'root', 'node', 'self-test'))
     parser.add_argument('--serial', required=True)
     parser.add_argument('--target-apk', type=Path)
     parser.add_argument('--path', default='')
@@ -74,6 +90,8 @@ def main():
         parser.error('Invalid serial')
     if args.mode == 'node' and args.surface is None:
         parser.error('Node capture needs an explicitly established non-message surface')
+    if args.mode != 'node' and args.path:
+        parser.error('Only node mode can select a child path')
     if args.path and (not re.fullmatch(r'(0|[1-9][0-9]?)(,(0|[1-9][0-9]?)){0,11}', args.path) or any(int(i) > 63 for i in args.path.split(','))):
         parser.error('Path must contain at most 12 indices from 0 through 63')
     if args.enable_emulator_service and not args.serial.startswith('emulator-'):
@@ -144,7 +162,17 @@ def main():
             time.sleep(0.2)
         else:
             raise RuntimeError('Measurement result was not committed within the time limit')
-        report = parse_report(raw)
+        decoded = decode_report(raw)
+        if isinstance(decoded, dict) and decoded.get('result') == 'failed':
+            reason = decoded.get('reason', '')
+            if not isinstance(reason, str) or not re.fullmatch(r'[A-Z_]{1,64}', reason):
+                reason = 'MEASUREMENT_FAILED'
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            with args.output.open('x') as stream:
+                json.dump({'schemaVersion': 1, 'mode': args.mode, 'result': 'failed', 'reason': reason,
+                           'physicalQualification': False, 'mutationPerformed': False}, stream, indent=2)
+                stream.write('\n')
+        report = parse_report(raw, args.mode)
         probe_apk = Path(__file__).resolve().parent.parent / 'qualification-probe/build/outputs/apk/debug/qualification-probe-debug.apk'
         if report.get('probeApkSha256') != hashlib.sha256(probe_apk.read_bytes()).hexdigest():
             raise ValueError('Installed measurement tool differs from the locally built APK')

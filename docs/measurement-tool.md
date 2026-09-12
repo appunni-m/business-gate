@@ -40,6 +40,8 @@ python3 scripts/measure-installation.py environment \
   --output output/measurements/installation-01.json
 ```
 
+`root` mode is a narrower initial feasibility check: it obtains only the selected installation's active window root, reads no text and acquires no children. Its screen classification is explicitly `unclassified`; it cannot establish login or profile identity. It can reveal whether the ordinary service declaration can see a root and whether that root supplies a resource ID.
+
 For node mode, the operator must first open the account's own identity page or a specific one-to-one profile/confirmation screen and establish the non-message path to inspect. The `surface` argument is an operator attestation, not independently verified screen classification. Do not use path selection to explore conversations, message containers, arbitrary text, or unreviewed subtrees.
 
 ```sh
@@ -65,6 +67,6 @@ python3 scripts/measure-installation.py self-test \
   --output output/measurements/probe-self-test-01.json
 ```
 
-Current observed records are under `output/measurements/`: the API 29 root self-test and API 36 installed version/certificate history. The environment record does not prove login, a business classification, a receiving identity, a profile selector, a block result or sender delivery. Every report explicitly sets `physicalQualification=false` and `mutationPerformed=false`. No registry entry has been added.
+Current observed records are under `output/measurements/`: API 29 and API 36 root self-tests and the selected installation's API 36 version/certificate history. The latest API 36 self-test additionally verifies that text is not inspected. The selected installation's root check returned `SELECTED_APP_NOT_FOREGROUND`; no account field was captured. Failed captures remain failed records and the wrapper exits nonzero. The environment record does not prove login, a business classification, a receiving identity, a profile selector, a block result or sender delivery. Every report explicitly sets `physicalQualification=false` and `mutationPerformed=false`. No registry entry has been added.
 
 Next: measure the open receiver-identity page, then a user-selected existing business profile, entry/confirmation controls and postconditions. Implement any required binding or transition changes using those facts, test the exact-number flow, and only then ask the owner to send the incoming test message. Promotion still requires the project’s physical and acceptance evidence; the measurement tool cannot create it by changing flags.

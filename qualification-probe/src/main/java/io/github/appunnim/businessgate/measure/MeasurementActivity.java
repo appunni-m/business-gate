@@ -52,7 +52,10 @@ public final class MeasurementActivity extends Activity {
                     .put("probeApkSha256", Neutral.digest(java.nio.file.Files.readAllBytes(new File(context.getApplicationInfo().sourceDir).toPath())))
                     .put("capturedAtUtc", java.time.Instant.now().toString());
                 if ("environment".equals(mode)) { complete(); return; }
-                if ("self-test".equals(mode)) {
+                if ("root".equals(mode)) {
+                    path = List.of();
+                    report.put("screenClassification", "unclassified");
+                } else if ("self-test".equals(mode)) {
                     if (!target.equals(context.getPackageName())) throw new IllegalArgumentException("SYNTHETIC_TARGET_REQUIRED");
                     path = List.of();
                     context.startActivity(new Intent(context, FixtureActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -85,16 +88,17 @@ public final class MeasurementActivity extends Activity {
         private void capture() {
             if (!current()) return;
             try {
-                JSONObject measurement = service.capture(path);
+                JSONObject measurement = service.capture(path, "node".equals(mode));
                 report.put("measurement", measurement).put("source", "production-declaration read-only developer service");
                 if ("self-test".equals(mode)) {
-                    if (!measurement.getBoolean("activeFocusedWindow") || measurement.getInt("acquiredNodes") != 1)
+                    if (!measurement.getBoolean("activeFocusedWindow") || measurement.getInt("acquiredNodes") != 1
+                        || measurement.getJSONObject("selectedText").getBoolean("inspected"))
                         throw new IllegalStateException("ROOT_CAPTURE_FAILED");
-                    report.put("assertions", 3);
+                    report.put("assertions", 4);
                 }
                 complete();
             } catch (RuntimeException failure) {
-                if (("WINDOW_NOT_READY".equals(failure.getMessage()) || "FOREGROUND_CHANGED".equals(failure.getMessage()))
+                if (("NO_ACCESSIBLE_ROOT".equals(failure.getMessage()) || "SELECTED_APP_NOT_FOREGROUND".equals(failure.getMessage()) || "FOREGROUND_CHANGED".equals(failure.getMessage()))
                     && SystemClock.elapsedRealtime() + 200 < deadline) handler.postDelayed(this::capture, 200);
                 else fail(failure);
             } catch (Exception failure) { fail(failure); }

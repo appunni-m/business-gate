@@ -61,16 +61,16 @@ public final class MeasurementService extends AccessibilityService {
         var info = getServiceInfo();
         if (info != null) { info.packageNames = new String[]{"io.github.appunnim.businessgate.measure.disabled"}; setServiceInfo(info); }
     }
-    JSONObject capture(List<Integer> path) {
+    JSONObject capture(List<Integer> path, boolean inspectText) {
         if (selected.isEmpty() || SystemClock.elapsedRealtime() >= expires || stop == null || !stop.isShown()
             || !getSystemService(PowerManager.class).isInteractive() || getSystemService(KeyguardManager.class).isKeyguardLocked())
             throw new IllegalStateException("CAPTURE_INACTIVE");
         String owner = selected;
         AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) throw new IllegalStateException("WINDOW_NOT_READY");
+        if (root == null) throw new IllegalStateException("NO_ACCESSIBLE_ROOT");
         if (root.getPackageName() == null || !owner.contentEquals(root.getPackageName())) {
             release(root);
-            throw new IllegalStateException("WINDOW_NOT_READY");
+            throw new IllegalStateException("SELECTED_APP_NOT_FOREGROUND");
         }
         return ExactPath.read(root, path, new ExactPath.Access<AccessibilityNodeInfo>() {
             @Override public boolean belongs(AccessibilityNodeInfo node) { return node.getPackageName() != null && owner.contentEquals(node.getPackageName()) && node.isVisibleToUser(); }
@@ -94,8 +94,9 @@ public final class MeasurementService extends AccessibilityService {
                     .put("node", structure(chain.get(chain.size() - 1), owner)).put("windowId", root.getWindowId())
                     .put("activeFocusedWindow", true).put("acquiredNodes", chain.size());
                 // Only the selected leaf is considered, and no arbitrary text is exported.
+                if (!inspectText) return result.put("selectedText", new JSONObject().put("inspected", false));
                 CharSequence text = chain.get(chain.size() - 1).getText();
-                JSONObject summary = new JSONObject().put("present", text != null);
+                JSONObject summary = new JSONObject().put("inspected", true).put("present", text != null);
                 if (text != null && text.length() <= 320) {
                     summary.put("codePoints", Character.codePointCount(text, 0, text.length()));
                     String label = text.toString();

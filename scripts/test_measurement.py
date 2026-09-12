@@ -41,6 +41,28 @@ class MeasurementReports(unittest.TestCase):
     def test_bounded_output(self):
         with self.assertRaises(ValueError): module.parse_report(self.wire(self.valid()) + 'x' * 32_000)
 
+    def root_report(self):
+        return {**self.valid(), 'mode': 'root', 'screenClassification': 'unclassified',
+                'measurement': {'path': [], 'ancestors': [], 'acquiredNodes': 1,
+                                'activeFocusedWindow': True, 'selectedText': {'inspected': False}}}
+
+    def test_root_has_no_text_or_children(self):
+        value = self.root_report()
+        self.assertEqual(module.parse_report(self.wire(value), 'root'), value)
+        for key, invalid in (('path', [0]), ('ancestors', [{}]), ('acquiredNodes', 2),
+                             ('acquiredNodes', True), ('activeFocusedWindow', False),
+                             ('selectedText', {'inspected': True}),
+                             ('selectedText', {'inspected': False, 'present': True})):
+            changed = self.root_report(); changed['measurement'][key] = invalid
+            with self.subTest(key=key, invalid=invalid), self.assertRaises(ValueError):
+                module.parse_report(self.wire(changed), 'root')
+
+    def test_root_cannot_classify_profile_or_substitute_mode(self):
+        for field, value in (('mode', 'node'), ('screenClassification', 'receiver')):
+            changed = self.root_report(); changed[field] = value
+            with self.assertRaises(ValueError): module.parse_report(self.wire(changed), 'root')
+        with self.assertRaises(ValueError): module.parse_report(self.wire(self.valid()), 'root')
+
     def test_rotated_signer_uses_measured_android_version(self):
         earlier, later = 'a' * 64, 'b' * 64
         raw = f'Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-256 digest: {earlier}\nSigner (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: {later}'
