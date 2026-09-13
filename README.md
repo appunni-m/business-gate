@@ -2,9 +2,9 @@
 
 Choose the businesses. Keep the people.
 
-A native Android app for managing exact-number business blocking choices, based on the supplied one-page design. It uses an original blue gate identity, Java, and Android framework components. No third-party runtime libraries, login, analytics, network permission, ads, or subscription.
+A native Android app being developed to filter business notifications and conversation entry using explicitly enabled business names. It uses an original blue gate identity, Java, and Android framework components. No third-party runtime libraries, login, analytics, network permission, ads, or subscription.
 
-**Development build: connected-app blocking is disabled.** The native interface, local policy and persistence, safety evaluator, optional hint classifier, guarded action controller, permission disclosures, and test harness are implemented. No production integration has been physically qualified. The bundled compatibility registry is intentionally empty. This is not yet a working connected-app blocker or a paid release.
+**Development build: notification filtering and conversation-entry protection are unavailable.** The native interface, local policy and persistence, safety evaluator, optional hint classifier, guarded action controller, permission disclosures, and test harness are implemented. No production integration has been physically qualified. The bundled compatibility registry is intentionally empty. This is not yet a working connected-app blocker or a paid release.
 
 ## Try the native interface
 
@@ -52,13 +52,17 @@ Local Gradle release APK/AAB files remain unsigned; debug artifacts use the loca
 ## What the screen does
 
 - One native page with pinned search, enabled businesses first, expandable account details, and truthful pending/observed subtitles.
-- Exact-number enablement and manual review decisions. Same-name senders never share permission. Keep prevents automatic blocking; manual Block requires confirmation.
+- Separate exact-number exceptions and explicit business-name permissions. Optional local contact labels never create a name permission. Number-specific ALLOW or manual DENY takes precedence over the name rule.
 - Setup and access disclosures, pause, compatibility explanation, offline privacy information, local diagnostics and effort totals, and confirmed local reset.
 - System light/dark appearance, growing rows, native switches, 48 dp controls, and a centered single column on wide screens.
+
+Business name choices are available in **Settings & privacy → Business name choices** in the current source build. They are saved for the current receiving namespace, with exact spelling and number-specific exceptions. Saving a name does not activate filtering. The published APK may precede these source changes until they reach `main`.
 
 The switch represents your choice. The subtitle represents a pending operation or a separately observed outcome. Pausing or deleting local data does not undo blocks in another app. The first message can arrive before discovery.
 
 ## Continue implementation and qualification
+
+The [business-name visibility design](docs/name-visibility-design.md) governs the current notification and entry objective, including the unresolved pre-display platform dependency. The earlier designs excluded name-based permission and notification suppression; those exclusions no longer describe the requested product.
 
 [Execution status](docs/execution-status.md) gives every planned fix a disposition. [Implementation and evidence](docs/implementation.md), the [completion plan](docs/implementation-plan.md) and [acceptance ledger](docs/acceptance-ledger.json) distinguish engineering tests from physical qualification. [Adapter qualification](docs/qualification.md) defines the physical inputs and stop conditions. [Privacy](docs/privacy.md) describes the binary's data boundary. [Contributing](CONTRIBUTING.md) describes the development workflow.
 

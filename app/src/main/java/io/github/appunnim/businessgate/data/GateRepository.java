@@ -12,6 +12,7 @@ import io.github.appunnim.businessgate.policy.AccountSearch;
 import io.github.appunnim.businessgate.policy.PendingChoices;
 import io.github.appunnim.businessgate.policy.PendingChoices.Pending;
 import io.github.appunnim.businessgate.policy.Identity;
+import io.github.appunnim.businessgate.policy.NameVisibilityPolicy;
 import io.github.appunnim.businessgate.policy.Model.*;
 import io.github.appunnim.businessgate.policy.RuleEngine;
 import io.github.appunnim.businessgate.policy.RetryPolicy;
@@ -40,12 +41,15 @@ public final class GateRepository {
     private final Context context;
     private final ExecutorService writer = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
-    private record Published(Snapshot snapshot,AccountSearch search,String identity) {}
-    private final AtomicReference<Published> published = new AtomicReference<>(new Published(Snapshot.empty(),new AccountSearch(List.of()),""));
+    public record BusinessNameChoice(String name,boolean enabled,long revision) {}
+    public record BusinessNameScope(ChoiceScope choice,long policyRevision) {}
+    private final AtomicLong visibilitySequence=new AtomicLong(), nameWrite=new AtomicLong();
+    private record Published(Snapshot snapshot,AccountSearch search,String identity,List<BusinessNameChoice> names,NameVisibilityPolicy.Snapshot visibility) {}
+    private final AtomicReference<Published> published = new AtomicReference<>(new Published(Snapshot.empty(),new AccountSearch(List.of()),"",List.of(),null));
     private final Set<Runnable> listeners = new CopyOnWriteArraySet<>();
     private final PendingChoices pendingChoices=new PendingChoices();
     private final java.util.concurrent.ConcurrentHashMap<String,Long> optionVetoes = new java.util.concurrent.ConcurrentHashMap<>();
-    private volatile boolean consentVeto;
+    private volatile boolean consentVeto, visibilityBoundary;
     private volatile long consentCommand;
     private final AtomicLong commandSequence = new AtomicLong(), dataEpoch = new AtomicLong(), metricsEpoch=new AtomicLong();
     private final AuthorityEpoch authority = new AuthorityEpoch();
@@ -73,6 +77,46 @@ public final class GateRepository {
     public boolean vetoed(long id) { Account account=current().account(id);return account!=null&&pendingChoices.get(account.namespace(),account.phone())!=null; }
     public List<Pending> pendingChoices(){return pendingChoices.list(current().namespace());}
     public Pending pendingChoice(String phone){return pendingChoices.get(current().namespace(),phone);}
+    public List<BusinessNameChoice> businessNameChoices(){return published.get().names();}
+    public boolean savingBusinessName(){return nameWrite.get()!=0;}
+    /** Null means a policy write or storage/account boundary is unsettled; no enforcement may use stale rules. */
+    public NameVisibilityPolicy.Snapshot nameVisibilityPolicy(){
+        Published state=published.get();
+        return !visibilityBoundary&&state.snapshot().loaded()&&failure.isEmpty()&&nameWrite.get()==0&&!pendingChoices.any(state.snapshot().namespace())?state.visibility():null;
+    }
+    public BusinessNameScope businessNameScope(){
+        NameVisibilityPolicy.Snapshot policy=nameVisibilityPolicy();return policy==null?null:new BusinessNameScope(choiceScope(),policy.revision());
+    }
+    public void setBusinessNameEnabled(BusinessNameScope expected,String rawName,boolean enabled,Consumer<SaveResult> result){
+        String name=NameVisibilityPolicy.nameKey(rawName);
+        if(nameWrite.get()!=0){main.post(()->result.accept(SaveResult.BUSY));return;}
+        if(expected==null||!expected.equals(businessNameScope())){main.post(()->result.accept(SaveResult.STALE));return;}
+        long command=commandSequence.incrementAndGet();
+        if(!nameWrite.compareAndSet(0,command)){main.post(()->result.accept(SaveResult.BUSY));return;}
+        emergencyStop();Stamp stamp=stamp();notifyChanged();
+        writer.execute(()->{
+            SaveResult outcome;
+            try{
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    require(db,stamp);
+                    if(!expected.choice().equals(choiceScope())||published.get().visibility()==null||published.get().visibility().revision()!=expected.policyRevision())throw new Stale();
+                    long revision=0;
+                    try(Cursor row=db.rawQuery("SELECT revision FROM business_name_choice WHERE namespace_id=? AND name_key=?",new String[]{""+stamp.namespace(),name})){if(row.moveToFirst())revision=row.getLong(0);}
+                    if(revision==0&&android.database.DatabaseUtils.longForQuery(db,"SELECT count(*) FROM business_name_choice",null)>=50_000)throw new Capacity();
+                    db.execSQL("INSERT OR REPLACE INTO business_name_choice(namespace_id,name_key,enabled,revision) VALUES(?,?,?,?)",new Object[]{stamp.namespace(),name,enabled?1:0,revision+1});
+                    db.execSQL("UPDATE namespace SET paused=1,global_revision=global_revision+1 WHERE id=?",new Object[]{stamp.namespace()});
+                    require(db,stamp);db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                publish(db);outcome=SaveResult.SAVED;
+            }catch(Stale stale){outcome=SaveResult.STALE;}catch(Exception failure){fail();outcome=SaveResult.FAILED;}
+            SaveResult finished=outcome;
+            main.post(()->{
+                nameWrite.compareAndSet(command,0);notifyChanged();
+                result.accept(stamp.data()==dataEpoch.get()&&stamp.namespace()==current().namespace()?finished:SaveResult.STALE);
+            });
+        });
+    }
     public void reload(Runnable success) { transaction(stamp(), db -> {}, success); }
     public void addListener(Runnable listener) { listeners.add(listener); }
     public void removeListener(Runnable listener) { listeners.remove(listener); }
@@ -136,7 +180,10 @@ public final class GateRepository {
                 if(stamp.data()!=dataEpoch.get())throw new Stale();
                 failure="";publish(db);outcome=pendingChoices.any(current().namespace())?StorageResult.UNSAVED_CHOICES:StorageResult.RECOVERED;
             }catch(Stale stale){outcome=StorageResult.STALE;}catch(Exception error){fail();outcome=StorageResult.FAILED;}
-            StorageResult finished=outcome;main.post(()->result.accept(stamp.data()!=dataEpoch.get()?StorageResult.STALE:!current().error().isEmpty()?StorageResult.FAILED:finished));
+            StorageResult finished=outcome;main.post(()->{
+                if(stamp.data()==dataEpoch.get()&&(finished==StorageResult.RECOVERED||finished==StorageResult.UNSAVED_CHOICES))visibilityBoundary=false;
+                result.accept(stamp.data()!=dataEpoch.get()?StorageResult.STALE:!current().error().isEmpty()?StorageResult.FAILED:finished);
+            });
         });
     }
     private interface Write { void run(SQLiteDatabase db); }
@@ -156,12 +203,12 @@ public final class GateRepository {
     private void fail() { fail("Could not save. No new blocks will run."); }
     private void fail(String message) {
         authority.revoke(); failure = message;
-        published.updateAndGet(previous->{Snapshot s=previous.snapshot();return new Published(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure,s.binding(),s.circuitOpen()),previous.search(),previous.identity());});
+        published.updateAndGet(previous->{Snapshot s=previous.snapshot();return new Published(new Snapshot(s.namespace(),s.globalRevision(),s.loaded(),s.enabled(),true,s.consent(),s.salesHints(),s.discovery(),s.digest(),s.setup(),s.accounts(),failure,s.binding(),s.circuitOpen()),previous.search(),previous.identity(),previous.names(),previous.visibility());});
         notifyChanged();
     }
     /** A data-boundary command hides the old projection until storage establishes its current identity. */
     private void clearPublished(){
-        published.set(new Published(new Snapshot(-1,0,false,false,true,false,false,false,false,"WELCOME",List.of(),""),new AccountSearch(List.of()),""));
+        published.set(new Published(new Snapshot(-1,0,false,false,true,false,false,false,false,"WELCOME",List.of(),""),new AccountSearch(List.of()),"",List.of(),null));
         notifyChanged();
     }
     private void publish(SQLiteDatabase db) {
@@ -182,7 +229,18 @@ public final class GateRepository {
             Snapshot state=new Snapshot(id,number(n,"global_revision"),true,number(n,"enabled")==1,number(n,"paused")==1,
                 CONSENT_VERSION.equals(string(n,"consent_version")),number(n,"sales_hints")==1,number(n,"discovery")==1,number(n,"digest")==1,
                 string(n,"setup"),accounts,failure,binding,circuit);
-            published.set(new Published(state,index,dataIdentity));
+            List<BusinessNameChoice> names=new ArrayList<>();Set<String> enabledNames=new java.util.HashSet<>();
+            try(Cursor choices=db.rawQuery("SELECT name_key,enabled,revision FROM business_name_choice WHERE namespace_id=? ORDER BY name_key",new String[]{""+id})){
+                while(choices.moveToNext()){
+                    String key=choices.getString(0);
+                    if(!NameVisibilityPolicy.nameKey(key).equals(key)||names.size()>=50_000)throw new IllegalStateException("INVALID_NAME_CHOICES");
+                    boolean enabled=choices.getInt(1)==1;names.add(new BusinessNameChoice(key,enabled,choices.getLong(2)));if(enabled)enabledNames.add(key);
+                }
+            }
+            java.util.Map<String,Choice> overrides=new java.util.HashMap<>();
+            for(Account account:accounts)if(account.choice()!=Choice.DEFAULT)overrides.put(account.phone(),account.choice());
+            NameVisibilityPolicy.Snapshot visibility=new NameVisibilityPolicy.Snapshot(new NameVisibilityPolicy.Scope(id,binding),visibilitySequence.incrementAndGet(),enabledNames,overrides);
+            published.set(new Published(state,index,dataIdentity,List.copyOf(names),visibility));
         }
         notifyChanged();
     }
@@ -393,7 +451,7 @@ public final class GateRepository {
     }
     public void localChoices(Runnable success) { switchNamespace(new Binding(installation,"","","",""),success); }
     private void switchNamespace(Binding binding,Runnable success) {
-        emergencyStop();long owner=dataEpoch.incrementAndGet();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
+        visibilityBoundary=true;emergencyStop();long owner=dataEpoch.incrementAndGet();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
         writer.execute(()->{
             try{
                 if(owner!=dataEpoch.get())return;clearPublished();SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
@@ -404,21 +462,21 @@ public final class GateRepository {
                     if(id<0){ContentValues row=new ContentValues();row.put("installation",installation);row.put("package_digest",binding.packageDigest());row.put("profile_key",binding.profile());row.put("receiver_binding",binding.receiver());row.put("qualification_id",binding.adapter());id=db.insertOrThrow("namespace",null,row);}
                     db.execSQL("UPDATE namespace SET active=1,enabled=0,paused=1,qualification_id=? WHERE id=?",new Object[]{binding.adapter(),id});db.setTransactionSuccessful();
                 }finally{db.endTransaction();}
-                publish(db);main.post(()->{if(owner==dataEpoch.get()&&consentCommand==consentOwner){consentVeto=false;notifyChanged();if(success!=null)success.run();}});
+                publish(db);main.post(()->{if(owner==dataEpoch.get()){visibilityBoundary=false;if(consentCommand==consentOwner){consentVeto=false;notifyChanged();if(success!=null)success.run();}}});
             }catch(Exception error){fail();}
         });
     }
     public void reset(Runnable success) {
-        emergencyStop();metricsEpoch.incrementAndGet();long owner=dataEpoch.incrementAndGet();pendingChoices.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
+        visibilityBoundary=true;emergencyStop();metricsEpoch.incrementAndGet();long owner=dataEpoch.incrementAndGet();pendingChoices.clear();optionVetoes.clear();consentVeto=true;long consentOwner=commandSequence.incrementAndGet();consentCommand=consentOwner;
         writer.execute(()->{
             try{
                 if(owner!=dataEpoch.get())return;clearPublished();SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
                 try{
-                    for(String table:new String[]{"action_job","action_event","account","attention_daily","app_meta","namespace"})db.delete(table,null,null);
+                    for(String table:new String[]{"business_name_choice","action_job","action_event","account","attention_daily","app_meta","namespace"})db.delete(table,null,null);
                     db.execSQL("INSERT INTO namespace(id,installation,active) VALUES(1,?,1)",new Object[]{installation});
                     db.execSQL("INSERT INTO app_meta(key,value) VALUES('ui_data_identity',?)",new Object[]{UUID.randomUUID().toString()});db.setTransactionSuccessful();
                 }finally{db.endTransaction();}
-                failure="";publish(db);main.post(()->{if(owner==dataEpoch.get()){if(consentCommand==consentOwner)consentVeto=false;notifyChanged();if(success!=null)success.run();}});
+                failure="";publish(db);main.post(()->{if(owner==dataEpoch.get()){visibilityBoundary=false;if(consentCommand==consentOwner)consentVeto=false;notifyChanged();if(success!=null)success.run();}});
             }catch(Exception error){fail();}
         });
     }

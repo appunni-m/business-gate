@@ -52,11 +52,4 @@ CREATE TABLE attention_daily (
  occupancy_ms INTEGER NOT NULL DEFAULT 0 CHECK(occupancy_ms>=0), union_ms INTEGER NOT NULL DEFAULT 0 CHECK(union_ms>=0),
  CHECK(union_ms<=management_ms+occupancy_ms)
 );
-CREATE TABLE business_name_choice (
- namespace_id INTEGER NOT NULL REFERENCES namespace(id) ON DELETE CASCADE,
- name_key TEXT NOT NULL CHECK(length(name_key) BETWEEN 1 AND 120),
- enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
- revision INTEGER NOT NULL CHECK(revision>=1),
- PRIMARY KEY(namespace_id,name_key)
-);
-PRAGMA user_version=3;
+PRAGMA user_version=2;

@@ -474,6 +474,7 @@ public final class MainActivity extends Activity {
         Snapshot s=repository.current();settingsBindings.clear();LinearLayout box=Ui.column(this);Ui.pad(box,24,0);
         box.addView(Ui.text(this,"LOCAL BY DESIGN",12,R.color.accent,true));Ui.gap(box,8);
         box.addView(Ui.text(this,"Exact numbers, optional names and your choices stay in this phone’s private storage. No account, ads, subscription, analytics or network permission. Chat contents and notification messages are not saved. Backup and device transfer are excluded.",14,R.color.muted,false));Ui.gap(box,12);
+        box.addView(Ui.button(this,"Business name choices",false,()->{dismissDialogs();businessNames();}));
         box.addView(settingSwitch("Notification-assisted discovery",()->repository.current().discovery(),value->{if(value)notificationDisclosure();else repository.setting("discovery",false);}));
         box.addView(settingSwitch("Optional sales hints",()->repository.current().salesHints(),value->{if(value)salesDisclosure();else repository.setting("sales_hints",false);}));
         box.addView(Ui.text(this,"Hints are off by default. They can be wrong and never authorize a block. Notification text analysis stays unavailable until a notification binding is qualified.",12,R.color.muted,false));Ui.gap(box,8);
@@ -485,6 +486,46 @@ public final class MainActivity extends Activity {
         box.addView(Ui.button(this,"Withdraw screen consent",false,()->{GateAccessibilityService.stopNow();repository.emergencyStop();repository.updateSetup("WELCOME",false,()->announce("Consent withdrawn. Actions stopped."));}));
         android.widget.ScrollView scroll=Ui.scroll(this,box);
         AlertDialog dialog=dialog("Settings & privacy").setView(scroll).setPositiveButton("Done",null).create();dialog.setOnDismissListener(d->settingsBindings.clear());dialog.show();
+    }
+    private void businessNames(){
+        java.util.List<GateRepository.BusinessNameChoice> choices=repository.businessNameChoices();
+        DialogScope scope=dialogScope();AlertDialog.Builder review=dialog("Business name choices");
+        if(choices.isEmpty())review.setMessage("No business names are enabled. Add an exact business name to save permission for this receiving account. Notification and conversation filtering are not active in this build.");
+        else{
+            String[] labels=choices.stream().map(choice->choice.name()+" · "+(choice.enabled()?"Enabled":"Not enabled")).toArray(String[]::new);
+            review.setItems(labels,(d,which)->{
+                if(!currentDialog(scope)){announce("These choices changed. Open the list again.");return;}
+                GateRepository.BusinessNameChoice choice=choices.get(which);confirmBusinessName(choice.name(),!choice.enabled());
+            });
+        }
+        review.setNegativeButton("Close",null).setPositiveButton("Enable a business name",(d,w)->enableBusinessName()).show();
+    }
+    private void enableBusinessName(){
+        GateRepository.BusinessNameScope scope=repository.businessNameScope();
+        LinearLayout fields=Ui.column(this);Ui.pad(fields,24,8);
+        fields.addView(Ui.text(this,"Use the exact business name. Permission applies only to confirmed businesses with this spelling in the selected receiving account. Number-specific choices take precedence. Saving does not activate filtering.",14,R.color.muted,false));
+        EditText name=new EditText(this);name.setSingleLine(true);name.setHint("Business name");name.setContentDescription("Exact business name to enable");name.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);name.setMinHeight(Ui.dp(this,56));fields.addView(name);
+        AlertDialog form=dialog("Enable a business name").setView(Ui.scroll(this,fields)).setNegativeButton("Cancel",null).setPositiveButton("Enable",null).create();
+        form.setOnShowListener(d->{decorateDialog(form);form.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            if(!resumed||!form.isShowing())return;
+            String exact;try{exact=io.github.appunnim.businessgate.policy.NameVisibilityPolicy.nameKey(name.getText().toString());}
+            catch(IllegalArgumentException invalid){name.setError("Enter a name of 1–120 characters without hidden formatting or line breaks.");return;}
+            form.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);form.getButton(AlertDialog.BUTTON_POSITIVE).setText("Saving…");
+            repository.setBusinessNameEnabled(scope,exact,true,result->{
+                if(!form.isShowing()||!resumed)return;
+                if(result==GateRepository.SaveResult.SAVED){form.dismiss();announce("Business name enabled locally. Filtering is not active.");}
+                else{form.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);form.getButton(AlertDialog.BUTTON_POSITIVE).setText("Enable");name.setError(result==GateRepository.SaveResult.FAILED?"Not saved. Keep this name and check storage before retrying.":"Choices changed or a save is pending. Reopen this form and try again.");}
+            });
+        });});form.show();
+    }
+    private void confirmBusinessName(String name,boolean enabled){
+        GateRepository.BusinessNameScope scope=repository.businessNameScope();
+        dialog(enabled?"Enable this business name?":"Remove this name's permission?")
+            .setMessage(name+"\n\n"+(enabled?"Permit confirmed businesses with this exact name in this receiving account.":"This name will no longer grant permission. Number-specific choices remain unchanged.")+"\n\nNotification and conversation filtering are not active in this build.")
+            .setNegativeButton("Cancel",null).setPositiveButton(enabled?"Enable":"Remove permission",(d,w)->repository.setBusinessNameEnabled(scope,name,enabled,result->{
+                if(!resumed)return;
+                announce(result==GateRepository.SaveResult.SAVED?"Business name choice saved locally.":"Not saved. Review the current choices and retry.");
+            })).show();
     }
     private View settingSwitch(String label,java.util.function.BooleanSupplier current,java.util.function.Consumer<Boolean> change){
         GateRepository.ChoiceScope scope=repository.choiceScope();String data=repository.dataIdentity();

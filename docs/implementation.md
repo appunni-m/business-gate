@@ -1,15 +1,16 @@
 # Implementation and verification
 
-Updated 10 September 2026. This remains an Android development implementation with **connected-app actions disabled**. The compatibility registry is empty. Building, installing, or passing synthetic tests does not establish physical compatibility.
+Updated 13 September 2026. This remains an Android development implementation with **connected-app actions disabled**. The compatibility registry is empty. Building, installing, or passing synthetic tests does not establish physical compatibility.
 
 ## Changes implemented from the completion plan
 
-The [completion plan](implementation-plan.md) is the work definition. The [acceptance ledger](acceptance-ledger.json) keeps the full design's 96 cases separate from the companion's 97 cases. Engineering coverage is explicitly distinguished from a full acceptance pass.
+The [business-name visibility design](name-visibility-design.md) defines the current requested behavior and unresolved platform dependency. The earlier [completion plan](implementation-plan.md) records the retained implementation foundation. The [acceptance ledger](acceptance-ledger.json) keeps the full design's 96 cases separate from the companion's 97 cases. Engineering coverage is explicitly distinguished from a full acceptance pass.
 
 | Area | Current implementation | Verification boundary |
 | --- | --- | --- |
 | Identity and choices | Original blue gate identity, native one-page UI, exact-number choices and independent receiver namespaces | Pure policy and actual Android database/UI tests; live receiver extraction unqualified |
-| Migration | Transactional schema 1 to 2 upgrade from the actual shipped schema; choices retained; obsolete bindings and unblock grants revoked | Android `SQLiteOpenHelper` migration regression plus SQLite schema checks |
+| Migration | Transactional upgrades from actual shipped schema versions 1 and 2 to version 3; number choices preserved; no automatic name grants | Actual Android helper upgrades, interruption/rollback and SQLite schema checks |
+| Business names | Canonical exact-name permission policy, scoped durable enable/disable choices, native forms, failed-save and stale-write handling | Pure policy plus native database/UI/restart tests; no notification or entry enforcement is wired |
 | Cancellation | Separate data and authority generations; immediate Stop/ALLOW veto; callbacks cannot rearm an old lease or repopulate a reset namespace | Deterministic writer-held Android tests and pure callback regressions |
 | Action state | Durable verification acknowledgement, action/identity/revision/grant matching, idempotent observation completion, settled block-job reconciliation | Pure controller and Android repository tests; external dispatch/postconditions unqualified |
 | Compatibility | Bounded exact-environment registry, signing-history checks, reviewed evidence and artifact hashes, structural ancestor validation | Source/artifact gates; no nonempty production contract is qualified |

@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 public final class GateDbHelper extends SQLiteOpenHelper {
     private final Context context;
     public GateDbHelper(Context context) {
-        super(context, "gate.db", null, 2, db -> {
+        super(context, "gate.db", null, 3, db -> {
             // The framework default deletes corrupt database files. Preserve choices for recovery.
             throw new android.database.sqlite.SQLiteDatabaseCorruptException("DATABASE_CORRUPT");
         });
@@ -24,9 +24,10 @@ public final class GateDbHelper extends SQLiteOpenHelper {
         } catch (IOException error) { throw new IllegalStateException("SCHEMA_UNAVAILABLE"); }
     }
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion != 1 || newVersion != 2) throw new IllegalStateException("MIGRATION_UNSUPPORTED");
-        // SQLiteOpenHelper wraps this migration and version update in one transaction.
-        executeAsset(db, "migrations/1-2.sql");
+        if (oldVersion < 1 || oldVersion >= newVersion || newVersion != 3) throw new IllegalStateException("MIGRATION_UNSUPPORTED");
+        // SQLiteOpenHelper wraps all migration steps and the version update in one transaction.
+        if (oldVersion == 1) executeAsset(db, "migrations/1-2.sql");
+        if (oldVersion <= 2) executeAsset(db, "migrations/2-3.sql");
     }
     @Override public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) { throw new IllegalStateException("DOWNGRADE_UNSUPPORTED"); }
 }

@@ -106,4 +106,42 @@ limited.execute('PRAGMA user_version=2');limited.commit()
 assert limited.execute('SELECT choice FROM account').fetchone()[0]=='ALLOW'
 assert limited.execute('SELECT paused,enabled FROM namespace').fetchone()==(1,0)
 checks+=1
+# Actual shipped v2 schema: no optional label becomes a name permission.
+v2 = Path('app/src/androidTest/assets/schema-v2.sql').read_text()
+name_migration = [sql.strip() for sql in Path('app/src/main/assets/migrations/2-3.sql').read_text().split(';') if sql.strip()]
+def version_two(path):
+    db=sqlite3.connect(path)
+    db.executescript(v2)
+    db.execute("INSERT INTO namespace(id,installation,active,enabled,paused) VALUES(1,'v2-fixture',1,1,0)")
+    for phone, choice in (('+12025550101','ALLOW'),('+12025550102','DENY_MANUAL')):
+        db.execute("INSERT INTO account(namespace_id,phone,name,choice,first_seen,last_seen) VALUES(1,?,'Harbor Clinic',?,0,0)",(phone,choice))
+    db.commit()
+    return db
+with tempfile.TemporaryDirectory(prefix='business-gate-name-migration-') as directory:
+    for cut in range(1,len(name_migration)+1):
+        path=Path(directory)/f'v2-{cut}.db'
+        version_two(path).close()
+        result=subprocess.run([sys.executable,'-c',worker,str(path)],input=json.dumps(name_migration[:cut]),text=True)
+        assert result.returncode==73
+        with contextlib.closing(sqlite3.connect(path)) as reopened:
+            assert reopened.execute('PRAGMA user_version').fetchone()[0]==2
+            assert reopened.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='business_name_choice'").fetchone()[0]==0
+            assert reopened.execute('SELECT choice FROM account ORDER BY phone').fetchall()==[('ALLOW',),('DENY_MANUAL',)]
+        checks+=1
+migrated=version_two(':memory:')
+migrated.execute('BEGIN IMMEDIATE')
+for statement in name_migration:migrated.execute(statement)
+migrated.execute('PRAGMA user_version=3');migrated.commit()
+assert migrated.execute('SELECT count(*) FROM business_name_choice').fetchone()[0]==0
+assert migrated.execute('SELECT choice FROM account ORDER BY phone').fetchall()==[('ALLOW',),('DENY_MANUAL',)]
+assert migrated.execute('SELECT enabled,paused FROM namespace').fetchone()==(1,1)
+checks+=3
+for name, enabled, revision in [('',1,1),('x'*121,1,1),('Harbor Clinic',2,1),('Harbor Clinic',1,0)]:
+    reject('INSERT INTO business_name_choice VALUES(1,?,?,?)',(name,enabled,revision))
+reject("INSERT INTO business_name_choice VALUES(999,'Harbor Clinic',1,1)")
+conn.execute("INSERT INTO business_name_choice VALUES(1,'Harbor Clinic',1,1)")
+reject("INSERT INTO business_name_choice VALUES(1,'Harbor Clinic',0,2)")
+conn.execute('DELETE FROM namespace WHERE id=1')
+assert conn.execute('SELECT count(*) FROM business_name_choice').fetchone()[0]==0
+checks+=1
 print(f'PASS {checks} schema, migration interruption, quota failure and recovery checks')
