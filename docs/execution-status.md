@@ -1,10 +1,10 @@
 # Completion plan execution status
 
-Updated 10 September 2026. The [plan](implementation-plan.md) is **partially implemented, not complete**. Independent fixes have been implemented in storage, authority, controller, UI and delivery code; each remaining acceptance gap is listed below. The production registry remains empty; connected-app actions remain unavailable.
+Updated 13 September 2026. The [plan](implementation-plan.md) is **partially implemented, not complete**. Independent fixes have been implemented in storage, authority, controller, UI and delivery code; each remaining acceptance gap is listed below. The production registry remains empty; connected-app actions remain unavailable.
 
 The owner authorized the [design and completion plan](completion-design-plan.md) on 10 September 2026. The [execution record](design-execution.md) tracks the current row-focus, dialog/lifecycle, IME/Back and delivery work. The [workflow review](workflow-review.md) remains the read-only baseline review of successful run 20 and build `102001`; it is not a claim that later changes have already passed CI.
 
-The receiver’s own profile and accessible phone field were measured on the persistent API 36 emulator on 12 September; see the [receiver follow-up](design-execution.md#receiver-profile-measurement-follow-up--12-september-2026). The field is not yet bound by a qualified production adapter. A consenting sender and physical qualification device are not available. No receiver message content was inspected, no real message was sent, and no external block/unblock or physical qualification result is claimed. A spare phone with a second test number, or an explicitly consenting test participant, can supply the sender. Synthetic fixtures cannot establish real delivery effects.
+The receiver’s own profile and accessible phone field were measured on the persistent API 36 emulator on 12 September; see the [receiver follow-up](design-execution.md#receiver-profile-measurement-follow-up--12-september-2026). The field is not yet bound by a qualified production adapter. The owner subsequently supplied an exact business number and authorized two outgoing tests and inspection of that chat. Both tests displayed Delivered, with matching welcome/support responses; see the [sanitized live test](measurements/outgoing-test-api36.json) and [measurement scope](measurement-tool.md). A controlled sender for timed blocked/unblocked delivery trials and a physical qualification device remain unavailable. No external block/unblock or physical qualification result is claimed.
 
 ## Recorded engineering checks
 
@@ -91,6 +91,6 @@ A separate fault reproduced a committed reset leaving six deleted records in cac
 
 ## Next completion work
 
-F02 still needs a consenting sender and a physical receiver device to measure a safe one-to-one profile/confirmation route, fresh receiving identity, interruption behavior, unread effects and independently observed delivery. A spare phone with a separate test number, or a consenting participant's separate account, can supply the sender. The existing emulator receiver alone cannot establish sender delivery effects. A guessed compatibility entry cannot complete this work.
+F02 still needs a controlled sender for blocked/unblocked delivery trials and a physical receiver device to measure a safe one-to-one profile/confirmation route, fresh receiving identity, interruption behavior, unread effects and independently observed delivery. A spare phone with a separate test number, or a consenting participant's separate account, can supply the sender. The business welcome responses establish a working conversation before blocking; they do not establish delivery behavior while blocked. A guessed compatibility entry cannot complete this work.
 
 Independent UI/layout/accessibility and lifecycle work can continue while that setup is arranged. Measured navigation/batching/scanning, notification provenance and hint integration, after-dispatch compensation, physical performance and the pilot remain unfinished. The complete plan must not be labeled complete on the strength of these engineering checks.

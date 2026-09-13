@@ -105,6 +105,42 @@ class MeasurementReports(unittest.TestCase):
         value['mode'] = 'structure'
         with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'structure')
 
+    def test_contact_navigation_cannot_substitute_own_profile(self):
+        value = {**self.root_report(), 'mode': 'open-contact'}
+        value['measurement'].update(path=[2], ancestors=[{}], acquiredNodes=2, navigationAction='open-contact')
+        self.assertEqual(module.parse_report(self.wire(value), 'open-contact'), value)
+        value['measurement']['navigationAction'] = 'open-profile'
+        with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'open-contact')
+
+    def test_send_requires_explicit_mutation_scope_and_all_acknowledgments(self):
+        value = {**self.root_report(), 'mode': 'send-draft', 'mutationPerformed': True}
+        value['measurement'].update(path=[4, 5], ancestors=[{}, {}], acquiredNodes=6,
+            messageDispatchAcknowledged=True, recipientProfileChecked=True, draftMatched=True)
+        self.assertEqual(module.parse_report(self.wire(value), 'send-draft'), value)
+        for key in ('messageDispatchAcknowledged', 'recipientProfileChecked', 'draftMatched', 'activeFocusedWindow'):
+            changed = {**value, 'measurement': {**value['measurement'], key: False}}
+            with self.assertRaises(ValueError): module.parse_report(self.wire(changed), 'send-draft')
+        with self.assertRaises(ValueError): module.parse_report(self.wire({**value, 'mutationPerformed': False}), 'send-draft')
+        value.update(mode='structure', mutationPerformed=False)
+        with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'structure')
+
+    def test_chat_read_requires_exact_recipient_scope_and_active_window(self):
+        value = {**self.root_report(), 'mode': 'chat-node', 'surfaceAttestation': 'authorized-chat'}
+        value['measurement'].update(path=[4, 1, 2], recipientProfileCheckedForRead=True,
+            selectedText={'inspected': True, 'observedText': 'Test received'})
+        self.assertEqual(module.parse_report(self.wire(value), 'chat-node'), value)
+        for key, invalid in (('recipientProfileCheckedForRead', False), ('activeFocusedWindow', False), ('path', [4, 2])):
+            changed = {**value, 'measurement': {**value['measurement'], key: invalid}}
+            with self.assertRaises(ValueError): module.parse_report(self.wire(changed), 'chat-node')
+        with self.assertRaises(ValueError): module.parse_report(self.wire({**value, 'surfaceAttestation': 'profile'}), 'chat-node')
+        with self.assertRaises(ValueError): module.parse_report(self.wire({**value, 'mode': 'node'}), 'node')
+
+    def test_ordinary_node_cannot_export_chat_text_or_description(self):
+        for section, key in (('selectedText', 'observedText'), ('selectedDescription', 'observedDescription')):
+            value = {**self.root_report(), 'mode': 'node'}
+            value['measurement'][section] = {'inspected': True, key: 'Read'}
+            with self.assertRaises(ValueError): module.parse_report(self.wire(value), 'node')
+
     def test_rotated_signer_uses_measured_android_version(self):
         earlier, later = 'a' * 64, 'b' * 64
         raw = f'Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-256 digest: {earlier}\nSigner (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: {later}'

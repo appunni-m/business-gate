@@ -53,19 +53,26 @@ public final class MeasurementActivity extends Activity {
         void start() {
             try {
                 if (target == null || !target.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")) throw new IllegalArgumentException("INVALID_INSTALLATION");
+                String expectedPhone = input.getStringExtra("expectedPhone"), expectedText = input.getStringExtra("expectedTextSha256");
+                if (expectedPhone != null && ((!"send-draft".equals(mode) && !"chat-node".equals(mode) && (!"node".equals(mode) || !List.of("profile", "receiver").contains(surface == null ? "" : surface)))
+                    || !expectedPhone.matches("\\+[1-9][0-9]{6,14}"))) throw new IllegalArgumentException("INVALID_PHONE_EXPECTATION");
+                if (expectedText != null && ((!"send-draft".equals(mode) && (!"node".equals(mode) || !"composer".equals(surface))) || !expectedText.matches("[a-f0-9]{64}")))
+                    throw new IllegalArgumentException("INVALID_DRAFT_EXPECTATION");
+                if ("send-draft".equals(mode) && (expectedPhone == null || expectedText == null)) throw new IllegalArgumentException("DRAFT_AUTHORITY_REQUIRED");
+                if ("chat-node".equals(mode) && expectedPhone == null) throw new IllegalArgumentException("RECIPIENT_AUTHORITY_REQUIRED");
                 before = environment(context, target);
                 report = new JSONObject().put("schemaVersion", 1).put("mode", mode).put("environment", before)
-                    .put("physicalQualification", false).put("mutationPerformed", false)
+                    .put("physicalQualification", false).put("mutationPerformed", "send-draft".equals(mode))
                     .put("probeApkSha256", Neutral.digest(java.nio.file.Files.readAllBytes(new File(context.getApplicationInfo().sourceDir).toPath())))
                     .put("capturedAtUtc", java.time.Instant.now().toString());
                 if ("environment".equals(mode)) { complete(); return; }
-                if ("focus-tab".equals(mode) || "focus-overflow".equals(mode) || "focus-profile".equals(mode) || "open-profile".equals(mode)) {
+                if ("focus-tab".equals(mode) || "focus-overflow".equals(mode) || "focus-profile".equals(mode) || "open-profile".equals(mode) || "open-contact".equals(mode) || "send-draft".equals(mode) || "chat-node".equals(mode)) {
                     if (!Long.toString(before.getLong("versionCode")).equals(input.getStringExtra("expectedVersion"))
                         || !before.getJSONArray("signingSha256").getString(0).equals(input.getStringExtra("expectedSigner"))
                         || before.getInt("api") != input.getIntExtra("expectedApi", -1))
                         throw new IllegalArgumentException("INSTALLATION_CHANGED");
                     path = "focus-tab".equals(mode) && rawPath == null ? List.of(7, 3) : ExactPath.parse(rawPath == null ? "" : rawPath);
-                    report.put("surfaceAttestation", "navigation");
+                    report.put("surfaceAttestation", "chat-node".equals(mode) ? "authorized-chat" : "navigation");
                 } else if ("root".equals(mode)) {
                     path = List.of();
                     report.put("screenClassification", "unclassified");
@@ -74,7 +81,7 @@ public final class MeasurementActivity extends Activity {
                     path = List.of();
                     context.startActivity(new Intent(context, FixtureActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 } else if ("node".equals(mode) || "structure".equals(mode) || "navigation-label".equals(mode)) {
-                    if (surface == null || !List.of("navigation", "receiver", "profile", "block-confirmation", "unblock-confirmation", "synthetic").contains(surface))
+                    if (surface == null || !List.of("navigation", "receiver", "profile", "block-confirmation", "unblock-confirmation", "composer", "synthetic").contains(surface))
                         throw new IllegalArgumentException("SURFACE_ATTESTATION_REQUIRED");
                     path = ExactPath.parse(rawPath == null ? "" : rawPath);
                     if ("navigation-label".equals(mode) && !"navigation".equals(surface)) throw new IllegalArgumentException("NAVIGATION_SURFACE_REQUIRED");
@@ -103,7 +110,7 @@ public final class MeasurementActivity extends Activity {
         private void capture() {
             if (!current()) return;
             try {
-                JSONObject measurement = service.capture(path, "node".equals(mode) || "navigation-label".equals(mode), mode.startsWith("focus-") || "open-profile".equals(mode) ? mode : "none", "navigation-label".equals(mode));
+                JSONObject measurement = service.capture(path, "node".equals(mode) || "navigation-label".equals(mode) || "chat-node".equals(mode), mode.startsWith("focus-") || "open-profile".equals(mode) || "open-contact".equals(mode) || "send-draft".equals(mode) || "chat-node".equals(mode) ? mode : "none", "navigation-label".equals(mode), input.getStringExtra("expectedPhone"), input.getStringExtra("expectedTextSha256"));
                 report.put("measurement", measurement).put("source", "production-declaration developer measurement service");
                 if ("self-test".equals(mode)) {
                     if (!measurement.getBoolean("activeFocusedWindow") || measurement.getInt("acquiredNodes") != 1

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "kind": "owner-authorized-exact-chat-test",
+  "date": "2026-09-13",
+  "environment": {
+    "packageSha256": "04a1f5ddc4e1c6d0f4b29c1a47e8f0dbf56d3303995bdce4d6e0311afeb4d001",
+    "versionCode": 263507133,
+    "signingSha256": [
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "signingHistorySha256": [
+      "3987d043d10aefaf5a8710b3671418fe57e0e19b653c9df82558feb5ffce5d44",
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "api": 36,
+    "manufacturer": "Google",
+    "model": "sdk_gphone64_arm64",
+    "deviceLocale": "en-US",
+    "fontScalePercent": 100,
+    "densityDpi": 420,
+    "orientation": 1,
+    "emulatorHint": true
+  },
+  "physicalQualification": false,
+  "productionAdapterEnabled": false,
+  "blockUnblockAttempted": false,
+  "exactRecipientRechecked": true,
+  "outgoingTests": [
+    {
+      "round": "first",
+      "dispatchAcknowledged": true,
+      "deliveryLabel": "Delivered",
+      "deliveryObservedAtUtc": "2026-09-13T12:30:10.255690Z",
+      "followingReplyObserved": true
+    },
+    {
+      "round": "repeat",
+      "dispatchAcknowledged": true,
+      "deliveryLabel": "Delivered",
+      "deliveryObservedAtUtc": "2026-09-13T12:31:41.846874Z",
+      "followingReplyObserved": true
+    }
+  ],
+  "replyObservation": {
+    "sameWelcomeAndSupportTextInBothResponses": true,
+    "requestedUniqueReplyMarkerReturned": false,
+    "messageContentRetained": false
+  },
+  "limits": [
+    "Sender-side receipt was not independently inspected.",
+    "No block/unblock or blocked-delivery trial has been performed.",
+    "This emulator observation does not qualify a production adapter."
+  ],
+  "localEvidence": [
+    {
+      "role": "firstMessage",
+      "file": "chat-verification-1789302598204120000.json",
+      "sha256": "b181ced6b848a5dbe1fdca9c3ef0e91fafa0c19811e73cebd8f0e89ad5aeed10"
+    },
+    {
+      "role": "firstStatus",
+      "file": "chat-verification-1789302606578984000.json",
+      "sha256": "cbac8756b836996bb18979d1c713572d7aa23c8b77dd620346ef3973ffbfdb08"
+    },
+    {
+      "role": "firstReply",
+      "file": "chat-verification-1789302778113185000.json",
+      "sha256": "31e69ca1192bb7ad5fef7bee91addd2fc3df5f93a88e7260c4174b9597b24aca"
+    },
+    {
+      "role": "repeatMessage",
+      "file": "chat-verification-1789302688319593000.json",
+      "sha256": "80f1749aedd0cddf457ebf9c3bbc471543dbd9d90fe10a53d93fcd6a06b800ab"
+    },
+    {
+      "role": "repeatStatus",
+      "file": "chat-verification-1789302698005167000.json",
+      "sha256": "a510988d55f07f1cdc7f5057680d895f2fc6422ba45f832e73551110dddf45c9"
+    },
+    {
+      "role": "repeatReply",
+      "file": "chat-verification-1789302783150159000.json",
+      "sha256": "4251f5e40091d7150501c234577be4ddabc8012b9dc1eee8931ce468868a5f89"
+    }
+  ]
+}

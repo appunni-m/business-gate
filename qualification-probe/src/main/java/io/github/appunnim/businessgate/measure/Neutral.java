@@ -27,6 +27,29 @@ public final class Neutral {
     public static boolean internationalPhoneSyntax(String value) {
         return value != null && value.length() <= 80 && value.replaceAll("[ ()-]", "").matches("\\+[1-9][0-9]{6,14}");
     }
+    /** Edge whitespace is presentation-only; this never supplies a phone identity. */
+    public static String navigationTitleDigest(String value) { return digest(value.strip()); }
+    public static boolean phoneMatches(String value, String expected) {
+        return expected != null && expected.matches("\\+[1-9][0-9]{6,14}") && internationalPhoneSyntax(value)
+            && value.replaceAll("[ ()-]", "").equals(expected);
+    }
+    /** Only used for an explicitly authorized test-chat capture, never an automatic event. */
+    public static boolean safeTestText(String value) {
+        if (value == null || value.length() > 320) return false;
+        String normalized = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        String compact = normalized.replaceAll("[^\\p{L}\\p{N}]", "");
+        for (String candidate : new String[]{normalized, compact})
+            for (int i = 0; i + 8 <= candidate.length(); i++)
+                if (RESTRICTED.contains(digest(candidate.substring(i, i + 8)))) return false;
+        return true;
+    }
+    public static String redactTestText(String value) {
+        if (value == null || value.length() > 320) return "[redacted]";
+        StringBuilder out = new StringBuilder();
+        for (String token : value.split("(?<=\\s)|(?=\\s)")) out.append(safeTestText(token) ? token : "[redacted]");
+        String result = out.toString();
+        return safeTestText(result) ? result : "[redacted]";
+    }
     public static boolean safeNavigationLabel(String value) {
         if (value == null || value.length() > 40 || !value.matches("[\\p{L}\\p{M} _'’-]{1,40}")) return false;
         String lower = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);

@@ -4,7 +4,8 @@
 The installation is selected from an APK supplied at runtime. No external identity
 is embedded or exported. Node mode requires the caller to have established the
 selected path on a consenting profile/account/confirmation screen; do not use it
-to explore conversations or message containers.
+to explore conversations or message containers. The separate chat-node mode needs
+an explicit owner exception for one exact-number test chat and a fresh profile check.
 """
 import argparse
 import hashlib
@@ -71,11 +72,15 @@ def parse_report(raw, expected_mode=None):
     if report.get('result') == 'failed':
         reason = report.get('reason', '')
         raise ValueError('Measurement rejected: ' + (reason if isinstance(reason, str) and re.fullmatch(r'[A-Z_]{1,64}', reason) else 'MEASUREMENT_FAILED'))
-    if report.get('schemaVersion') != 1 or report.get('result') != 'observed' or report.get('physicalQualification') is not False or report.get('mutationPerformed') is not False:
+    if report.get('schemaVersion') != 1 or report.get('result') != 'observed' or report.get('physicalQualification') is not False or report.get('mutationPerformed') is not (expected_mode == 'send-draft'):
         raise ValueError('Invalid measurement scope')
     if expected_mode is not None and report.get('mode') != expected_mode:
         raise ValueError('Measurement result does not match the requested mode')
     capture = report.get('measurement')
+    if expected_mode == 'send-draft' and (not isinstance(capture, dict) or capture.get('messageDispatchAcknowledged') is not True or capture.get('draftMatched') is not True or capture.get('recipientProfileChecked') is not True or capture.get('activeFocusedWindow') is not True):
+        raise ValueError('Message dispatch was not acknowledged')
+    if expected_mode != 'send-draft' and isinstance(capture, dict) and any(key in capture for key in ('messageDispatchAcknowledged', 'draftMatched', 'recipientProfileChecked')):
+        raise ValueError('Unexpected message dispatch metadata')
     if expected_mode == 'navigation-label':
         summary = capture.get('selectedText') if isinstance(capture, dict) else None
         if (report.get('surfaceAttestation') != 'navigation' or not isinstance(summary, dict)
@@ -83,8 +88,8 @@ def parse_report(raw, expected_mode=None):
             raise ValueError('Invalid navigation title report')
     elif isinstance(capture, dict) and isinstance(capture.get('selectedText'), dict) and 'navigationLabel' in capture['selectedText']:
         raise ValueError('Unexpected navigation title')
-    if expected_mode == 'open-profile':
-        if not isinstance(capture, dict) or capture.get('navigationAction') != 'open-profile' or capture.get('activeFocusedWindow') is not True:
+    if expected_mode in ('open-profile', 'open-contact'):
+        if not isinstance(capture, dict) or capture.get('navigationAction') != expected_mode or capture.get('activeFocusedWindow') is not True:
             raise ValueError('Profile navigation was not dispatched')
     elif isinstance(capture, dict) and 'navigationAction' in capture:
         raise ValueError('Unexpected navigation action')
@@ -95,10 +100,10 @@ def parse_report(raw, expected_mode=None):
             raise ValueError('Navigation input focus was not confirmed')
     elif expected_mode is not None and isinstance(capture, dict) and capture.get('inputFocusRequested', False) is not False:
         raise ValueError('Capture unexpectedly requested input focus')
-    if expected_mode in ('root', 'structure', 'self-test', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile') and isinstance(capture, dict):
+    if expected_mode in ('root', 'structure', 'self-test', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'open-contact', 'send-draft') and isinstance(capture, dict):
         if capture.get('selectedDescription', {'inspected': False}) != {'inspected': False}:
             raise ValueError('Structural capture cannot inspect descriptions')
-    if expected_mode in ('structure', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile'):
+    if expected_mode in ('structure', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'open-contact', 'send-draft'):
         capture = report.get('measurement')
         if not isinstance(capture, dict) or capture.get('selectedText') != {'inspected': False}:
             raise ValueError('Structural capture cannot inspect text')
@@ -111,16 +116,27 @@ def parse_report(raw, expected_mode=None):
             raise ValueError('Root capture exceeded its scope')
         if expected_mode == 'root' and report.get('screenClassification') != 'unclassified':
             raise ValueError('Root capture cannot establish screen identity')
+    if expected_mode == 'chat-node':
+        if (not isinstance(capture, dict) or capture.get('recipientProfileCheckedForRead') is not True
+                or capture.get('activeFocusedWindow') is not True or report.get('surfaceAttestation') != 'authorized-chat'
+                or not isinstance(capture.get('path'), list) or capture['path'][:2] != [4, 1]):
+            raise ValueError('Chat recipient was not verified')
+    elif isinstance(capture, dict) and ('recipientProfileCheckedForRead' in capture
+            or any(key in capture.get(section, {}) for section, key in
+                   (('selectedText', 'observedText'), ('selectedDescription', 'observedDescription')))):
+        raise ValueError('Unexpected chat content')
     return report
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=('environment', 'root', 'structure', 'node', 'navigation-label', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'self-test'))
+    parser.add_argument('mode', choices=('environment', 'root', 'structure', 'node', 'navigation-label', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'open-contact', 'send-draft', 'chat-node', 'self-test'))
     parser.add_argument('--serial', required=True)
     parser.add_argument('--target-apk', type=Path)
     parser.add_argument('--path', default='')
-    parser.add_argument('--surface', choices=('navigation', 'receiver', 'profile', 'block-confirmation', 'unblock-confirmation', 'synthetic'))
+    parser.add_argument('--expected-phone')
+    parser.add_argument('--expected-text-sha256')
+    parser.add_argument('--surface', choices=('navigation', 'receiver', 'profile', 'block-confirmation', 'unblock-confirmation', 'composer', 'synthetic'))
     parser.add_argument('--enable-emulator-service', action='store_true', help='Temporarily enable only this tool on an emulator; restore exact settings afterward')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -132,12 +148,22 @@ def main():
         parser.error('Node capture needs an explicitly established non-message surface')
     if args.mode == 'navigation-label' and args.surface != 'navigation':
         parser.error('Navigation label reading requires the established options-menu surface')
-    if args.mode not in ('node', 'structure', 'navigation-label', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile') and args.path:
+    if args.mode not in ('node', 'structure', 'navigation-label', 'focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'open-contact', 'send-draft', 'chat-node') and args.path:
         parser.error('This mode cannot select a child path')
     if args.mode == 'focus-tab' and args.path not in ('', '5,0', '7,3'):
         parser.error('Supply one of the measured navigation tab paths')
     if args.mode in ('focus-profile', 'open-profile') and args.path != '0,4':
         parser.error('Supply the measured profile navigation path, 0,4')
+    if args.mode == 'open-contact' and args.path != '2':
+        parser.error('Supply the measured contact header path, 2')
+    if args.expected_phone is not None and (args.mode not in ('node', 'send-draft', 'chat-node') or (args.mode == 'node' and args.surface not in ('profile', 'receiver')) or not re.fullmatch(r'\+[1-9][0-9]{6,14}', args.expected_phone)):
+        parser.error('Phone matching requires a canonical number and an established identity field')
+    if args.expected_text_sha256 is not None and (args.mode not in ('node', 'send-draft') or (args.mode == 'node' and args.surface != 'composer') or not re.fullmatch(r'[a-f0-9]{64}', args.expected_text_sha256)):
+        parser.error('Draft matching requires an established composer field and a SHA-256 digest')
+    if args.mode == 'chat-node' and (args.expected_phone is None or not (args.path == '4,1' or args.path.startswith('4,1,'))):
+        parser.error('Chat inspection requires explicit owner authorization, a fresh exact recipient check and the measured message-list path')
+    if args.mode == 'send-draft' and (args.path != '4,5' or args.expected_phone is None or args.expected_text_sha256 is None):
+        parser.error('Sending requires the measured send control, exact recipient and exact draft digest')
     if args.mode == 'focus-overflow' and args.path not in ('3', '4'):
         parser.error('Supply the measured overflow path, 3 or 4')
     if args.path and (not re.fullmatch(r'(0|[1-9][0-9]?)(,(0|[1-9][0-9]?)){0,11}', args.path) or any(int(i) > 63 for i in args.path.split(','))):
@@ -189,14 +215,18 @@ def main():
         self_test = args.mode == 'self-test'
         command = adb + ['shell', 'am'] + (['start', '-W'] if self_test else ['broadcast'])
         command += ['--es', 'mode', args.mode, '--es', 'target', target, '--es', 'request', request]
-        if args.mode in ('focus-tab', 'focus-overflow', 'focus-profile', 'open-profile'):
+        if args.mode in ('focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'open-contact', 'send-draft', 'chat-node'):
             command += ['--es', 'expectedVersion', str(expected[0]), '--es', 'expectedSigner', expected[1][0], '--ei', 'expectedApi', str(expected[2])]
-        if args.mode in ('focus-tab', 'focus-overflow', 'focus-profile', 'open-profile') and args.path:
+        if args.mode in ('focus-tab', 'focus-overflow', 'focus-profile', 'open-profile', 'open-contact', 'send-draft', 'chat-node') and args.path:
             command += ['--es', 'path', args.path]
         if args.mode in ('node', 'structure', 'navigation-label'):
             command += ['--es', 'surface', args.surface]
             if args.path:
                 command += ['--es', 'path', args.path]
+        if args.expected_phone is not None:
+            command += ['--es', 'expectedPhone', args.expected_phone]
+        if args.expected_text_sha256 is not None:
+            command += ['--es', 'expectedTextSha256', args.expected_text_sha256]
         command += ['-n', PACKAGE + ('/.MeasurementActivity' if self_test else '/.MeasurementReceiver')]
         if original:
             services = [] if original['enabled_accessibility_services'] in ('null', '') else original['enabled_accessibility_services'].split(':')
@@ -224,7 +254,7 @@ def main():
             args.output.parent.mkdir(parents=True, exist_ok=True)
             with args.output.open('x') as stream:
                 json.dump({'schemaVersion': 1, 'mode': args.mode, 'result': 'failed', 'reason': reason,
-                           'physicalQualification': False, 'mutationPerformed': False}, stream, indent=2)
+                           'physicalQualification': False, **({'dispatchOutcome': 'unconfirmed'} if args.mode == 'send-draft' else {'mutationPerformed': False})}, stream, indent=2)
                 stream.write('\n')
         report = parse_report(raw, args.mode)
         probe_apk = Path(__file__).resolve().parent.parent / 'qualification-probe/build/outputs/apk/debug/qualification-probe-debug.apk'

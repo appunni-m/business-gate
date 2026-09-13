@@ -50,9 +50,26 @@ public final class MeasurementSuite {
         for (String number : new String[]{"+12025550100", "+1 (202) 555-0100", "+12025550123"}) check(Neutral.internationalPhoneSyntax(number));
         for (String number : new String[]{"12025550100", "+01234567", "+123", "+1234567890123456", "+12025550100 ext 9", "+1\u200e2025550100", "+12025550100\n"}) check(!Neutral.internationalPhoneSyntax(number));
         check(!Neutral.internationalPhoneSyntax(null));
+        check(Neutral.phoneMatches("+1 (202) 555-0100", "+12025550100"));
+        check(!Neutral.phoneMatches("+12025550101", "+12025550100"));
+        check(!Neutral.phoneMatches("+12025550100", "12025550100"));
+        check(!Neutral.phoneMatches(null, "+12025550100"));
+        check(!Neutral.phoneMatches("+12025550100", null));
+        check(Neutral.navigationTitleDigest(" Shop ").equals(Neutral.navigationTitleDigest("Shop")));
+        check(!Neutral.navigationTitleDigest("Shop A").equals(Neutral.navigationTitleDigest("Shop B")));
+        check(!Neutral.navigationTitleDigest("Shop A").equals(Neutral.navigationTitleDigest("Shop  A")));
+        check(!Neutral.navigationTitleDigest("Shop").equals(Neutral.navigationTitleDigest("shop")));
         for (String label : new String[]{"Settings X", "Profile", "Ayarlar", "Edit profile", "A-B", "Full width Ｓｅｔｔｉｎｇｓ"}) check(Neutral.safeNavigationLabel(label));
         for (String label : new String[]{"", "1234567890", "+1 202 555 0100", "owner@example.test", "some.package", "Settings\nProfile", "A".repeat(41)}) check(!Neutral.safeNavigationLabel(label));
         check(!Neutral.safeNavigationLabel(null));
+        check(Neutral.safeTestText("Test received"));
+        check(Neutral.safeTestText("Read at 12:34"));
+        check(Neutral.safeTestText("x".repeat(320)));
+        check(!Neutral.safeTestText("x".repeat(321)));
+        check(!Neutral.safeTestText(null));
+        check(Neutral.redactTestText("Test received\nRead").equals("Test received\nRead"));
+        check(Neutral.redactTestText(null).equals("[redacted]"));
+        check(Neutral.redactTestText("x".repeat(321)).equals("[redacted]"));
         check(Neutral.digest("abc").equals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
         System.out.println("PASS " + assertions + " bounded measurement checks");
     }

@@ -26,6 +26,8 @@ public final class MeasurementService extends AccessibilityService {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Button stop;
     private String selected = "";
+    private record RecipientCheck(String owner, String phoneDigest, String titleDigest, long at) {}
+    private static RecipientCheck recipientCheck;
     private long expires;
     private static final Set<String> LABELS = Set.of("You", "Settings", "Profile", "Calls", "Chats", "Updates", "Communities", "Select all", "Favourites", "Block", "Unblock", "Cancel", "Report", "Business account", "Block contact", "Unblock contact");
     private static final java.util.Map<String, String> LOCALIZED_NAVIGATION = java.util.Map.of("Ayarlar", "Settings", "Profil", "Profile");
@@ -43,7 +45,7 @@ public final class MeasurementService extends AccessibilityService {
         stop = new Button(this);
         stop.setText(R.string.stop); stop.setTextColor(Color.WHITE); stop.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff2459d3));
         stop.setMinHeight(Math.round(48 * getResources().getDisplayMetrics().density));
-        stop.setOnClickListener(view -> end());
+        stop.setOnClickListener(view -> { recipientCheck = null; end(); });
         var params = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP | Gravity.END;
@@ -62,9 +64,13 @@ public final class MeasurementService extends AccessibilityService {
         var info = getServiceInfo();
         if (info != null) { info.packageNames = new String[]{"io.github.appunnim.businessgate.measure.disabled"}; setServiceInfo(info); }
     }
-    JSONObject capture(List<Integer> path, boolean inspectText, String focusMode, boolean readNavigationLabel) {
+    JSONObject capture(List<Integer> path, boolean inspectText, String focusMode, boolean readNavigationLabel, String expectedPhone, String expectedTextSha256) {
         boolean requestFocus = focusMode.startsWith("focus-");
         boolean openProfile = "open-profile".equals(focusMode);
+        boolean openContact = "open-contact".equals(focusMode);
+        boolean openNavigation = openProfile || openContact;
+        boolean sendDraft = "send-draft".equals(focusMode);
+        boolean chatNode = "chat-node".equals(focusMode);
         if (selected.isEmpty() || SystemClock.elapsedRealtime() >= expires || stop == null || !stop.isShown()
             || !getSystemService(PowerManager.class).isInteractive() || getSystemService(KeyguardManager.class).isKeyguardLocked())
             throw new IllegalStateException("CAPTURE_INACTIVE");
@@ -86,13 +92,34 @@ public final class MeasurementService extends AccessibilityService {
             try { for (var window : windows) if (window.getId() == root.getWindowId()) focused = window.isActive() && window.isFocused(); }
             finally { for (var window : windows) release(window); }
             if (!focused || !owner.equals(selected) || SystemClock.elapsedRealtime() >= expires) throw new IllegalStateException("FOREGROUND_CHANGED");
+            if (chatNode) {
+                RecipientCheck check = recipientCheck;
+                if (check == null || expectedPhone == null || !owner.equals(check.owner())
+                    || !Neutral.digest(expectedPhone).equals(check.phoneDigest()) || SystemClock.elapsedRealtime() - check.at() > 60_000)
+                    throw new IllegalStateException("RECIPIENT_RECHECK_REQUIRED");
+                if (chain.size() < 3 || path.get(0) != 4 || path.get(1) != 1 || root.getChildCount() != 5
+                    || !"android.widget.FrameLayout".contentEquals(root.getClassName()) || root.getViewIdResourceName() != null
+                    || !"android.view.ViewGroup".contentEquals(chain.get(1).getClassName())
+                    || !(owner + ":id/coordinator").equals(chain.get(1).getViewIdResourceName())
+                    || !"android.widget.ListView".contentEquals(chain.get(2).getClassName())
+                    || !"android:id/list".equals(chain.get(2).getViewIdResourceName())) throw new IllegalStateException("CHAT_STRUCTURE_CHANGED");
+                AccessibilityNodeInfo header = root.getChild(2), title = null;
+                try {
+                    if (header == null || !owner.contentEquals(header.getPackageName()) || !header.isVisibleToUser()
+                        || !(owner + ":id/conversation_contact").equals(header.getViewIdResourceName()) || header.getChildCount() != 1
+                        || !"android.widget.LinearLayout".contentEquals(header.getClassName())) throw new IllegalStateException("RECIPIENT_CHANGED");
+                    title = header.getChild(0);
+                    if (!fieldMatches(title, owner, "conversation_contact_name", "android.widget.TextView", check.titleDigest(), true))
+                        throw new IllegalStateException("RECIPIENT_CHANGED");
+                } finally { if (title != null) release(title); if (header != null) release(header); }
+            }
             if (readNavigationLabel && (chain.size() != 4 || path.size() != 3 || path.get(0) != 0 || path.get(2) != 0
                 || root.getChildCount() != 1 || !"android.widget.FrameLayout".contentEquals(root.getClassName())
                 || !"android.widget.ListView".contentEquals(chain.get(1).getClassName()) || chain.get(1).getChildCount() > 12
                 || !"android.widget.LinearLayout".contentEquals(chain.get(2).getClassName()) || chain.get(2).getChildCount() != 1
                 || !"android.widget.TextView".contentEquals(chain.get(3).getClassName()) || chain.get(3).getChildCount() != 0
                 || !(owner + ":id/title").equals(chain.get(3).getViewIdResourceName()))) throw new IllegalStateException("NAVIGATION_LABEL_STRUCTURE_CHANGED");
-            if (requestFocus || openProfile) {
+            if (requestFocus || openNavigation || sendDraft) {
                 // Only previously measured navigation structures; no account-action authority.
                 AccessibilityNodeInfo leaf = chain.get(chain.size() - 1);
                 boolean measuredTab = "focus-tab".equals(focusMode) && chain.size() == 3
@@ -112,7 +139,17 @@ public final class MeasurementService extends AccessibilityService {
                     && (owner + ":id/me_tab_root_layout").equals(chain.get(1).getViewIdResourceName())
                     && "android.widget.Button".contentEquals(leaf.getClassName()) && leaf.getChildCount() == 0
                     && (owner + ":id/menuitem_edit_profile").equals(leaf.getViewIdResourceName());
-                if ((!measuredTab && !measuredOverflow && !measuredProfile) || !leaf.isFocusable() || !leaf.isEnabled() || !leaf.isClickable())
+                boolean measuredContact = openContact && chain.size() == 2 && path.equals(List.of(2))
+                    && root.getChildCount() == 5 && "android.widget.FrameLayout".contentEquals(root.getClassName()) && root.getViewIdResourceName() == null
+                    && "android.widget.LinearLayout".contentEquals(leaf.getClassName()) && leaf.getChildCount() == 1
+                    && (owner + ":id/conversation_contact").equals(leaf.getViewIdResourceName());
+                boolean measuredSend = sendDraft && chain.size() == 3 && path.equals(List.of(4, 5))
+                    && root.getChildCount() == 5 && "android.widget.FrameLayout".contentEquals(root.getClassName()) && root.getViewIdResourceName() == null
+                    && "android.view.ViewGroup".contentEquals(chain.get(1).getClassName()) && chain.get(1).getChildCount() == 6
+                    && (owner + ":id/coordinator").equals(chain.get(1).getViewIdResourceName())
+                    && "android.widget.ImageButton".contentEquals(leaf.getClassName()) && leaf.getChildCount() == 0
+                    && (owner + ":id/send").equals(leaf.getViewIdResourceName());
+                if ((!measuredTab && !measuredOverflow && !measuredProfile && !measuredContact && !measuredSend) || !leaf.isFocusable() || !leaf.isEnabled() || !leaf.isClickable())
                     throw new IllegalStateException("NAVIGATION_STRUCTURE_CHANGED");
                 if (requestFocus && !leaf.isFocused() && !leaf.performAction(AccessibilityNodeInfo.ACTION_FOCUS)) throw new IllegalStateException("NAVIGATION_FOCUS_REJECTED");
                 if (requestFocus && (!leaf.refresh() || !leaf.isFocused() || !owner.contentEquals(leaf.getPackageName()))) throw new IllegalStateException("NAVIGATION_FOCUS_UNCONFIRMED");
@@ -127,22 +164,77 @@ public final class MeasurementService extends AccessibilityService {
                 JSONObject result = new JSONObject().put("path", new JSONArray(path)).put("ancestors", ancestors).put("declaration", declaration)
                     .put("node", structure(chain.get(chain.size() - 1), owner)).put("windowId", root.getWindowId())
                     .put("activeFocusedWindow", true).put("acquiredNodes", chain.size()).put("inputFocusRequested", requestFocus);
-                if (openProfile) {
+                if (openNavigation) {
                     AccessibilityNodeInfo leaf = chain.get(chain.size() - 1);
                     if (!leaf.refresh() || !leaf.isVisibleToUser() || !leaf.isEnabled() || !leaf.isClickable()
-                        || !owner.contentEquals(leaf.getPackageName()) || !(owner + ":id/menuitem_edit_profile").equals(leaf.getViewIdResourceName())
+                        || !owner.contentEquals(leaf.getPackageName()) || !(owner + ":id/" + (openProfile ? "menuitem_edit_profile" : "conversation_contact")).equals(leaf.getViewIdResourceName())
                         || !owner.equals(selected) || SystemClock.elapsedRealtime() >= expires || stop == null || !stop.isShown())
                         throw new IllegalStateException("NAVIGATION_STRUCTURE_CHANGED");
                     if (!leaf.performAction(AccessibilityNodeInfo.ACTION_CLICK)) throw new IllegalStateException("PROFILE_NAVIGATION_REJECTED");
-                    result.put("navigationAction", "open-profile");
+                    result.put("navigationAction", focusMode);
                 }
-                // Only the selected leaf is considered, and no arbitrary profile text is exported.
+                if (sendDraft) {
+                    RecipientCheck check = recipientCheck;
+                    if (check == null || !owner.equals(check.owner()) || expectedPhone == null || expectedTextSha256 == null
+                        || !Neutral.digest(expectedPhone).equals(check.phoneDigest()) || SystemClock.elapsedRealtime() - check.at() > 60_000)
+                        throw new IllegalStateException("RECIPIENT_RECHECK_REQUIRED");
+                    AccessibilityNodeInfo composer = null, header = null, title = null;
+                    try {
+                        // Explicit composer/header paths only. Never enter the message list at 4,1.
+                        composer = chain.get(1).getChild(3); header = root.getChild(2);
+                        if (header == null || !owner.contentEquals(header.getPackageName()) || !header.isVisibleToUser()
+                            || !(owner + ":id/conversation_contact").equals(header.getViewIdResourceName()) || header.getChildCount() != 1
+                            || !"android.widget.LinearLayout".contentEquals(header.getClassName())) throw new IllegalStateException("RECIPIENT_CHANGED");
+                        title = header.getChild(0);
+                        if (!fieldMatches(title, owner, "conversation_contact_name", "android.widget.TextView", check.titleDigest(), true))
+                            throw new IllegalStateException("RECIPIENT_CHANGED");
+                        if (!fieldMatches(composer, owner, "entry", "android.widget.EditText", expectedTextSha256, false))
+                            throw new IllegalStateException("DRAFT_CHANGED");
+                        AccessibilityNodeInfo send = chain.get(chain.size() - 1);
+                        if (!owner.equals(selected) || SystemClock.elapsedRealtime() >= expires || stop == null || !stop.isShown()
+                            || !getSystemService(PowerManager.class).isInteractive() || getSystemService(KeyguardManager.class).isKeyguardLocked())
+                            throw new IllegalStateException("CAPTURE_INACTIVE");
+                        recipientCheck = null; // Consume before dispatch; uncertain outcomes are never replayed.
+                        if (!send.performAction(AccessibilityNodeInfo.ACTION_CLICK)) throw new IllegalStateException("SEND_NOT_ACKNOWLEDGED");
+                        result.put("messageDispatchAcknowledged", true).put("recipientProfileChecked", true).put("draftMatched", true)
+                            .put("acquiredNodes", chain.size() + 3);
+                    } finally {
+                        if (composer != null) release(composer); if (title != null) release(title); if (header != null) release(header);
+                    }
+                }
+                // Only explicitly selected fields are considered; no arbitrary profile text is exported.
+                if (chatNode) result.put("recipientProfileCheckedForRead", true).put("acquiredNodes", chain.size() + 2);
                 if (!inspectText) return result.put("selectedText", new JSONObject().put("inspected", false));
                 CharSequence text = chain.get(chain.size() - 1).getText();
                 JSONObject summary = new JSONObject().put("inspected", true).put("present", text != null);
                 if (text != null && text.length() <= 320) {
                     summary.put("codePoints", Character.codePointCount(text, 0, text.length()));
                     String label = text.toString();
+                    if (chatNode) summary.put("observedText", Neutral.redactTestText(label));
+                    summary.put("directionMarks", label.codePoints().filter(point -> point == 0x200e || point == 0x200f).count())
+                        .put("edgeWhitespace", label.length() - label.strip().length());
+                    if (expectedPhone != null && !chatNode) {
+                        boolean matches = Neutral.phoneMatches(label, expectedPhone);
+                        summary.put("matchesExpectedPhone", matches);
+                        recipientCheck = null;
+                        if (matches && path.equals(List.of(0, 2)) && chain.size() == 3 && root.getChildCount() == 5
+                            && "android.widget.FrameLayout".contentEquals(root.getClassName()) && root.getViewIdResourceName() == null
+                            && "android.widget.ListView".contentEquals(chain.get(1).getClassName()) && chain.get(1).getChildCount() >= 3 && chain.get(1).getChildCount() <= 64
+                            && "android:id/list".equals(chain.get(1).getViewIdResourceName())
+                            && (owner + ":id/business_subtitle").equals(chain.get(2).getViewIdResourceName())
+                            && "android.widget.TextView".contentEquals(chain.get(2).getClassName()) && chain.get(2).getChildCount() == 0) {
+                            AccessibilityNodeInfo title = chain.get(1).getChild(1);
+                            try {
+                                if (title != null && owner.contentEquals(title.getPackageName()) && title.isVisibleToUser()
+                                    && (owner + ":id/business_title").equals(title.getViewIdResourceName()) && title.getChildCount() == 0
+                                    && "android.widget.TextView".contentEquals(title.getClassName()) && title.getText() != null
+                                    && title.isEnabled() && title.getText().length() > 0 && title.getText().length() <= 320)
+                                    recipientCheck = new RecipientCheck(owner, Neutral.digest(expectedPhone), Neutral.navigationTitleDigest(title.getText().toString()), SystemClock.elapsedRealtime());
+                            } finally { if (title != null) release(title); }
+                            result.put("acquiredNodes", chain.size() + 1).put("recipientCheckPrepared", recipientCheck != null);
+                        }
+                    }
+                    if (expectedTextSha256 != null) summary.put("matchesExpectedDraft", Neutral.digest(label).equals(expectedTextSha256));
                     if (path.equals(List.of(2, 5, 1)) && chain.size() == 4
                         && root.getChildCount() == 3 && "android.widget.FrameLayout".contentEquals(root.getClassName()) && root.getViewIdResourceName() == null
                         && chain.get(1).getChildCount() == 7 && "android.widget.ScrollView".contentEquals(chain.get(1).getClassName())
@@ -178,12 +270,19 @@ public final class MeasurementService extends AccessibilityService {
                 JSONObject descriptionSummary = new JSONObject().put("inspected", true).put("present", description != null);
                 if (description != null && description.length() <= 320) {
                     descriptionSummary.put("codePoints", Character.codePointCount(description, 0, description.length()));
+                    if (chatNode) descriptionSummary.put("observedDescription", Neutral.redactTestText(description.toString()));
                     if (LABELS.contains(description.toString())) descriptionSummary.put("knownControlLabel", description.toString());
                 } else if (description != null) descriptionSummary.put("overLimit", true);
                 result.put("selectedDescription", descriptionSummary);
                 return result;
             } catch (JSONException impossible) { throw new IllegalStateException("REPORT_UNAVAILABLE"); }
         });
+    }
+    private static boolean fieldMatches(AccessibilityNodeInfo node, String owner, String suffix, String type, String digest, boolean titlePresentation) {
+        return node != null && node.getPackageName() != null && owner.contentEquals(node.getPackageName()) && node.isVisibleToUser()
+            && node.isEnabled() && node.getChildCount() == 0 && (owner + ":id/" + suffix).equals(node.getViewIdResourceName())
+            && type.contentEquals(node.getClassName()) && node.getText() != null && node.getText().length() <= 320
+            && (titlePresentation ? Neutral.navigationTitleDigest(node.getText().toString()) : Neutral.digest(node.getText().toString())).equals(digest);
     }
     @SuppressWarnings("deprecation")
     private static void release(AccessibilityNodeInfo node) { node.recycle(); }
@@ -192,7 +291,7 @@ public final class MeasurementService extends AccessibilityService {
     private static JSONObject structure(AccessibilityNodeInfo node, String owner) throws JSONException {
         JSONObject out = new JSONObject().put("visible", node.isVisibleToUser()).put("enabled", node.isEnabled())
             .put("clickable", node.isClickable()).put("checkable", node.isCheckable()).put("checked", node.isChecked())
-            .put("focusable", node.isFocusable()).put("focused", node.isFocused()).put("selected", node.isSelected())
+            .put("focusable", node.isFocusable()).put("focused", node.isFocused()).put("selected", node.isSelected()).put("showingHintText", node.isShowingHintText())
             .put("childCount", node.getChildCount());
         String resource = node.getViewIdResourceName();
         if (resource == null) out.put("resourceAbsent", true);
