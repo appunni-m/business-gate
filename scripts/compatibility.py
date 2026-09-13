@@ -90,5 +90,39 @@ def validate(read_asset):
         for artifact in evidence['artifacts']:
             assert re.fullmatch(r'adapters/evidence/[a-z0-9-]+\.(json|txt)', artifact['path'])
             assert hashlib.sha256(read(artifact['path'], 256_000)).hexdigest() == artifact['sha256']
-    return {'connectedAppActionsEnabled': bool(rows), 'qualifiedAdapters': sorted(ids),
+    measured = registry.get('measuredRoutes', [])
+    assert isinstance(measured, list) and len(measured) <= 1
+    for route in measured:
+        assert route['id'] == 'business-profile-v1' and route['id'] not in ids
+        assert route['supportLevel'] == 'emulator-experimental'
+        assert route['physicalQualification'] is False and route['foregroundSessionRequired'] is True
+        assert type(route['api']) is int and route['api'] == 36
+        assert type(route['versionCode']) is int and route['versionCode'] > 0
+        for field in ('packageSha256', 'evidenceSha256', 'businessRouteSha256', 'receiverRouteSha256', 'actionEchoSha256'):
+            digest(route[field])
+        for field in ('signingSha256', 'signingHistorySha256'):
+            assert 1 <= len(route[field]) <= 8 and len(set(route[field])) == len(route[field])
+            for value in route[field]: digest(value)
+        assert route['environment'] == {'manufacturer': 'Google', 'model': 'sdk_gphone64_arm64',
+            'deviceLocale': 'en-US', 'fontScalePercent': 100, 'densityDpi': 420, 'orientation': 1}
+        evidence_bytes = read('adapters/evidence/business-profile-v1.json', 128_000)
+        assert hashlib.sha256(evidence_bytes).hexdigest() == route['evidenceSha256']
+        evidence = json.loads(evidence_bytes)
+        contract = {key: value for key, value in route.items() if key != 'evidenceSha256'}
+        assert evidence['contractSha256'] == hashlib.sha256(canonical(contract)).hexdigest()
+        assert evidence['physicalQualification'] is False
+        assert evidence['environment'] == {key: route[key] for key in ('packageSha256','versionCode','api','signingSha256','signingHistorySha256','environment')}
+        assert evidence['block']['blockedStateVerified'] is True
+        assert evidence['unblock']['unblockedStateVerified'] is True
+        assert evidence['receiverIdentitySyntaxVerified'] is True
+        assert evidence['receivingAccountBindingVerified'] is True and evidence['nativeNameControlsVerified'] is True and evidence['stopControlVerified'] is True
+        assert evidence['liveAssertions'] >= 25 and evidence['finalObservedState'] == 'BLOCKED'
+        assert date.fromisoformat(evidence['capturedOn']) <= date.today()
+        assert 1 <= len(evidence['artifacts']) <= 4
+        for artifact in evidence['artifacts']:
+            assert re.fullmatch(r'adapters/evidence/[a-z0-9-]+\.txt', artifact['path'])
+            assert hashlib.sha256(read(artifact['path'], 128_000)).hexdigest() == artifact['sha256']
+    return {'connectedAppActionsEnabled': bool(rows or measured), 'qualifiedAdapters': sorted(ids),
+            'experimentalAdapters': [route['id'] for route in measured],
+            'supportLevel': 'emulator-experimental' if measured else 'qualified' if rows else 'unavailable',
             'compatibilitySha256': hashlib.sha256(canonical(registry)).hexdigest()}

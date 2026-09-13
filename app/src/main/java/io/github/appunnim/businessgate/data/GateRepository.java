@@ -78,6 +78,11 @@ public final class GateRepository {
     public List<Pending> pendingChoices(){return pendingChoices.list(current().namespace());}
     public Pending pendingChoice(String phone){return pendingChoices.get(current().namespace(),phone);}
     public List<BusinessNameChoice> businessNameChoices(){return published.get().names();}
+    /** Saved preference for display/retry only. Dispatch must re-read the connected profile. */
+    public boolean businessNameEnabled(Account account){
+        var policy=nameVisibilityPolicy();return account!=null&&account.namespace()==current().namespace()&&account.choice()==Choice.DEFAULT&&account.kind()==Kind.BUSINESS_CONFIRMED
+            &&!account.businessName().isEmpty()&&policy!=null&&policy.enabledNames().contains(account.businessName());
+    }
     public boolean savingBusinessName(){return nameWrite.get()!=0;}
     /** Null means a policy write or storage/account boundary is unsettled; no enforcement may use stale rules. */
     public NameVisibilityPolicy.Snapshot nameVisibilityPolicy(){
@@ -106,6 +111,7 @@ public final class GateRepository {
                     if(revision==0&&android.database.DatabaseUtils.longForQuery(db,"SELECT count(*) FROM business_name_choice",null)>=50_000)throw new Capacity();
                     db.execSQL("INSERT OR REPLACE INTO business_name_choice(namespace_id,name_key,enabled,revision) VALUES(?,?,?,?)",new Object[]{stamp.namespace(),name,enabled?1:0,revision+1});
                     db.execSQL("UPDATE namespace SET paused=1,global_revision=global_revision+1 WHERE id=?",new Object[]{stamp.namespace()});
+                    queueNameChoice(db,stamp.namespace(),name,enabled);
                     require(db,stamp);db.setTransactionSuccessful();
                 }finally{db.endTransaction();}
                 publish(db);outcome=SaveResult.SAVED;
@@ -247,13 +253,13 @@ public final class GateRepository {
     private List<Account> readAccounts(SQLiteDatabase db, long namespace, String extra, String[] args) {
         List<Account> rows = new ArrayList<>(); String[] bound = new String[args.length+1]; bound[0]=""+namespace; System.arraycopy(args,0,bound,1,args.length);
         // Fixed projection avoids per-row column-name resolution and unused cursor payload at the account ceiling.
-        String projection="a.id,a.phone,a.name,a.kind,a.choice,a.observed_state,a.gate_owned,a.revision,a.ever_business,a.review,a.hint_bits,a.dismissed_until,a.checked_at,a.last_seen,j.state,j.action,j.nonce,j.grant_created_at,j.attempts,j.updated_at,j.reason,a.search_key";
+        String projection="a.id,a.phone,CASE WHEN a.business_name<>'' THEN a.business_name ELSE a.name END,a.kind,a.choice,a.observed_state,a.gate_owned,a.revision,a.ever_business,a.review,a.hint_bits,a.dismissed_until,a.checked_at,a.last_seen,j.state,j.action,j.nonce,j.grant_created_at,j.attempts,j.updated_at,j.reason,a.search_key,a.business_name";
         try (Cursor c = db.rawQuery("SELECT "+projection+" FROM account a LEFT JOIN action_job j ON a.id=j.account_id WHERE a.namespace_id=? " + extra + " ORDER BY a.search_key,a.phone,a.id",bound)) {
             while(c.moveToNext()) rows.add(new Account(c.getLong(0),namespace,string(c,1),string(c,2),Kind.valueOf(string(c,3)),Choice.valueOf(string(c,4)),
                 BlockState.valueOf(string(c,5)),c.getInt(6)==1,c.getLong(7),c.getInt(8)==1,Review.valueOf(string(c,9)),
                 c.getInt(10),c.getLong(11),c.getLong(12),c.getLong(13),
                 c.isNull(14)?JobState.NONE:JobState.valueOf(c.getString(14)),
-                c.isNull(15)?Action.NONE:Action.valueOf(c.getString(15)),string(c,16),c.getLong(17),c.getInt(18),c.getLong(19),string(c,20),string(c,21)));
+                c.isNull(15)?Action.NONE:Action.valueOf(c.getString(15)),string(c,16),c.getLong(17),c.getInt(18),c.getLong(19),string(c,20),string(c,21),string(c,22)));
         }
         return rows;
     }
@@ -410,7 +416,7 @@ public final class GateRepository {
                     if(a==null||a.namespace()!=expected.namespace()||a.revision()!=expected.revision())throw new Stale();
                     long now=System.currentTimeMillis();
                     boolean authority=a.jobAction()==Action.BLOCK&&a.choice()!=Choice.ALLOW&&(a.kind()==Kind.BUSINESS_CONFIRMED||a.choice()==Choice.DENY_MANUAL)
-                        ||a.jobAction()==Action.UNBLOCK&&a.choice()==Choice.ALLOW&&!a.nonce().isEmpty()&&now>=a.grantCreatedAt()&&now-a.grantCreatedAt()<RuleEngine.GRANT_TTL_MS;
+                        ||a.jobAction()==Action.UNBLOCK&&(a.choice()==Choice.ALLOW||businessNameEnabled(a))&&!a.nonce().isEmpty()&&now>=a.grantCreatedAt()&&now-a.grantCreatedAt()<RuleEngine.GRANT_TTL_MS;
                     if(!authority||a.jobState()==JobState.DONE||a.jobState()==JobState.CANCELED||a.jobState()==JobState.NONE)result=RetryResult.NO_AUTHORITY;
                     else{
                         db.execSQL("UPDATE account SET revision=revision+1 WHERE id=? AND namespace_id=?",new Object[]{a.id(),stamp.namespace()});
@@ -485,19 +491,38 @@ public final class GateRepository {
             &&s.binding().receiver().equals(e.receiver())&&s.binding().adapter().equals(e.adapter())&&SystemClock.elapsedRealtime()>=e.observedElapsed()
             &&SystemClock.elapsedRealtime()-e.observedElapsed()<=RuleEngine.EVIDENCE_TTL_MS;
     }
-    public void observe(Evidence e,String name) {
+    private static void queueNameChoice(SQLiteDatabase db,long namespace,String name,boolean enabled) {
+        long now=System.currentTimeMillis();
+        db.execSQL("UPDATE account SET revision=revision+1 WHERE namespace_id=? AND business_name=? AND kind='BUSINESS_CONFIRMED' AND choice='DEFAULT'",new Object[]{namespace,name});
+        try(Cursor accounts=db.rawQuery("SELECT id,revision FROM account WHERE namespace_id=? AND business_name=? AND kind='BUSINESS_CONFIRMED' AND choice='DEFAULT'",new String[]{""+namespace,name})) {
+            while(accounts.moveToNext()) {
+                long id=accounts.getLong(0);db.delete("action_job","account_id=?",new String[]{""+id});
+                db.execSQL("INSERT INTO action_job(account_id,action,state,global_revision,account_revision,nonce,grant_created_at,created_at,updated_at) SELECT ?,?,'PENDING',global_revision,?,?,?,?,? FROM namespace WHERE id=?",
+                    new Object[]{id,enabled?"UNBLOCK":"BLOCK",accounts.getLong(1),enabled?UUID.randomUUID().toString():null,enabled?now:0,now,now,namespace});
+            }
+        }
+    }
+    public void observe(Evidence e,String name) { observe(e,name,null); }
+    public void observe(Evidence e,String name,Runnable completed) {
         long owner=epoch();if(!currentEvidence(e,owner))return;String phone=Identity.canonicalPhone(e.phone());Stamp stamp=stamp();long revision=current().globalRevision();
+        String measuredName="";
+        if(e.kind()==Kind.BUSINESS_CONFIRMED){try{measuredName=NameVisibilityPolicy.nameKey(name);}catch(IllegalArgumentException unavailable){/* No name permission can be inferred. */}}
+        final String businessName=measuredName;
         transaction(stamp,db->{
             if(!currentEvidence(e,owner)||current().globalRevision()!=revision)throw new Stale();
             if(e.kind()!=Kind.BUSINESS_CONFIRMED&&e.kind()!=Kind.REGULAR_PROFILE_OBSERVED)return;
             long now=System.currentTimeMillis();
             if(e.kind()==Kind.BUSINESS_CONFIRMED){try(Cursor c=db.rawQuery("SELECT id FROM account WHERE namespace_id=? AND phone=?",new String[]{""+stamp.namespace(),phone})){if(!c.moveToFirst())ensureCapacity(db);}}
             db.execSQL("INSERT OR IGNORE INTO account(namespace_id,phone,name,search_key,first_seen,last_seen) SELECT ?,?,?,?,?,? WHERE (SELECT count(*) FROM account)<?",new Object[]{stamp.namespace(),phone,Identity.label(name),Identity.searchKey(name),now,now,ACCOUNT_LIMIT});
+            // A name-based grant was reviewed for the old business identity, not a renamed/reclassified profile.
+            db.execSQL("UPDATE action_job SET state='CANCELED',nonce=NULL WHERE action='UNBLOCK' AND account_id IN (SELECT id FROM account WHERE namespace_id=? AND phone=? AND choice='DEFAULT' AND (business_name<>? OR kind<>?))",new Object[]{stamp.namespace(),phone,businessName,e.kind().name()});
             db.execSQL("UPDATE account SET review=CASE WHEN kind='REGULAR_PROFILE_OBSERVED' AND ?='BUSINESS_CONFIRMED' THEN 'TYPE_CHANGED' ELSE 'NONE' END,hint_bits=0,kind=?,observed_state=?,ever_business=MAX(ever_business,?),checked_at=?,last_seen=? WHERE namespace_id=? AND phone=?",new Object[]{e.kind().name(),e.kind().name(),e.blockState().name(),e.kind()==Kind.BUSINESS_CONFIRMED?1:0,now,now,stamp.namespace(),phone});
+            db.execSQL("UPDATE account SET business_name=?,search_key=CASE WHEN ?<>'' THEN ? ELSE search_key END WHERE namespace_id=? AND phone=?",new Object[]{businessName,businessName,Identity.searchKey(businessName),stamp.namespace(),phone});
+            db.execSQL("DELETE FROM action_job WHERE action='BLOCK' AND state IN ('PENDING','WAITING') AND account_id IN (SELECT a.id FROM account a WHERE a.namespace_id=? AND a.phone=? AND a.choice='DEFAULT' AND (a.kind<>'BUSINESS_CONFIRMED' OR a.business_name='' OR EXISTS(SELECT 1 FROM business_name_choice b WHERE b.namespace_id=a.namespace_id AND b.name_key=a.business_name AND b.enabled=1)))",new Object[]{stamp.namespace(),phone});
             // Reconcile only settled block jobs. An observation never completes a mutation or an unblock grant.
             db.execSQL("DELETE FROM action_job WHERE action='BLOCK' AND state IN ('DONE','CANCELED') AND account_id IN (SELECT id FROM account WHERE namespace_id=? AND phone=? AND observed_state='UNBLOCKED')",new Object[]{stamp.namespace(),phone});
-            db.execSQL("INSERT OR IGNORE INTO action_job(account_id,action,state,global_revision,account_revision,created_at,updated_at) SELECT a.id,'BLOCK','PENDING',n.global_revision,a.revision,?,? FROM account a JOIN namespace n ON n.id=a.namespace_id WHERE a.namespace_id=? AND a.phone=? AND a.choice<>'ALLOW' AND (a.kind='BUSINESS_CONFIRMED' OR a.choice='DENY_MANUAL') AND a.observed_state='UNBLOCKED'",new Object[]{now,now,stamp.namespace(),phone});
-        },null);
+            db.execSQL("INSERT OR IGNORE INTO action_job(account_id,action,state,global_revision,account_revision,created_at,updated_at) SELECT a.id,'BLOCK','PENDING',n.global_revision,a.revision,?,? FROM account a JOIN namespace n ON n.id=a.namespace_id WHERE a.namespace_id=? AND a.phone=? AND a.choice<>'ALLOW' AND (a.choice='DENY_MANUAL' OR (a.kind='BUSINESS_CONFIRMED' AND a.business_name<>'' AND NOT EXISTS(SELECT 1 FROM business_name_choice b WHERE b.namespace_id=a.namespace_id AND b.name_key=a.business_name AND b.enabled=1))) AND a.observed_state='UNBLOCKED'",new Object[]{now,now,stamp.namespace(),phone});
+        },completed);
     }
     private boolean matchesPlan(SQLiteDatabase db,Plan p,boolean verification) {
         try(Cursor c=db.rawQuery("SELECT a.phone,a.revision,j.action,j.state,j.nonce,j.generation,n.global_revision,n.receiver_binding,n.qualification_id,j.global_revision,j.account_revision,j.grant_created_at,n.consent_version FROM account a JOIN action_job j ON a.id=j.account_id JOIN namespace n ON n.id=a.namespace_id WHERE a.id=? AND n.id=? AND n.active=1",new String[]{""+p.accountId(),""+p.namespace()})) {

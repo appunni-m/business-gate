@@ -75,7 +75,8 @@ if info['minimumAndroidApi'] != 29 or info['targetAndroidApi'] != 36:
 files = [apk, apk.parent / 'build-info.json', verification_path]
 (apk.parent / 'SHA256SUMS').write_text(''.join(
     f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n' for path in files))
-capability = ('Connected-app actions are supported only for the qualified environments listed in build-info.json.'
+capability = ('Experimental connected actions support only the measured Android 36 emulator environment. Physical devices remain unsupported. See build-info.json.'
+              if compatibility.get('supportLevel') == 'emulator-experimental' else 'Connected-app actions are supported only for the qualified environments listed in build-info.json.'
               if compatibility['connectedAppActionsEnabled'] else
               '**Connected-app blocking remains disabled.** This build provides the native interface and local controls; no connected-app environment is physically qualified.')
 notes = f'''Business Gate {name} — development build.

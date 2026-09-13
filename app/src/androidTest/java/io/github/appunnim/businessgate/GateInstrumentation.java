@@ -26,7 +26,7 @@ public final class GateInstrumentation extends Instrumentation {
     private String metrics="";
     private GateRepository repository;
     @Override public void onCreate(Bundle args){arguments=args==null?new Bundle():args;super.onCreate(args);start();}
-    private void check(boolean value,String name){assertions++;recentChecks.add(assertions+": "+name);if(recentChecks.size()>8)recentChecks.remove();if(arguments!=null&&arguments.getString("trace","false").equals("true"))metrics+="TRACE "+assertions+": "+name+"\n";if(!value)throw new AssertionError(name);}
+    private void check(boolean value,String name){assertions++;recentChecks.add(assertions+": "+name);if(recentChecks.size()>8)recentChecks.remove();if(arguments!=null&&arguments.getString("trace","false").equals("true")){metrics+="TRACE "+assertions+": "+name+"\n";Bundle progress=new Bundle();progress.putString("stream","TRACE "+assertions+": "+name+"\n");sendStatus(0,progress);}if(!value)throw new AssertionError(name);}
     private void until(BooleanSupplier predicate)throws Exception{
         long deadline=android.os.SystemClock.elapsedRealtime()+10000;
         while(!predicate.getAsBoolean()){if(android.os.SystemClock.elapsedRealtime()>deadline)throw new AssertionError("Timed out waiting for committed state");Thread.sleep(20);}
@@ -40,7 +40,9 @@ public final class GateInstrumentation extends Instrumentation {
             check(getTargetContext().getPackageName().equals("io.github.appunnim.businessgate.debug"),"synthetic tests require isolated debug data");
             GateApplication app=(GateApplication)getTargetContext().getApplicationContext();until(()->app.repository()!=null);repository=app.repository();until(()->repository.current().loaded());
             String mode=arguments.getString("mode","all");
-            if(mode.equals("verify-attention")){
+            if(mode.equals("live-business")){
+                liveBusiness();
+            }else if(mode.equals("verify-attention")){
                 check(repository.businessNameChoices().stream().anyMatch(choice->choice.name().equals("Restart Shop")&&choice.enabled()),"business-name permission survives actual process death");
                 long saved=effortTotal();check(saved>=4500,"visible interval checkpoint survives actual process death");
                 Thread.sleep(5500);check(effortTotal()==saved,"startup does not resume an old attention interval or background checkpoint");
@@ -107,6 +109,109 @@ public final class GateInstrumentation extends Instrumentation {
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"; recent="+recentChecks+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
+    /** Opt-in real-account test. No reset, fixtures, database injection, or message send. */
+    private void liveBusiness()throws Exception{
+        check(arguments.getString("authorizeNativeBlockAndUnblock","").equals("true"),"explicit native mutation test authorization");
+        String phone=io.github.appunnim.businessgate.policy.Identity.canonicalPhone(arguments.getString("phone",""));
+        String pkg=arguments.getString("selectedPackage","");
+        GateApplication app=(GateApplication)getTargetContext().getApplicationContext();
+        check(app.registry().measuredRoute(getTargetContext(),pkg)!=null,"exact measured installation and environment");
+        committed(cb->repository.updateSetup("REVIEW",true,cb));
+        android.app.UiAutomation automation=getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        automation.adoptShellPermissionIdentity(android.Manifest.permission.WRITE_SECURE_SETTINGS);
+        try{
+            var resolver=getTargetContext().getContentResolver();String key=android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES;
+            String original=android.provider.Settings.Secure.getString(resolver,key);
+            String component=new android.content.ComponentName(getTargetContext(),io.github.appunnim.businessgate.service.GateAccessibilityService.class).flattenToString();
+            java.util.List<String> others=new java.util.ArrayList<>();if(original!=null)for(String entry:original.split(":"))if(!entry.isEmpty()&&!entry.equals(component))others.add(entry);
+            android.provider.Settings.Secure.putString(resolver,key,String.join(":",others));Thread.sleep(400);
+            others.add(component);android.provider.Settings.Secure.putString(resolver,key,String.join(":",others));
+            android.provider.Settings.Secure.putString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED,"1");
+        }finally{automation.dropShellPermissionIdentity();}
+        until(io.github.appunnim.businessgate.service.GateAccessibilityService::connected);
+        Activity activity=startActivitySync(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));
+        runOnMainSync(()->check(io.github.appunnim.businessgate.service.GateAccessibilityService.selectInstallation(pkg),"select measured installation"));
+        runOnMainSync(()->{
+            check(io.github.appunnim.businessgate.service.GateAccessibilityService.requestConnection(),"start real receiver navigation");
+            activity.startActivity(getTargetContext().getPackageManager().getLaunchIntentForPackage(pkg));
+        });
+        liveUntil(()->io.github.appunnim.businessgate.service.GateAccessibilityService.connectionCandidate()!=null);
+        Binding actual=io.github.appunnim.businessgate.service.GateAccessibilityService.connectionCandidate();
+        check(actual!=null&&actual.bound(),"receiver identity measured from own profile");
+        if(!repository.current().binding().equals(actual))committed(cb->repository.bindReceiver(actual,cb));
+        committed(cb->repository.updateSetup("REVIEW",true,cb));
+        runOnMainSync(()->io.github.appunnim.businessgate.service.GateAccessibilityService.selectInstallation(pkg));
+        Account existing=repository.current().accounts().stream().filter(row->row.phone().equals(phone)).findFirst().orElse(null);
+        if(existing!=null&&existing.kind()==Kind.BUSINESS_CONFIRMED){
+            check(existing.choice()==Choice.DEFAULT,"live test preserves explicit exact-number overrides");
+            saveBusinessName(existing.name(),false);
+        }
+        Account retry=repository.current().accounts().stream().filter(row->row.phone().equals(phone)&&(row.jobState()==JobState.REINSPECT||row.jobState()==JobState.FAILED)).findFirst().orElse(null);
+        if(retry!=null){
+            CountDownLatch retried=new CountDownLatch(1);java.util.concurrent.atomic.AtomicReference<GateRepository.RetryResult> outcome=new java.util.concurrent.atomic.AtomicReference<>();
+            runOnMainSync(()->repository.retryCheck(retry,value->{outcome.set(value);retried.countDown();}));
+            check(retried.await(10,TimeUnit.SECONDS)&&outcome.get()==GateRepository.RetryResult.QUEUED,"explicit live-test retry through the normal repository command");
+        }
+        Activity apply=resumeLive(activity);
+        liveRequest(()->io.github.appunnim.businessgate.service.GateAccessibilityService.requestInspect(phone),apply,pkg,"start real business inspection and block");
+        liveUntil(()->repository.current().accounts().stream().anyMatch(a->a.phone().equals(phone)&&a.jobState()==JobState.DONE&&a.blockState()==BlockState.BLOCKED));
+        Account blocked=repository.current().accounts().stream().filter(a->a.phone().equals(phone)).findFirst().orElseThrow();
+        check(blocked.kind()==Kind.BUSINESS_CONFIRMED&&blocked.gateOwned(),"real business block committed after positive profile verification");
+        check(!blocked.name().isEmpty(),"measured business name saved");
+        liveNameChoice(activity,phone,true);
+        Account enabled=repository.current().account(blocked.id());
+        check(enabled.choice()==Choice.DEFAULT&&enabled.jobAction()==Action.UNBLOCK&&!enabled.nonce().isEmpty(),"name enable creates scoped unblock grant");
+        Activity unblock=resumeLive(activity);
+        liveRequest(()->io.github.appunnim.businessgate.service.GateAccessibilityService.requestApply(enabled.id()),unblock,pkg,"start name-authorized real unblock");
+        liveUntil(()->repository.current().account(blocked.id()).jobState()==JobState.DONE&&repository.current().account(blocked.id()).blockState()==BlockState.UNBLOCKED);
+        check(repository.current().account(blocked.id()).nonce().isEmpty()&&!repository.current().account(blocked.id()).gateOwned(),"real unblock consumes grant and clears owned block");
+        liveNameChoice(activity,phone,false);
+        Activity reblock=resumeLive(activity);
+        liveRequest(()->io.github.appunnim.businessgate.service.GateAccessibilityService.requestInspect(phone),reblock,pkg,"start block after name disabled");
+        liveUntil(()->repository.current().account(blocked.id()).jobState()==JobState.DONE&&repository.current().account(blocked.id()).blockState()==BlockState.BLOCKED);
+        check(repository.current().account(blocked.id()).gateOwned(),"disabling name reapplies a verified native block");
+        resumeLive(activity);
+        long stoppedEpoch=repository.epoch();boolean[] accepted={false};
+        runOnMainSync(()->{
+            accepted[0]=io.github.appunnim.businessgate.service.GateAccessibilityService.requestInspect(phone);
+            try{
+                var connected=io.github.appunnim.businessgate.service.GateAccessibilityService.class.getDeclaredField("connected");connected.setAccessible(true);Object service=connected.get(null);
+                var overlayField=service.getClass().getDeclaredField("overlay");overlayField.setAccessible(true);Object overlay=overlayField.get(service);
+                var view=overlay.getClass().getDeclaredField("view");view.setAccessible(true);((android.widget.Button)view.get(overlay)).performClick();
+            }catch(ReflectiveOperationException failure){throw new IllegalStateException(failure);}
+        });
+        check(accepted[0]&&repository.epoch()>stoppedEpoch&&repository.disarmed(),"visible Stop button revokes the live session before navigation");
+        Thread.sleep(1200);check(repository.current().account(blocked.id()).blockState()==BlockState.BLOCKED,"Stop does not replay delayed actions or undo the verified block");
+        metrics+="LIVE finalState=BLOCKED; sentMessages=0; receiverSource=own-profile; physicalQualification=false\n";
+        resumeLive(activity);
+    }
+    private void liveNameChoice(Activity activity,String phone,boolean enable)throws Exception{
+        resumeLive(activity);
+        java.util.function.Predicate<View> toggle=v->v instanceof android.widget.Switch&&v.getContentDescription()!=null&&v.getContentDescription().toString().startsWith("Enable business name ")&&v.getContentDescription().toString().contains(phone);
+        until(()->ownsView(activity,toggle));
+        runOnMainSync(()->((android.widget.Switch)ownView(activity.getWindow().getDecorView(),toggle)).performClick());
+        android.app.AlertDialog confirmation=ownDialog(activity);check(confirmation!=null,"business-name switch requires a visible review");
+        runOnMainSync(()->confirmation.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick());
+        until(()->repository.current().accounts().stream().filter(a->a.phone().equals(phone)).anyMatch(a->repository.businessNameEnabled(a)==enable&&!repository.savingBusinessName()));
+        check(repository.current().accounts().stream().filter(a->a.phone().equals(phone)).anyMatch(a->a.choice()==Choice.DEFAULT),"native business-name switch preserves exact-number choice");
+    }
+    private void liveRequest(BooleanSupplier request,Activity activity,String pkg,String label){
+        boolean[] accepted={false};runOnMainSync(()->{accepted[0]=request.getAsBoolean();if(accepted[0])activity.startActivity(getTargetContext().getPackageManager().getLaunchIntentForPackage(pkg));});
+        check(accepted[0],label+": "+io.github.appunnim.businessgate.service.GateAccessibilityService.status());
+    }
+    private Activity resumeLive(Activity activity)throws Exception{
+        runOnMainSync(()->activity.startActivity(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)));
+        until(activity::hasWindowFocus);return activity;
+    }
+    private void liveUntil(BooleanSupplier condition)throws Exception{
+        long end=android.os.SystemClock.elapsedRealtime()+65000;
+        while(!condition.getAsBoolean()){
+            String status=io.github.appunnim.businessgate.service.GateAccessibilityService.status();
+            if(!java.util.Set.of("CHECKING_RECEIVING_ACCOUNT","APPLYING","WAITING_FOR_PROFILE","RULE_READY","VERIFIED","NO_PENDING_ACTION","RECEIVER_REVIEW_REQUIRED").contains(status))throw new AssertionError("Live session stopped: "+status);
+            if(android.os.SystemClock.elapsedRealtime()>end)throw new AssertionError("Live session did not complete: "+status);
+            Thread.sleep(100);
+        }
+    }
     private void saveBusinessName(String name,boolean enabled)throws Exception{
         CountDownLatch done=new CountDownLatch(1);java.util.concurrent.atomic.AtomicReference<GateRepository.SaveResult> outcome=new java.util.concurrent.atomic.AtomicReference<>();
         runOnMainSync(()->repository.setBusinessNameEnabled(repository.businessNameScope(),name,enabled,result->{outcome.set(result);done.countDown();}));
@@ -151,6 +256,21 @@ public final class GateInstrumentation extends Instrumentation {
         saveBusinessName("Harbor Clinic",true);
         committed(cb->{repository.bindReceiver(b,cb);check(repository.nameVisibilityPolicy()==null,"receiver switch invalidates name policy before its queued write");});check(repository.businessNameChoices().isEmpty(),"name permission cannot cross receivers");
         committed(cb->repository.bindReceiver(a,cb));check(repository.businessNameChoices().size()==1&&repository.businessNameChoices().get(0).enabled(),"returning receiver restores only its own name permission");
+        committed(cb->repository.updateSetup("REVIEW",true,cb));
+        saveBusinessName("Harbor Clinic",false);
+        committed(cb->repository.observe(new Evidence(repository.current().namespace(),"+12025550111",Kind.BUSINESS_CONFIRMED,BlockState.UNBLOCKED,android.os.SystemClock.elapsedRealtime(),1,1,a.receiver(),a.adapter(),true,true),"Harbor Clinic",cb));
+        Account observed=repository.current().accounts().stream().filter(row->row.phone().equals("+12025550111")).findFirst().orElseThrow();
+        check(observed.choice()==Choice.DEFAULT&&observed.jobAction()==Action.BLOCK,"fresh unenabled business queues block");
+        saveBusinessName("Harbor Clinic",true);Account nameAllowed=repository.current().account(observed.id());
+        check(nameAllowed.choice()==Choice.DEFAULT&&nameAllowed.jobAction()==Action.UNBLOCK&&!nameAllowed.nonce().isEmpty(),"name enable queues one-shot unblock without changing exact-number choice");
+        check(nameAllowed.revision()>observed.revision(),"name grant invalidates earlier account action revisions");
+        committed(cb->repository.observe(new Evidence(repository.current().namespace(),observed.phone(),Kind.BUSINESS_CONFIRMED,BlockState.BLOCKED,android.os.SystemClock.elapsedRealtime(),1,1,a.receiver(),a.adapter(),true,true),"Renamed Clinic",cb));
+        check(repository.current().account(observed.id()).nonce().isEmpty()&&repository.current().account(observed.id()).jobState()==JobState.CANCELED,"renamed business cannot reuse the old name's unblock grant");
+
+        committed(cb->repository.choose(observed.id(),Choice.DENY_MANUAL,cb));
+        String exactNonce=repository.current().account(observed.id()).nonce();long exactRevision=repository.current().account(observed.id()).revision();
+        saveBusinessName("Harbor Clinic",false);saveBusinessName("Harbor Clinic",true);
+        check(repository.current().account(observed.id()).choice()==Choice.DENY_MANUAL&&repository.current().account(observed.id()).revision()==exactRevision&&repository.current().account(observed.id()).nonce().equals(exactNonce),"business name commands preserve manual exact-number authority");
         CountDownLatch held=new CountDownLatch(1),release=new CountDownLatch(1),saved=new CountDownLatch(1),reset=new CountDownLatch(1);
         writer().execute(()->{held.countDown();try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}});
         check(held.await(10,TimeUnit.SECONDS),"writer held for name reset race");
@@ -1028,20 +1148,20 @@ public final class GateInstrumentation extends Instrumentation {
             db.execSQL("INSERT INTO action_job(account_id,action,state,global_revision,account_revision,nonce,created_at,updated_at) VALUES(1,'UNBLOCK','PENDING',0,0,'expired-grant',0,0)");
         }
         try(GateDbHelper helper=new GateDbHelper(isolated)){
-            SQLiteDatabase db=helper.getWritableDatabase();check(db.getVersion()==3,"real helper upgrades actual shipped schema");
+            SQLiteDatabase db=helper.getWritableDatabase();check(db.getVersion()==4,"real helper upgrades actual shipped schema");
             try(var cursor=db.rawQuery("SELECT a.choice,n.active,n.paused,n.receiver_binding,j.state,j.nonce FROM account a JOIN namespace n ON a.namespace_id=n.id JOIN action_job j ON j.account_id=a.id",null)){
                 check(cursor.moveToFirst(),"migration preserves account and job");check(cursor.getString(0).equals("ALLOW"),"migration preserves durable choice");
                 check(cursor.getInt(1)==1&&cursor.getInt(2)==1&&cursor.getString(3).isEmpty(),"migration invalidates unverified binding");
                 check(cursor.getString(4).equals("CANCELED")&&cursor.isNull(5),"migration revokes old unblock authority");
             }
-            db.setVersion(4);
+            db.setVersion(5);
         }
         try(GateDbHelper helper=new GateDbHelper(isolated)){
             boolean rejected=false;try{helper.getWritableDatabase();}catch(IllegalStateException unsupported){rejected=true;}
             check(rejected,"unsupported downgrade fails without resetting choices");
         }
         try(SQLiteDatabase db=SQLiteDatabase.openDatabase(path.getPath(),null,SQLiteDatabase.OPEN_READONLY)){
-            check(db.getVersion()==4,"rejected downgrade preserves database version");
+            check(db.getVersion()==5,"rejected downgrade preserves database version");
             try(var cursor=db.rawQuery("SELECT choice FROM account WHERE id=1",null)){check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW"),"rejected downgrade preserves choice");}
         }finally{SQLiteDatabase.deleteDatabase(path);}
         try(SQLiteDatabase db=SQLiteDatabase.openOrCreateDatabase(path,null);var input=getContext().getAssets().open("schema-v2.sql")){
@@ -1050,12 +1170,23 @@ public final class GateInstrumentation extends Instrumentation {
             db.execSQL("INSERT INTO account(namespace_id,phone,name,choice,first_seen,last_seen) VALUES(1,'+12025550101','Harbor Clinic','ALLOW',0,0),(1,'+12025550102','Harbor Clinic','DENY_MANUAL',0,0)");
         }
         try(GateDbHelper helper=new GateDbHelper(isolated)){
-            SQLiteDatabase db=helper.getWritableDatabase();check(db.getVersion()==3,"real helper upgrades the shipped v2 schema");
+            SQLiteDatabase db=helper.getWritableDatabase();check(db.getVersion()==4,"real helper upgrades the shipped v2 schema");
             check(android.database.DatabaseUtils.longForQuery(db,"SELECT count(*) FROM business_name_choice",null)==0,"v2 migration grants no business-name permissions");
             try(var cursor=db.rawQuery("SELECT choice FROM account ORDER BY phone",null)){
                 check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW"),"v2 migration preserves exact ALLOW");
                 check(cursor.moveToNext()&&cursor.getString(0).equals("DENY_MANUAL"),"v2 migration preserves exact manual DENY");
             }
+        }finally{SQLiteDatabase.deleteDatabase(path);}
+        try(SQLiteDatabase db=SQLiteDatabase.openOrCreateDatabase(path,null);var input=getContext().getAssets().open("schema-v3.sql")){
+            for(String sql:new String(io.github.appunnim.businessgate.support.Bytes.read(input),java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!sql.trim().isEmpty())db.execSQL(sql);
+            db.execSQL("INSERT INTO namespace(id,installation,active,enabled,paused) VALUES(1,'owned-v3',1,1,0)");
+            db.execSQL("INSERT INTO account(namespace_id,phone,name,choice,first_seen,last_seen) VALUES(1,'+12025550101','Harbor Clinic','ALLOW',0,0)");
+            db.execSQL("INSERT INTO business_name_choice VALUES(1,'Harbor Clinic',1,2)");
+        }
+        try(GateDbHelper helper=new GateDbHelper(isolated)){
+            SQLiteDatabase db=helper.getWritableDatabase();check(db.getVersion()==4,"real helper upgrades shipped v3 schema");
+            try(var c=db.rawQuery("SELECT name,business_name,choice FROM account",null)){check(c.moveToFirst()&&c.getString(0).equals("Harbor Clinic")&&c.getString(1).isEmpty()&&c.getString(2).equals("ALLOW"),"v3 upgrade never promotes optional labels into verified business identity");}
+            check(android.database.DatabaseUtils.longForQuery(db,"SELECT revision FROM business_name_choice",null)==2,"v3 upgrade preserves business-name permission revision");
         }finally{SQLiteDatabase.deleteDatabase(path);}
         byte[] damaged="Synthetic damaged database fixture; preserve for recovery.".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         java.nio.file.Files.write(path.toPath(),damaged);
@@ -1077,7 +1208,7 @@ public final class GateInstrumentation extends Instrumentation {
                 // WAL uses a connection pool. Bind the quota to this transaction's writer.
                 long pages=android.database.DatabaseUtils.longForQuery(db,"PRAGMA page_count",null);
                 check(db.setMaximumSize(pages*db.getPageSize())==pages*db.getPageSize(),"writer page quota applied");
-                helper.onUpgrade(db,1,3);db.setTransactionSuccessful();
+                helper.onUpgrade(db,1,4);db.setTransactionSuccessful();
             }catch(android.database.sqlite.SQLiteFullException expected){full=true;}
             finally{db.endTransaction();}
             check(full,"real Android migration reaches its SQLite page quota");
@@ -1088,7 +1219,7 @@ public final class GateInstrumentation extends Instrumentation {
             try{db.setMaximumSize(10L*1024*1024);db.setTransactionSuccessful();}finally{db.endTransaction();}
         }
         try(GateDbHelper helper=new GateDbHelper(isolated)){
-            SQLiteDatabase recovered=helper.getWritableDatabase();check(recovered.getVersion()==3,"migration retries after storage capacity returns");
+            SQLiteDatabase recovered=helper.getWritableDatabase();check(recovered.getVersion()==4,"migration retries after storage capacity returns");
             try(var cursor=recovered.rawQuery("SELECT a.choice,n.paused FROM account a JOIN namespace n ON n.id=a.namespace_id WHERE a.id=1",null)){check(cursor.moveToFirst()&&cursor.getString(0).equals("ALLOW")&&cursor.getInt(1)==1,"recovered migration keeps choice and inactive startup");}
         }finally{SQLiteDatabase.deleteDatabase(path);}
     }

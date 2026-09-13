@@ -6,6 +6,7 @@ test_dir=$(mktemp -d "${TMPDIR:-/tmp}/business-gate-tests.XXXXXX")
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 "${java_bin}javac" -encoding UTF-8 -d "$test_dir" \
  app/src/main/java/io/github/appunnim/businessgate/policy/*.java \
+ connected-route/src/main/java/io/github/appunnim/businessgate/connected/ActionEcho.java \
  app/src/main/java/io/github/appunnim/businessgate/automation/AutomationController.java \
  app/src/main/java/io/github/appunnim/businessgate/automation/BoundedNodes.java \
  app/src/main/java/io/github/appunnim/businessgate/automation/FinalDispatch.java \
@@ -13,9 +14,11 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 "${java_bin}java" -cp "$test_dir" io.github.appunnim.businessgate.policy.CoreSuite
 "${java_bin}java" -cp "$test_dir" io.github.appunnim.businessgate.policy.StructuralSuite
 "${java_bin}java" -cp "$test_dir" io.github.appunnim.businessgate.policy.NameVisibilitySuite
+"${java_bin}java" -cp "$test_dir" io.github.appunnim.businessgate.policy.ActionEchoSuite
 python3 scripts/check_schema.py
 python3 scripts/check_contrast.py
 python3 scripts/check_registry.py
+python3 scripts/test_measured_registry.py
 python3 scripts/test_resource_paths.py
 python3 scripts/check_traceability.py
 python3 scripts/test_delivery.py

@@ -18,10 +18,14 @@ import java.util.Set;
 public final class AdapterRegistry {
     private final List<JSONObject> recipes=new ArrayList<>();
     private boolean valid=true;
+    private MeasuredRouteRegistry measured;
+    private final Context context;
     public AdapterRegistry(Context context) {
+        this.context=context.getApplicationContext();
         try {
             JSONObject root=new JSONObject(new String(asset(context,"adapters/compatibility.json",512_000),StandardCharsets.UTF_8));
             if(root.getInt("schemaVersion")!=1)throw new IllegalArgumentException("BAD_REGISTRY");
+            measured=new MeasuredRouteRegistry(context,root);
             JSONArray rows=root.getJSONArray("adapters");if(rows.length()>32)throw new IllegalArgumentException("REGISTRY_TOO_LARGE");
             Set<String> ids=new HashSet<>(),environments=new HashSet<>();
             for(int i=0;i<rows.length();i++){
@@ -55,7 +59,7 @@ public final class AdapterRegistry {
                 }
                 recipes.add(row);
             }
-        }catch(Exception error){recipes.clear();valid=false;}
+        }catch(Exception error){recipes.clear();measured=null;valid=false;}
     }
     private static byte[] asset(Context context,String path,int limit)throws java.io.IOException {
         try(var stream=context.getAssets().open(path);var out=new java.io.ByteArrayOutputStream()){
@@ -68,9 +72,11 @@ public final class AdapterRegistry {
         if(values.length()<1||values.length()>8)throw new IllegalArgumentException("INVALID_SIGNING_SET");Set<String> unique=new HashSet<>();
         for(int i=0;i<values.length();i++){String value=values.getString(i);digest(value);if(!unique.add(value))throw new IllegalArgumentException("DUPLICATE_SIGNER");}
     }
-    public boolean available(){return valid&&!recipes.isEmpty();}
+    public boolean available(){return valid&&(!recipes.isEmpty()||(measured!=null&&measured.available(context)));}
+    public String measuredRoute(Context context,String pkg){return valid&&measured!=null?measured.resolve(context,pkg):null;}
+    public boolean supported(Context context,String pkg){return measuredRoute(context,pkg)!=null||resolve(context,pkg)!=null;}
     public boolean valid(){return valid;}
-    public String summary(){return available()?"A bundled integration is available. Select its installation and verify the visible receiving account.":valid?"No connected-app build is qualified in this version. Your choices stay saved. No connected-app actions can run.":"Compatibility data did not pass validation. Actions are disabled; install a verified update.";}
+    public String summary(){return available()?"Experimental connected actions are available on the measured Android 36 emulator only. Select its installation and verify the receiving account. Physical devices are not yet qualified.":valid?"No connected-app build is qualified in this version. Your choices stay saved. No connected-app actions can run.":"Compatibility data did not pass validation. Actions are disabled; install a verified update.";}
     public QualifiedAdapter resolve(Context context,String packageName) {
         if(packageName==null||!available())return null;
         try {

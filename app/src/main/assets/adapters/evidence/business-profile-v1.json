@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "user-authorized-emulator-app-session",
+  "capturedOn": "2026-09-13",
+  "physicalQualification": false,
+  "receiverIdentitySyntaxVerified": true,
+  "receivingAccountBindingVerified": true,
+  "nativeNameControlsVerified": true,
+  "stopControlVerified": true,
+  "block": {
+    "blockedStateVerified": true,
+    "positiveProfileLabel": "Unblock business"
+  },
+  "unblock": {
+    "unblockedStateVerified": true,
+    "positiveProfileLabel": "Block business",
+    "secondConfirmationScreen": false
+  },
+  "finalObservedState": "BLOCKED",
+  "sentMessages": 0,
+  "liveAssertions": 25,
+  "testedAppApkSha256": "85035a874ae680d94d9948fee6a332c8e46c7c6379d7a530c076f71bc29f7c8d",
+  "testedSessionSourceSha256": "2110311d8d3b180254ad3a85b2c215612d503e4cab137c8d6ce7b41e508a99af",
+  "environment": {
+    "packageSha256": "04a1f5ddc4e1c6d0f4b29c1a47e8f0dbf56d3303995bdce4d6e0311afeb4d001",
+    "versionCode": 263507133,
+    "api": 36,
+    "signingSha256": [
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "signingHistorySha256": [
+      "3987d043d10aefaf5a8710b3671418fe57e0e19b653c9df82558feb5ffce5d44",
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "environment": {
+      "manufacturer": "Google",
+      "model": "sdk_gphone64_arm64",
+      "deviceLocale": "en-US",
+      "fontScalePercent": 100,
+      "densityDpi": 420,
+      "orientation": 1
+    }
+  },
+  "limits": [
+    "Only this measured emulator installation and display are enabled.",
+    "No independent incoming-message attempt while blocked was observed.",
+    "Notification identity binding and dismissal remain unqualified.",
+    "Physical-device qualification is unrun.",
+    "Sessions are explicitly started in the foreground; no background activity takeover."
+  ],
+  "artifacts": [
+    {
+      "path": "adapters/evidence/business-profile-v1-live.txt",
+      "sha256": "55331f0aea86bc55d77d6ca6ad7dec70a3d781ad5899d63af31259851d4fa72f"
+    }
+  ],
+  "contractSha256": "d0d540de73288d86d13dffc921ad99c7a08c2c6d47377949dd0c94ec3b731d05"
+}

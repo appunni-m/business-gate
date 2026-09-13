@@ -54,19 +54,19 @@ public final class MeasurementActivity extends Activity {
             try {
                 if (target == null || !target.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")) throw new IllegalArgumentException("INVALID_INSTALLATION");
                 String expectedPhone = input.getStringExtra("expectedPhone"), expectedText = input.getStringExtra("expectedTextSha256");
-                if (expectedPhone != null && ((!"send-draft".equals(mode) && !"chat-node".equals(mode) && (!"node".equals(mode) || !List.of("profile", "receiver").contains(surface == null ? "" : surface)))
+                if (expectedPhone != null && ((!"send-draft".equals(mode) && !"chat-node".equals(mode) && !"profile-identity".equals(mode) && !"open-business-block".equals(mode) && !"open-business-unblock".equals(mode) && !"block-trial".equals(mode) && !"unblock-trial".equals(mode) && !mode.startsWith("scroll-profile-") && (!"node".equals(mode) || !List.of("profile", "receiver").contains(surface == null ? "" : surface)))
                     || !expectedPhone.matches("\\+[1-9][0-9]{6,14}"))) throw new IllegalArgumentException("INVALID_PHONE_EXPECTATION");
                 if (expectedText != null && ((!"send-draft".equals(mode) && (!"node".equals(mode) || !"composer".equals(surface))) || !expectedText.matches("[a-f0-9]{64}")))
                     throw new IllegalArgumentException("INVALID_DRAFT_EXPECTATION");
                 if ("send-draft".equals(mode) && (expectedPhone == null || expectedText == null)) throw new IllegalArgumentException("DRAFT_AUTHORITY_REQUIRED");
-                if ("chat-node".equals(mode) && expectedPhone == null) throw new IllegalArgumentException("RECIPIENT_AUTHORITY_REQUIRED");
+                if (("chat-node".equals(mode) || "profile-identity".equals(mode) || "open-business-block".equals(mode) || "open-business-unblock".equals(mode) || "block-trial".equals(mode) || "unblock-trial".equals(mode) || mode.startsWith("scroll-profile-")) && expectedPhone == null) throw new IllegalArgumentException("RECIPIENT_AUTHORITY_REQUIRED");
                 before = environment(context, target);
                 report = new JSONObject().put("schemaVersion", 1).put("mode", mode).put("environment", before)
-                    .put("physicalQualification", false).put("mutationPerformed", "send-draft".equals(mode))
+                    .put("physicalQualification", false).put("mutationPerformed", "send-draft".equals(mode) || "open-business-block".equals(mode) || "open-business-unblock".equals(mode) || "block-trial".equals(mode) || "unblock-trial".equals(mode))
                     .put("probeApkSha256", Neutral.digest(java.nio.file.Files.readAllBytes(new File(context.getApplicationInfo().sourceDir).toPath())))
                     .put("capturedAtUtc", java.time.Instant.now().toString());
                 if ("environment".equals(mode)) { complete(); return; }
-                if ("focus-tab".equals(mode) || "focus-overflow".equals(mode) || "focus-profile".equals(mode) || "open-profile".equals(mode) || "open-contact".equals(mode) || "send-draft".equals(mode) || "chat-node".equals(mode)) {
+                if ("focus-tab".equals(mode) || "focus-overflow".equals(mode) || "focus-profile".equals(mode) || "open-profile".equals(mode) || "open-contact".equals(mode) || "send-draft".equals(mode) || "chat-node".equals(mode) || "scroll-profile-forward".equals(mode) || "scroll-profile-backward".equals(mode) || "profile-identity".equals(mode) || "open-business-block".equals(mode) || "open-business-unblock".equals(mode) || "block-trial".equals(mode) || "unblock-trial".equals(mode) || "receiver-trial".equals(mode)) {
                     if (!Long.toString(before.getLong("versionCode")).equals(input.getStringExtra("expectedVersion"))
                         || !before.getJSONArray("signingSha256").getString(0).equals(input.getStringExtra("expectedSigner"))
                         || before.getInt("api") != input.getIntExtra("expectedApi", -1))
@@ -110,7 +110,23 @@ public final class MeasurementActivity extends Activity {
         private void capture() {
             if (!current()) return;
             try {
-                JSONObject measurement = service.capture(path, "node".equals(mode) || "navigation-label".equals(mode) || "chat-node".equals(mode), mode.startsWith("focus-") || "open-profile".equals(mode) || "open-contact".equals(mode) || "send-draft".equals(mode) || "chat-node".equals(mode) ? mode : "none", "navigation-label".equals(mode), input.getStringExtra("expectedPhone"), input.getStringExtra("expectedTextSha256"));
+                if ("receiver-trial".equals(mode)) {
+                    service.verifyReceiver(measurement -> {
+                        if (done || owner != generation) return;
+                        try { report.put("measurement", measurement).put("source", "explicit receiving-account navigation trial"); complete(); }
+                        catch (Exception failure) { fail(failure); }
+                    }, this::fail);
+                    return;
+                }
+                if ("block-trial".equals(mode) || "unblock-trial".equals(mode)) {
+                    service.blockBusiness(input.getStringExtra("expectedPhone"), "unblock-trial".equals(mode), measurement -> {
+                        if (done || owner != generation) return;
+                        try { report.put("measurement", measurement).put("mutationPerformed",measurement.getBoolean("finalActionAttempted")).put("source", "explicit exact-number action trial"); complete(); }
+                        catch (Exception failure) { fail(failure); }
+                    }, this::fail);
+                    return;
+                }
+                JSONObject measurement = service.capture(path, "node".equals(mode) || "navigation-label".equals(mode) || "profile-identity".equals(mode) || "chat-node".equals(mode), mode.startsWith("focus-") || "open-profile".equals(mode) || "open-contact".equals(mode) || "send-draft".equals(mode) || mode.startsWith("scroll-profile-") || "profile-identity".equals(mode) || "open-business-block".equals(mode) || "open-business-unblock".equals(mode) || "chat-node".equals(mode) ? mode : "none", "navigation-label".equals(mode), input.getStringExtra("expectedPhone"), input.getStringExtra("expectedTextSha256"));
                 report.put("measurement", measurement).put("source", "production-declaration developer measurement service");
                 if ("self-test".equals(mode)) {
                     if (!measurement.getBoolean("activeFocusedWindow") || measurement.getInt("acquiredNodes") != 1
@@ -134,7 +150,11 @@ public final class MeasurementActivity extends Activity {
         private void fail(Exception failure) {
             String reason = failure.getMessage();
             if (reason == null || !reason.matches("[A-Z_]{1,64}")) reason = "MEASUREMENT_FAILED";
-            try { write(new JSONObject().put("schemaVersion", 1).put("result", "failed").put("reason", reason)); }
+            try {
+                JSONObject failureReport = new JSONObject().put("schemaVersion", 1).put("result", "failed").put("reason", reason);
+                if (failure instanceof MeasurementService.TrialFailure trial) failureReport.put("trialPhase", trial.phase).put("confirmationAttempted", trial.confirmationAttempted);
+                write(failureReport);
+            }
             catch (Exception unavailable) { /* Host timeout truthfully reports a missing result. */ }
             cleanup();
         }

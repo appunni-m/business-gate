@@ -10,6 +10,7 @@ android {
         versionCode 1
         versionName '1.0'
     }
+    sourceSets.main.java.srcDir '../connected-route/src/main/java'
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17

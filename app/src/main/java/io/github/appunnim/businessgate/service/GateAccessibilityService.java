@@ -39,6 +39,7 @@ public final class GateAccessibilityService extends AccessibilityService {
     private long generation,deadline,activeAccount=-1,candidateAt;
     private String targetPackage="",reason="NO_CONNECTION",pendingObservation="",requestedPhone="";
     private Binding candidate;
+    private MeasuredSession measuredSession;
     private boolean requested,arming,checkingCompatibility,activatingRule;
     private Readiness sessionScope;
     private BoundedNodes.Budget callbackBudget;
@@ -55,6 +56,7 @@ public final class GateAccessibilityService extends AccessibilityService {
             if(active)stop();
             reason="CONSENT_REQUIRED";return;
         }
+        if(measuredSession!=null)return;
         if(activeAccount>=0&&(repository.disarmed()||repository.vetoed(activeAccount)))stop();
         else if(requested&&!arming)inspectIdleProfile();
     });
@@ -67,6 +69,11 @@ public final class GateAccessibilityService extends AccessibilityService {
     public static Binding connectionCandidate(){
         if(connected==null||connected.candidate==null||SystemClock.elapsedRealtime()-connected.candidateAt>60_000)return null;
         return connected.candidate;
+    }
+    public static boolean requestConnection(){return connected!=null&&connected.requestMeasured("",true,false,false);}
+    public static boolean requestInspect(String phone){
+        try{return connected!=null&&connected.requestMeasured(io.github.appunnim.businessgate.policy.Identity.canonicalPhone(phone),false,true,false);}
+        catch(IllegalArgumentException invalid){return false;}
     }
     public static boolean requestApply(long accountId){return connected!=null&&connected.request(false,false,accountId);}
     public static boolean requestActivation(){return connected!=null&&connected.request(false,true,-1);}
@@ -81,10 +88,15 @@ public final class GateAccessibilityService extends AccessibilityService {
     private void filter(String pkg){AccessibilityServiceInfo info=getServiceInfo();info.packageNames=new String[]{pkg};setServiceInfo(info);}
     private boolean select(String pkg){
         stop();candidate=null;targetPackage="";filter("io.github.appunnim.businessgate.disabled");
-        if(!repository.consented()||app().registry().resolve(this,pkg)==null){reason="ENVIRONMENT_UNSUPPORTED";return false;}
+        if(!repository.consented()||!app().registry().supported(this,pkg)){reason="ENVIRONMENT_UNSUPPORTED";return false;}
         targetPackage=pkg;filter(pkg);reason="OPEN_SUPPORTED_PROFILE";return true;
     }
     private boolean request(boolean checkOnly,boolean activateRule,long accountId){
+        if(app().registry().measuredRoute(this,targetPackage)!=null){
+            Account target=accountId<0?repository.current().accounts().stream().filter(Account::pending).findFirst().orElse(null):repository.current().account(accountId);
+            if(accountId>=0&&target==null)return false;
+            return requestMeasured(target==null?"":target.phone(),false,activateRule,checkOnly);
+        }
         if(repository==null||!repository.consented()||!repository.current().binding().bound()||app().registry().resolve(this,targetPackage)==null)return false;
         Account target=accountId<0?null:repository.current().account(accountId);if(accountId>=0&&target==null)return false;
         if(repository.current().circuitOpen()&&!checkOnly){reason="COMPATIBILITY_CHECK_REQUIRED";return false;}
@@ -103,6 +115,15 @@ public final class GateAccessibilityService extends AccessibilityService {
     private void handleEvent(AccessibilityEvent event){
         if(repository==null||!repository.consented()||event.getPackageName()==null)return;
         if(!targetPackage.contentEquals(event.getPackageName())){if(activeAccount!=-1)stop();return;}
+        if(measuredSession!=null){
+            if(app().registry().measuredRoute(this,targetPackage)==null){stop();reason="ENVIRONMENT_CHANGED";return;}
+            measuredSession.event(event);return;
+        }
+        if(app().registry().measuredRoute(this,targetPackage)!=null){
+            AccessibilityNodeInfo root=getRootInActiveWindow();
+            try{String receiver=io.github.appunnim.businessgate.connected.ReceivingAccountRoute.readReceiver(root,targetPackage);if(receiver!=null)measuredCandidate(receiver,SystemClock.elapsedRealtime());}
+            finally{if(root!=null)root.recycle();}return;
+        }
         QualifiedAdapter adapter=app().registry().resolve(this,targetPackage);
         if(adapter==null){stop();reason="ENVIRONMENT_CHANGED";filter("io.github.appunnim.businessgate.disabled");return;}
         // No event-origin exemption is assumed. Own-action attribution awaits measured qualification.
@@ -111,6 +132,59 @@ public final class GateAccessibilityService extends AccessibilityService {
         }
         if(activeAccount!=-1){controller.onEvent(port);return;}
         inspectIdleProfile();
+    }
+    private void measuredCandidate(String receiver,long observedAt){
+        String adapter=app().registry().measuredRoute(this,targetPackage);if(adapter==null)return;
+        candidate=new Binding(repository.installation(),AdapterRegistry.sha256(targetPackage.getBytes(StandardCharsets.UTF_8)),"user-"+android.os.Process.myUserHandle().hashCode(),receiver,adapter);
+        candidateAt=observedAt;
+    }
+    private boolean requestMeasured(String phone,boolean connectOnly,boolean activate,boolean checkOnly){
+        if(repository==null||!repository.consented()||app().registry().measuredRoute(this,targetPackage)==null||(!connectOnly&&!repository.current().binding().bound()))return false;
+        if(!connectOnly&&!checkOnly&&repository.current().circuitOpen()){reason="COMPATIBILITY_CHECK_REQUIRED";return false;}
+        stop();long owner=++generation;deadline=SystemClock.elapsedRealtime()+60_000;requested=true;reason="CHECKING_RECEIVING_ACCOUNT";
+        if(!overlay.show(this::stop)){stop();reason="STOP_CONTROL_UNAVAILABLE";return false;}
+        app().sessionAttention(true);
+        measuredSession=new MeasuredSession(new MeasuredSession.Host(){
+            public String selectedPackage(){return targetPackage;} public String adapter(){return app().registry().measuredRoute(GateAccessibilityService.this,targetPackage);}
+            public boolean active(){return owner==generation&&requested&&overlay.visible()&&SystemClock.elapsedRealtime()<deadline
+                &&getSystemService(PowerManager.class).isInteractive()&&!getSystemService(KeyguardManager.class).isKeyguardLocked();}
+            public AccessibilityNodeInfo root(){return getRootInActiveWindow();}
+            public java.util.List<android.view.accessibility.AccessibilityWindowInfo> windows(){return getWindows();}
+            public boolean back(){return performGlobalAction(GLOBAL_ACTION_BACK);}
+            public boolean clearFor(AccessibilityNodeInfo node){
+                if(!active()||node==null||!node.refresh()||!targetPackage.contentEquals(node.getPackageName()))return false;
+                Rect action=new Rect();node.getBoundsInScreen(action);if(action.isEmpty())return false;
+                var windows=getWindows();int layer=Integer.MIN_VALUE;boolean focused=false;
+                try{
+                    for(var window:windows)if(window.getId()==node.getWindowId()){layer=window.getLayer();focused=window.isActive()&&window.isFocused();}
+                    if(!focused)return false;
+                    for(var window:windows)if(window.getLayer()>layer&&!overlay.ownsWindow(window.getId())){
+                        Rect bounds=new Rect();window.getBoundsInScreen(bounds);if(Rect.intersects(action,bounds))return false;
+                    }
+                    return overlay.prepare(action);
+                }finally{for(var window:windows)window.recycle();}
+            }
+            public void open(Intent intent){
+                if(!active()||intent.resolveActivity(getPackageManager())==null){stop();reason="CONTACT_INTENT_UNAVAILABLE";return;}
+                try{startActivity(intent);}catch(RuntimeException error){stop();reason="CONTACT_INTENT_UNAVAILABLE";}
+            }
+            public void later(Runnable r,long delay){handler.postDelayed(()->{if(owner==generation)r.run();},delay);}
+            public void candidate(String receiver,long at){measuredCandidate(receiver,at);}
+            public void finished(String status){if(owner!=generation)return;measuredSession=null;finishSession();reason=status;}
+        },repository,phone,owner,connectOnly,activate,checkOnly);
+        handler.postDelayed(()->{if(owner==generation)stop();},60_000);
+        handler.postDelayed(new Runnable(){int stableWindow=-1;public void run(){
+            if(owner!=generation||measuredSession==null)return;
+            AccessibilityNodeInfo root=getRootInActiveWindow();boolean target=false;int id=-1;
+            if(root!=null&&targetPackage.contentEquals(root.getPackageName())){
+                id=root.getWindowId();for(var window:getWindows()){if(window.getId()==id)target=window.isActive()&&window.isFocused();window.recycle();}
+            }
+            if(root!=null)root.recycle();
+            if(target&&stableWindow==id)measuredSession.start();
+            else if(SystemClock.elapsedRealtime()<deadline-50_000){stableWindow=target?id:-1;handler.postDelayed(this,350);}
+            else{stop();reason="OPEN_SELECTED_APP";}
+        }},600);
+        return true;
     }
     private void inspectIdleProfile(){
         if(repository==null||!repository.consented()||targetPackage.isEmpty())return;
@@ -205,7 +279,7 @@ public final class GateAccessibilityService extends AccessibilityService {
         }
     };
     private void finishSession(){if(overlay!=null)overlay.hide();activeAccount=-1;requested=false;arming=false;checkingCompatibility=false;activatingRule=false;sessionScope=null;pendingObservation="";requestedPhone="";handler.removeCallbacksAndMessages(null);app().sessionAttention(false);}
-    private void stop(){if(repository==null)return;generation++;controller.stop(port);finishSession();repository.emergencyStop();}
+    private void stop(){if(repository==null)return;generation++;if(measuredSession!=null){var session=measuredSession;measuredSession=null;session.stop();}controller.stop(port);finishSession();repository.emergencyStop();reason="USER_STOP";}
     @Override public void onInterrupt(){stop();}
     @Override public void onDestroy(){stop();if(repository!=null)repository.removeListener(repositoryChanged);try{unregisterReceiver(screenOff);}catch(IllegalArgumentException ignored){/* Connection was never completed. */}connected=null;super.onDestroy();}
 }

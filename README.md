@@ -2,15 +2,15 @@
 
 Choose the businesses. Keep the people.
 
-A native Android app being developed to filter business notifications and conversation entry using explicitly enabled business names. It uses an original blue gate identity, Java, and Android framework components. No third-party runtime libraries, login, analytics, network permission, ads, or subscription.
+A native Android app that applies business blocking rules using explicitly enabled business names. It uses an original blue gate identity, Java, and Android framework components. No third-party runtime libraries, login, analytics, network permission, ads, or subscription.
 
-**Development build: notification filtering and conversation-entry protection are unavailable.** The native interface, local policy and persistence, safety evaluator, optional hint classifier, guarded action controller, permission disclosures, and test harness are implemented. No production integration has been physically qualified. The bundled compatibility registry is intentionally empty. This is not yet a working connected-app blocker or a paid release.
+**Experimental: native Block and Unblock are verified on one measured Android 36 emulator installation.** Business-name switches, receiving-account binding, durable action results, and Stop passed the [live app test](docs/connected-session-verification.md). Physical devices, automatic incoming discovery, and notification dismissal remain unqualified. The first message may appear; existing chats remain.
 
 ## Try the native interface
 
 [**Download the latest installable APK**](https://github.com/appunni-m/business-gate/releases/download/development/business-gate.apk) · [All builds and checksums](https://github.com/appunni-m/business-gate/releases) · [Build status](https://github.com/appunni-m/business-gate/actions/workflows/android.yml)
 
-Requires **Android 10 or newer**. Open the APK and allow installation from your browser or file manager when Android asks. No GitHub login is needed to download. Each successful `main` build publishes a signed development APK; later downloads install as updates and preserve local choices. Connected-app actions remain disabled.
+Requires **Android 10 or newer**. Open the APK and allow installation from your browser or file manager when Android asks. No GitHub login is needed to download. Each successful `main` build publishes a signed development APK; later downloads install as updates and preserve local choices. Connected actions require the exact experimental environment described in [the design](docs/name-visibility-design.md); other installations keep local choices without running actions.
 
 To build locally:
 
@@ -22,6 +22,8 @@ Use JDK 17, Android SDK Platform 36 and Build Tools 35.0.0. The verified wrapper
 ```
 
 Open **Business Gate**. Choose **Enable a number** from the overflow menu, enter the full international number and an optional local label, and save. Your preference persists without screen access. Search matches local names and number digits. The app explains that actions are paused; saving a choice never pretends to have changed another app.
+
+On the supported emulator, use **Compatibility & help** to select and verify the receiving account. Then choose **Inspect business number**. Confirmed businesses follow the business-name switch; exact-number exceptions remain in the details. Each operation is a visible session with Stop. Opening a chat may mark messages as read.
 
 There are no sample accounts on a normal installation. Screenshots and the test APK use fictional accounts inserted only by instrumentation.
 

@@ -2,5 +2,35 @@
   "schemaVersion": 1,
   "status": "awaiting-physical-qualification",
   "adapters": [],
-  "reason": "No measured receiving-account binding, screen recipe, signing lineage or physical mutation evidence has been supplied. Connected-app actions stay unavailable."
+  "reason": "No measured receiving-account binding, screen recipe, signing lineage or physical mutation evidence has been supplied. Connected-app actions stay unavailable.",
+  "measuredRoutes": [
+    {
+      "id": "business-profile-v1",
+      "supportLevel": "emulator-experimental",
+      "physicalQualification": false,
+      "foregroundSessionRequired": true,
+      "packageSha256": "04a1f5ddc4e1c6d0f4b29c1a47e8f0dbf56d3303995bdce4d6e0311afeb4d001",
+      "versionCode": 263507133,
+      "api": 36,
+      "signingSha256": [
+        "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+      ],
+      "signingHistorySha256": [
+        "3987d043d10aefaf5a8710b3671418fe57e0e19b653c9df82558feb5ffce5d44",
+        "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+      ],
+      "environment": {
+        "manufacturer": "Google",
+        "model": "sdk_gphone64_arm64",
+        "deviceLocale": "en-US",
+        "fontScalePercent": 100,
+        "densityDpi": 420,
+        "orientation": 1
+      },
+      "businessRouteSha256": "c950ffaa95a46a7abe6b27401c066688c4d72933496382eaf563dfad05f1ea45",
+      "receiverRouteSha256": "729e7833c2811354e7a0d7b0977a7ca225140307c0d752fde84c61c1b43da517",
+      "evidenceSha256": "fb730d58c4b783bcc83f9678c8bb3b027ac5c174f942b558d9bc2859e8aef9c1",
+      "actionEchoSha256": "d303bce2e4c0a368369e5b8bd973209c868d1189a34019a42b6194e221f64aad"
+    }
+  ]
 }

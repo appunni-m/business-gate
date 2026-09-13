@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "kind": "owner-authorized-emulator-business-route",
+  "environment": {
+    "packageSha256": "04a1f5ddc4e1c6d0f4b29c1a47e8f0dbf56d3303995bdce4d6e0311afeb4d001",
+    "versionCode": 263507133,
+    "signingSha256": [
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "signingHistorySha256": [
+      "3987d043d10aefaf5a8710b3671418fe57e0e19b653c9df82558feb5ffce5d44",
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "api": 36,
+    "manufacturer": "Google",
+    "model": "sdk_gphone64_arm64",
+    "deviceLocale": "en-US",
+    "fontScalePercent": 100,
+    "densityDpi": 420,
+    "orientation": 1,
+    "emulatorHint": true
+  },
+  "physicalQualification": false,
+  "productionAdapterEnabled": false,
+  "receivingAccountBindingQualified": false,
+  "codeSha256": "f86a55be5516d3b3e090dffe029fb8f7d260b7e47c6eb64302a180f3909a9fc5",
+  "probeApkSha256": "ee0a560c90d2a330c35d4af3c05a0c7b76f5e0057a4446cd88f998d5a1da0941",
+  "block": {
+    "recipientRecheckedAfter": true,
+    "blockedStateVerified": true,
+    "reportSelected": false,
+    "reason": "Other",
+    "elapsedMillis": 5356,
+    "readinessRetries": 2
+  },
+  "unblock": {
+    "recipientRecheckedAfter": true,
+    "unblockedStateVerified": true,
+    "secondConfirmationScreen": false,
+    "elapsedMillis": 2598
+  },
+  "finalObservedState": "UNBLOCKED",
+  "limits": [
+    "The shared route was run through a developer helper, not the Business Gate UI.",
+    "No independent incoming-message attempt while blocked has been observed.",
+    "Notification dismissal and persistent receiving-account binding remain unqualified.",
+    "Physical tests are unrun."
+  ],
+  "localEvidence": [
+    {
+      "file": "practical-block-wrong-recipient-01.json",
+      "sha256": "747786261c3050bd33b8e0ffeeecae7836dec8564517ed488e9c474aed09cc5b"
+    },
+    {
+      "file": "practical-block-trial-04.json",
+      "sha256": "dd56e90b91435c0e8b88dd0abd40e831aedccec5890743ad5c521d7dda54de76"
+    },
+    {
+      "file": "shared-block-trial-01.json",
+      "sha256": "43f6ee6c4f3946a2ad94c420f4f34cc00a28564f1ae77ee09c513e4b4a957f80"
+    },
+    {
+      "file": "shared-unblock-trial-01.json",
+      "sha256": "34b8d59b37207e45b26fdf36d62f682d5a62503d0495f6f2750059307ee50935"
+    },
+    {
+      "file": "practical-sendto-recipient-02.json",
+      "sha256": "0806911438a8bd60b9276003d3925113b6f72caf6ef6fec94562e5f7d429140f"
+    }
+  ],
+  "status": "Historical helper-only route measurements; current app evidence is bundled under adapters/evidence."
+}

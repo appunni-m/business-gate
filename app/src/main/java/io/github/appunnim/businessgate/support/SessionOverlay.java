@@ -6,7 +6,7 @@ import android.view.Gravity;
 import android.view.WindowManager;
 import android.widget.Button;
 
-/** A non-obscuring location must be demonstrated in each adapter's physical evidence. */
+/** A visible Stop control that moves out of the next action's bounds before dispatch. */
 public final class SessionOverlay {
     private final AccessibilityService service;
     private Button view;
@@ -23,7 +23,18 @@ public final class SessionOverlay {
         }catch(RuntimeException error){view=null;return false;}
     }
     public boolean visible(){return view!=null&&view.isAttachedToWindow();}
-    public boolean ownsWindow(int id){return visible()&&view.createAccessibilityNodeInfo().getWindowId()==id;}
+    @SuppressWarnings("deprecation") public boolean ownsWindow(int id){
+        if(!visible())return false;var node=view.createAccessibilityNodeInfo();try{return node.getWindowId()==id;}finally{node.recycle();}
+    }
+    /** Return false during relocation; the route must re-inspect on its next bounded tick. */
+    public boolean prepare(android.graphics.Rect action){
+        if(!visible()||action.isEmpty())return false;
+        if(clearOf(action))return true;
+        var params=(WindowManager.LayoutParams)view.getLayoutParams();
+        params.gravity=params.gravity==(Gravity.TOP|Gravity.CENTER_HORIZONTAL)?Gravity.BOTTOM|Gravity.END:Gravity.TOP|Gravity.CENTER_HORIZONTAL;
+        try{service.getSystemService(WindowManager.class).updateViewLayout(view,params);}catch(RuntimeException unavailable){return false;}
+        return false;
+    }
     public boolean clearOf(android.graphics.Rect target){
         if(!visible()||!view.isShown()||target.isEmpty())return false;
         int[] position=new int[2];view.getLocationOnScreen(position);

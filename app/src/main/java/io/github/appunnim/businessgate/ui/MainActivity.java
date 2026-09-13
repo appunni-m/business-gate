@@ -218,6 +218,7 @@ public final class MainActivity extends Activity {
         else if(s.circuitOpen())text="Blocking paused · compatibility check required";
         else if(!s.binding().bound())text="Verify the receiving account before applying choices.";
         else if(repository.disarmed()||s.paused()||!s.enabled())text="Rule off · no new blocks will run";
+        else if(app.registry().measuredRoute(this,GateAccessibilityService.packageSelected())!=null)text="Rule saved · start a visible session to apply new choices";
         else text=s.pending()>0?"Rule on · "+getResources().getQuantityString(R.plurals.waiting_actions,s.pending(),s.pending()):"Rule on. Checks run in supported visible screens.";
         if(!status.getText().toString().equals(text))status.setText(text);
         pause.setText(!repository.disarmed()&&s.enabled()&&!s.paused()?"Pause":"Resume");
@@ -232,7 +233,7 @@ public final class MainActivity extends Activity {
             if(!account.pending()||account.jobState()==JobState.FAILED||account.kind()==Kind.NON_DIRECT||account.kind()==Kind.AMBIGUOUS)continue;
             if(io.github.appunnim.businessgate.policy.RetryPolicy.eligibility(account.attempts(),account.jobUpdatedAt(),now)!=io.github.appunnim.businessgate.policy.RetryPolicy.Eligibility.READY)continue;
             if(account.jobAction()==Action.BLOCK&&state.enabled()&&!state.paused()&&account.choice()!=Choice.ALLOW&&(account.choice()==Choice.DENY_MANUAL||account.kind()==Kind.BUSINESS_CONFIRMED))count++;
-            else if(account.jobAction()==Action.UNBLOCK&&account.choice()==Choice.ALLOW&&!account.nonce().isEmpty()&&now>=account.grantCreatedAt()&&now-account.grantCreatedAt()<io.github.appunnim.businessgate.policy.RuleEngine.GRANT_TTL_MS)count++;
+            else if(account.jobAction()==Action.UNBLOCK&&(account.choice()==Choice.ALLOW||repository.businessNameEnabled(account))&&!account.nonce().isEmpty()&&now>=account.grantCreatedAt()&&now-account.grantCreatedAt()<io.github.appunnim.businessgate.policy.RuleEngine.GRANT_TTL_MS)count++;
         }
         return count;
     }
@@ -250,8 +251,8 @@ public final class MainActivity extends Activity {
             if(!s.consent())rows.add(new Row(-1,"setup","",null));
             else if(!app.registry().available()||!GateAccessibilityService.connected())rows.add(new Row(-2,"compatibility","",null));
         }
-        List<Account> enabled=matches.stream().filter(Account::businessRow).filter(a->a.choice()==Choice.ALLOW).collect(java.util.stream.Collectors.toList());
-        List<Account> denied=matches.stream().filter(Account::businessRow).filter(a->a.choice()!=Choice.ALLOW).collect(java.util.stream.Collectors.toList());
+        List<Account> enabled=matches.stream().filter(Account::businessRow).filter(a->a.choice()==Choice.ALLOW||repository.businessNameEnabled(a)).collect(java.util.stream.Collectors.toList());
+        List<Account> denied=matches.stream().filter(Account::businessRow).filter(a->a.choice()!=Choice.ALLOW&&!repository.businessNameEnabled(a)).collect(java.util.stream.Collectors.toList());
         group(-10,"ENABLED BY YOU",enabled);group(-11,"NOT ENABLED",denied);
         List<Account> review=matches.stream().filter(a->!a.businessRow()&&a.choice()==Choice.DEFAULT&&a.review()!=Review.NONE).collect(java.util.stream.Collectors.toList());
         if(!review.isEmpty()){
@@ -278,7 +279,8 @@ public final class MainActivity extends Activity {
         PopupMenu menu=new PopupMenu(this,anchor);
         String[] items={"Enable a number","Settings & privacy","Compatibility & help","Clear local data"};
         for(int i=0;i<items.length;i++)menu.getMenu().add(0,i,i,items[i]);
-        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();default->{}}return true;});menu.show();
+        if(repository.current().binding().bound()&&app.registry().available())menu.getMenu().add(0,4,4,"Inspect business number");
+        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();case 4->inspectBusiness();default->{}}return true;});menu.show();
     }
     private DialogScope dialogScope(){return new DialogScope(repository.choiceScope(),repository.dataIdentity(),repository.current().globalRevision(),repository.epoch());}
     private boolean currentDialog(DialogScope scope){
@@ -420,17 +422,18 @@ public final class MainActivity extends Activity {
         Intent launcher=getPackageManager().getLaunchIntentForPackage(data.getComponent().getPackageName());
         if(launcher==null||launcher.getComponent()==null){announce("The selected installation has no available launcher.");return;}
         Intent open=new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(launcher.getComponent());
-        dialog("Verify the receiving account").setMessage("Open a supported account profile, then return here and choose Review receiving account. Only a measured full receiving-account identity can connect your choices.")
-            .setNegativeButton("Later",null).setPositiveButton("Open selected app",(d,w)->{try{startActivity(open);}catch(android.content.ActivityNotFoundException error){announce("The selected installation is no longer available.");}}).show();
+        dialog("Verify the receiving account").setMessage("Business Gate will open Settings and verify the full receiving-account number. Return here and choose Review receiving account to connect it. A visible Stop button ends the check.")
+            .setNegativeButton("Later",null).setPositiveButton("Open selected app",(d,w)->{try{GateAccessibilityService.requestConnection();startActivity(open);}catch(android.content.ActivityNotFoundException error){GateAccessibilityService.stopNow();announce("The selected installation is no longer available.");}}).show();
     }
     private void reviewReceiver(){
         if(!app.registry().available()){compatibility();return;}
         Binding candidate=GateAccessibilityService.connectionCandidate();
         if(candidate==null){announce("Select the installation and open a supported profile to verify its receiving account.");return;}
+        String selected=GateAccessibilityService.packageSelected();
         dialog("Connect this receiving account?").setMessage("Receiving account: "+candidate.receiver()+"\n\nChoices for other receiving accounts stay separate. Unconnected choices are not transferred.\n\n"+getString(R.string.access_disclosure))
             .setNegativeButton("Cancel",null).setPositiveButton("Agree and connect",(d,w)->{
                 if(!candidate.equals(GateAccessibilityService.connectionCandidate())){announce("The account check expired. Open the supported profile again.");return;}
-                repository.bindReceiver(candidate,()->repository.updateSetup("REVIEW",true,()->announce("Receiving account connected. Review its exact-number choices before starting.")));
+                repository.bindReceiver(candidate,()->repository.updateSetup("REVIEW",true,()->{GateAccessibilityService.selectInstallation(selected);announce("Receiving account connected. Review its business choices before starting.");}));
             }).show();
     }
     private void startRequestedSession(){
@@ -450,18 +453,30 @@ public final class MainActivity extends Activity {
         if(open==null){GateAccessibilityService.stopNow();announce("Select the connected installation again.");return;}
         try{startActivity(open);}catch(android.content.ActivityNotFoundException error){GateAccessibilityService.stopNow();announce("The selected installation is unavailable.");}
     }
+    private void inspectBusiness(){
+        EditText phone=new EditText(this);phone.setHint("+ country code and number");phone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        dialog("Inspect and apply business rule").setMessage("Enter the exact business number. Business Gate will verify the receiving account, open this profile, and block it if its verified business name is not enabled. Personal or uncertain profiles stop the session. The chat may be marked as read.")
+            .setView(phone).setNegativeButton("Cancel",null).setPositiveButton("Inspect and apply",(d,w)->{
+                if(!resumed||!GateAccessibilityService.requestInspect(phone.getText().toString())){announce("A connected account and full phone number are required.");return;}
+                Intent open=getPackageManager().getLaunchIntentForPackage(GateAccessibilityService.packageSelected());
+                if(open==null){GateAccessibilityService.stopNow();return;}try{startActivity(open);}catch(RuntimeException error){GateAccessibilityService.stopNow();}
+            }).show();
+    }
     private void compatibility(){
         LinearLayout box=Ui.column(this);Ui.pad(box,24,8);
         box.addView(Ui.text(this,"Your choices are safe here.",18,R.color.ink,true));Ui.gap(box,8);
         box.addView(Ui.text(this,app.registry().summary(),14,R.color.muted,false));Ui.gap(box,12);
-        box.addView(Ui.text(this,"This build needs measured screen controls, exact receiver binding and physical block/unblock verification before connecting. The first message may arrive. Existing blocks stay as they are.",14,R.color.muted,false));Ui.gap(box,12);
+        box.addView(Ui.text(this,"Connected actions currently support the measured emulator only. Each visible session rechecks the receiving account and the exact business number. The first message may arrive, and opening a chat may mark messages as read. Existing chats remain.",14,R.color.muted,false));Ui.gap(box,12);
         box.addView(Ui.text(this,"Screen access: "+(GateAccessibilityService.connected()?"connected":"off")+"\nAndroid API: "+Build.VERSION.SDK_INT+"\nApp version: "+BuildConfig.VERSION_NAME,13,R.color.muted,false));
         if(app.registry().available()){
             box.addView(Ui.button(this,"Select connected installation",false,()->{dismissDialogs();selectInstallation();}));
             box.addView(Ui.button(this,"Review receiving account",false,()->{dismissDialogs();reviewReceiver();}));
         }
         box.addView(Ui.button(this,"Manage unconnected choices",false,()->{dismissDialogs();GateAccessibilityService.stopNow();repository.localChoices(()->announce("Managing unconnected choices. Nothing is applied to a receiving account."));}));
-        if(app.registry().available()&&repository.current().binding().bound())box.addView(Ui.button(this,"Check visible profile",false,()->startRequestedSession(true)));
+        if(app.registry().available()&&repository.current().binding().bound()){
+            box.addView(Ui.button(this,"Check receiving account",false,()->startRequestedSession(true)));
+            box.addView(Ui.button(this,"Inspect business number",true,()->{dismissDialogs();inspectBusiness();}));
+        }
         box.addView(Ui.button(this,"About visible scans",false,()->dialog("Visible scan disclosure").setMessage(R.string.scan_disclosure).setPositiveButton("Understood",null).show()));
         dialog("Compatibility & help").setView(Ui.scroll(this,box)).setNegativeButton("Close",null).setPositiveButton("View diagnostics",(d,w)->diagnostics()).show();
     }
@@ -490,7 +505,7 @@ public final class MainActivity extends Activity {
     private void businessNames(){
         java.util.List<GateRepository.BusinessNameChoice> choices=repository.businessNameChoices();
         DialogScope scope=dialogScope();AlertDialog.Builder review=dialog("Business name choices");
-        if(choices.isEmpty())review.setMessage("No business names are enabled. Add an exact business name to save permission for this receiving account. Notification and conversation filtering are not active in this build.");
+        if(choices.isEmpty())review.setMessage("No business names are enabled. Add an exact business name to save permission for this receiving account. Apply choices in a supported visible session. The first message may appear; existing chats remain.");
         else{
             String[] labels=choices.stream().map(choice->choice.name()+" · "+(choice.enabled()?"Enabled":"Not enabled")).toArray(String[]::new);
             review.setItems(labels,(d,which)->{
@@ -513,7 +528,7 @@ public final class MainActivity extends Activity {
             form.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);form.getButton(AlertDialog.BUTTON_POSITIVE).setText("Saving…");
             repository.setBusinessNameEnabled(scope,exact,true,result->{
                 if(!form.isShowing()||!resumed)return;
-                if(result==GateRepository.SaveResult.SAVED){form.dismiss();announce("Business name enabled locally. Filtering is not active.");}
+                if(result==GateRepository.SaveResult.SAVED){form.dismiss();announce("Business name enabled. Apply pending to update the connected app.");}
                 else{form.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);form.getButton(AlertDialog.BUTTON_POSITIVE).setText("Enable");name.setError(result==GateRepository.SaveResult.FAILED?"Not saved. Keep this name and check storage before retrying.":"Choices changed or a save is pending. Reopen this form and try again.");}
             });
         });});form.show();
@@ -521,10 +536,10 @@ public final class MainActivity extends Activity {
     private void confirmBusinessName(String name,boolean enabled){
         GateRepository.BusinessNameScope scope=repository.businessNameScope();
         dialog(enabled?"Enable this business name?":"Remove this name's permission?")
-            .setMessage(name+"\n\n"+(enabled?"Permit confirmed businesses with this exact name in this receiving account.":"This name will no longer grant permission. Number-specific choices remain unchanged.")+"\n\nNotification and conversation filtering are not active in this build.")
+            .setMessage(name+"\n\n"+(enabled?"Permit confirmed businesses with this exact name in this receiving account.":"This name will no longer grant permission. Number-specific choices remain unchanged.")+"\n\nApply choices in a supported visible session. The first message may appear; existing chats remain.")
             .setNegativeButton("Cancel",null).setPositiveButton(enabled?"Enable":"Remove permission",(d,w)->repository.setBusinessNameEnabled(scope,name,enabled,result->{
                 if(!resumed)return;
-                announce(result==GateRepository.SaveResult.SAVED?"Business name choice saved locally.":"Not saved. Review the current choices and retry.");
+                announce(result==GateRepository.SaveResult.SAVED?"Business name choice saved. Start a visible session to apply it.":"Not saved. Review the current choices and retry.");
             })).show();
     }
     private View settingSwitch(String label,java.util.function.BooleanSupplier current,java.util.function.Consumer<Boolean> change){
@@ -567,9 +582,9 @@ public final class MainActivity extends Activity {
             if(a.jobState()==JobState.REINSPECT||a.jobState()==JobState.VERIFYING||a.jobState()==JobState.ACTION_INTENT)return "Action result not verified · check needed";
             return a.jobAction()==Action.UNBLOCK?"Enabled · unblocking pending":a.choice()==Choice.DENY_MANUAL?"Your block is pending":"Block pending";
         }
-        if(a.choice()==Choice.ALLOW&&a.blockState()==BlockState.BLOCKED)return "Enabled here; blocked in connected app";
+        if((a.choice()==Choice.ALLOW||repository.businessNameEnabled(a))&&a.blockState()==BlockState.BLOCKED)return "Enabled here; blocked in connected app";
         if(a.blockState()==BlockState.BLOCKED)return "Blocked · last checked "+relative(a.checkedAt());
-        if(a.choice()==Choice.ALLOW)return a.blockState()==BlockState.UNBLOCKED?"Enabled · unblocked":"Enabled · not checked yet";
+        if(a.choice()==Choice.ALLOW||repository.businessNameEnabled(a))return a.blockState()==BlockState.UNBLOCKED?"Enabled · unblocked":"Enabled · not checked yet";
         if(a.kind()==Kind.REGULAR_PROFILE_OBSERVED)return "Not subject to automatic blocking";
         return "Block state not verified";
     }
@@ -694,8 +709,18 @@ public final class MainActivity extends Activity {
         existing.avatar().setText(initials);existing.name().setText(label);existing.number().setText(a.phone());existing.subtitle().setText(sub);
         LinearLayout info=existing.info();info.setContentDescription(label+", "+a.phone()+", "+sub+". "+(expanded==a.id()?"Collapse details":"Show details"));info.setOnClickListener(v->{expanded=expanded==a.id()?-1:a.id();render();});focus.mark(info,a.phone(),"details");
         if(existing.toggle()!=null){
-            Switch sw=existing.toggle();sw.setOnCheckedChangeListener(null);Pending pending=repository.pendingChoice(a.phone());sw.setChecked((pending==null||pending.failed()?a.choice():pending.choice())==Choice.ALLOW);
-            sw.setContentDescription("Enable "+label+", "+a.phone()+". "+sub);sw.setOnCheckedChangeListener((button,on)->choose(a,on?Choice.ALLOW:Choice.DEFAULT));focus.mark(sw,a.phone(),"switch");
+            Switch sw=existing.toggle();sw.setOnCheckedChangeListener(null);Pending pending=repository.pendingChoice(a.phone());boolean byName=!a.businessName().isEmpty()&&a.kind()==Kind.BUSINESS_CONFIRMED&&a.choice()==Choice.DEFAULT&&pending==null;
+            sw.setChecked(byName?repository.businessNameEnabled(a):(pending==null||pending.failed()?a.choice():pending.choice())==Choice.ALLOW);
+            sw.setEnabled(!repository.savingBusinessName());
+            sw.setContentDescription((byName?"Enable business name ":"Enable ")+label+", "+a.phone()+". "+sub);
+            sw.setOnCheckedChangeListener((button,on)->{
+                if(byName){
+                    boolean saved=repository.businessNameEnabled(a);if(on==saved)return;button.setChecked(saved);
+                    Account latest=repository.current().account(a.id());
+                    if(latest==null||latest.namespace()!=a.namespace()||latest.revision()!=a.revision()||!latest.businessName().equals(a.businessName())){refresh();return;}
+                    confirmBusinessName(a.businessName(),on);
+                }else choose(a,on?Choice.ALLOW:Choice.DEFAULT);
+            });focus.mark(sw,a.phone(),"switch");
         }
         if(row.type().equals("review")){
             Ui.gap(box,8);box.addView(Ui.text(this,a.kind()==Kind.REGULAR_PROFILE_OBSERVED?"No business badge seen":"Account type not checked",13,R.color.muted,false));
@@ -705,12 +730,13 @@ public final class MainActivity extends Activity {
         }
         if(expanded==a.id()){
             Ui.gap(box,12);String checked=a.checkedAt()>0?DateFormat.getDateTimeInstance().format(new Date(a.checkedAt())):"Not checked";
-            box.addView(Ui.text(this,"Only "+a.phone()+" follows this choice. A new number needs its own permission.\n\nLast account check: "+checked+"\n"+(a.kind()==Kind.BUSINESS_CONFIRMED?"Business account observed.":"No current business authority.")+"\nYour choice: "+(a.choice()==Choice.ALLOW?"keep enabled":a.choice()==Choice.DENY_MANUAL?"manually block this number":"apply the business rule")+".\n\nThe switch is your preference; a pending action is not proof of a completed block. Exact-number choices remain until you change them, even if a number changes owner.",13,R.color.muted,false));
+            box.addView(Ui.text(this,(a.businessName().isEmpty()?"Only "+a.phone()+" follows this choice. A new number needs its own permission.":"Verified business name: "+a.businessName()+". Name permission applies to confirmed businesses with exactly this name. Exact-number exceptions take precedence.")+"\n\nLast account check: "+checked+"\n"+(a.kind()==Kind.BUSINESS_CONFIRMED?"Business account observed.":"No current business authority.")+"\nYour choice: "+(a.choice()==Choice.ALLOW?"keep enabled":a.choice()==Choice.DENY_MANUAL?"manually block this number":"apply the business rule")+".\n\nThe switch is your preference; a pending action is not proof of a completed block. Exact-number choices remain until you change them, even if a number changes owner.",13,R.color.muted,false));
             Pending unsaved=repository.pendingChoice(a.phone());
             if(unsaved!=null&&unsaved.failed()){
                 box.addView(Ui.text(this,"Requested: "+choiceLabel(unsaved.choice())+"\nSaved choice: "+choiceLabel(a.choice())+"\nThis unsaved change must be entered again if the app closes before it is saved.",13,R.color.amber,false));
                 box.addView(rowButton(a,"Retry save","retry-save",()->retrySave(unsaved)));
             }
+            if(!a.businessName().isEmpty()&&a.choice()==Choice.DEFAULT)box.addView(rowButton(a,"Always enable this number","enable-number",()->choose(a,Choice.ALLOW)));
             if(a.choice()==Choice.ALLOW&&a.blockState()!=BlockState.UNBLOCKED)box.addView(rowButton(a,"Unblock now","unblock",()->unblockNow(a)));
             if(row.type().equals("person"))box.addView(rowButton(a,a.choice()==Choice.ALLOW?"Kept · never auto-blocked":"Keep this number","keep",()->choose(a,Choice.ALLOW)));
             if(a.pending()||a.jobState()==JobState.FAILED)box.addView(rowButton(a,"Retry check","retry-check",()->retryCheck(a)));

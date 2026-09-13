@@ -38,6 +38,32 @@ class MeasurementReports(unittest.TestCase):
         for value in ({}, {**self.valid(), 'schemaVersion': 2}):
             with self.assertRaises(ValueError): module.parse_report(self.wire(value))
 
+    def trial(self, mode, mutated=True):
+        return {**self.valid(), 'mode': mode, 'mutationPerformed': mutated,
+                'measurement': {'finalActionAttempted': mutated, 'recipientRecheckedAfter': True,
+                    'reportSelected': False, 'blockedStateVerified': mode == 'block-trial',
+                    'unblockedStateVerified': mode == 'unblock-trial',
+                    'secondConfirmationScreen': mode == 'block-trial' and mutated}}
+
+    def test_action_trial_distinguishes_direct_unblock_and_noop(self):
+        for mode in ('block-trial', 'unblock-trial'):
+            for mutated in (True, False):
+                value=self.trial(mode,mutated)
+                self.assertEqual(module.parse_report(self.wire(value),mode),value)
+
+    def test_action_trial_rejects_wrong_state_and_false_mutation_claim(self):
+        for mode in ('block-trial','unblock-trial'):
+            for field in ('finalActionAttempted','recipientRecheckedAfter','reportSelected','blockedStateVerified','unblockedStateVerified','secondConfirmationScreen'):
+                value=self.trial(mode);value['measurement'][field]=not value['measurement'][field]
+                with self.subTest(mode=mode,field=field), self.assertRaises(ValueError):module.parse_report(self.wire(value),mode)
+
+    def test_receiver_trial_needs_both_identity_checks(self):
+        value={**self.valid(),'mode':'receiver-trial','measurement':{'receiverIdentityPresent':True,'receiverIdentitySyntaxVerified':True,'navigationAction':'receiver-trial'}}
+        self.assertEqual(module.parse_report(self.wire(value),'receiver-trial'),value)
+        for field in ('receiverIdentityPresent','receiverIdentitySyntaxVerified'):
+            changed={**value,'measurement':{**value['measurement'],field:False}}
+            with self.assertRaises(ValueError):module.parse_report(self.wire(changed),'receiver-trial')
+
     def test_bounded_output(self):
         with self.assertRaises(ValueError): module.parse_report(self.wire(self.valid()) + 'x' * 32_000)
 

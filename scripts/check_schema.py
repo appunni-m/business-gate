@@ -144,4 +144,27 @@ reject("INSERT INTO business_name_choice VALUES(1,'Harbor Clinic',0,2)")
 conn.execute('DELETE FROM namespace WHERE id=1')
 assert conn.execute('SELECT count(*) FROM business_name_choice').fetchone()[0]==0
 checks+=1
+# Shipped v3 choices survive an interrupted observed-name upgrade; aliases remain unverified.
+v3 = Path('app/src/androidTest/assets/schema-v3.sql').read_text()
+observed_migration = [sql.strip() for sql in Path('app/src/main/assets/migrations/3-4.sql').read_text().split(';') if sql.strip()]
+with tempfile.TemporaryDirectory(prefix='business-gate-observed-name-') as directory:
+    for cut in range(1,len(observed_migration)+1):
+        path=Path(directory)/f'v3-{cut}.db'
+        db=sqlite3.connect(path);db.executescript(v3)
+        db.execute("INSERT INTO namespace(id,installation,active,enabled,paused) VALUES(1,'v3-fixture',1,1,0)")
+        db.execute("INSERT INTO account(namespace_id,phone,name,choice,first_seen,last_seen) VALUES(1,'+12025550101','Harbor Clinic','ALLOW',0,0)")
+        db.execute("INSERT INTO business_name_choice VALUES(1,'Harbor Clinic',1,2)");db.commit();db.close()
+        result=subprocess.run([sys.executable,'-c',worker,str(path)],input=json.dumps(observed_migration[:cut]),text=True)
+        assert result.returncode==73
+        with contextlib.closing(sqlite3.connect(path)) as reopened:
+            assert reopened.execute('PRAGMA user_version').fetchone()[0]==3
+            assert 'business_name' not in [r[1] for r in reopened.execute('PRAGMA table_info(account)')]
+            assert reopened.execute('SELECT choice FROM account').fetchone()==('ALLOW',)
+            reopened.execute('BEGIN IMMEDIATE')
+            for statement in observed_migration: reopened.execute(statement)
+            reopened.execute('PRAGMA user_version=4');reopened.commit()
+            assert reopened.execute('SELECT name,business_name,choice FROM account').fetchone()==('Harbor Clinic','','ALLOW')
+            assert reopened.execute('SELECT enabled,revision FROM business_name_choice').fetchone()==(1,2)
+            assert reopened.execute('SELECT paused FROM namespace').fetchone()==(1,)
+        checks+=6
 print(f'PASS {checks} schema, migration interruption, quota failure and recovery checks')

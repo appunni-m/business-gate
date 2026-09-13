@@ -2,7 +2,7 @@
 
 Prepared 10 September 2026 against commit `092ce8f` and installed release `0.1.0-dev.5.1` (`100501`). This is an implementation plan, not a claim that the listed fixes or qualification tests have passed.
 
-**Current next-work plan:** read the [design and completion plan](completion-design-plan.md), prepared against published build `102001`, before further execution. It provides screen layouts, state copy, focus/keyboard/dialog behavior, sequenced work packages and acceptance gates. The [workflow review](workflow-review.md) verifies the latest delivery. The defect descriptions below retain their original baseline; use the [execution status](execution-status.md) for their current disposition.
+**Current scope and evidence:** the accepted [business-name design](name-visibility-design.md) supersedes the earlier zero-preview requirement. Use the [execution status](execution-status.md) and [live session verification](connected-session-verification.md) for current results and remaining gaps. The baseline defect descriptions below are historical; the [workflow review](workflow-review.md) records the specific older run it inspected.
 
 ## Outcome and current baseline
 

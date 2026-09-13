@@ -15,7 +15,6 @@ CREATE TABLE account (
  id INTEGER PRIMARY KEY, namespace_id INTEGER NOT NULL REFERENCES namespace(id),
  phone TEXT NOT NULL CHECK(length(phone) BETWEEN 8 AND 16 AND substr(phone,1,1)='+' AND substr(phone,2,1) BETWEEN '1' AND '9' AND substr(phone,2) NOT GLOB '*[^0-9]*'),
  name TEXT NOT NULL DEFAULT '', search_key TEXT NOT NULL DEFAULT '',
- business_name TEXT NOT NULL DEFAULT '' CHECK(length(business_name)<=120),
  kind TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK(kind IN ('UNKNOWN','BUSINESS_CONFIRMED','REGULAR_PROFILE_OBSERVED','AMBIGUOUS','NON_DIRECT')),
  choice TEXT NOT NULL DEFAULT 'DEFAULT' CHECK(choice IN ('DEFAULT','ALLOW','DENY_MANUAL')),
  observed_state TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK(observed_state IN ('UNKNOWN','BLOCKED','UNBLOCKED')),
@@ -28,7 +27,6 @@ CREATE TABLE account (
  UNIQUE(namespace_id,phone)
 );
 CREATE INDEX account_search ON account(namespace_id,search_key,id);
-CREATE INDEX account_business_name ON account(namespace_id,business_name,id);
 CREATE INDEX account_retention ON account(last_seen,choice,ever_business);
 CREATE TABLE action_job (
  account_id INTEGER PRIMARY KEY REFERENCES account(id) ON DELETE CASCADE,
@@ -61,4 +59,4 @@ CREATE TABLE business_name_choice (
  revision INTEGER NOT NULL CHECK(revision>=1),
  PRIMARY KEY(namespace_id,name_key)
 );
-PRAGMA user_version=4;
+PRAGMA user_version=3;

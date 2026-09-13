@@ -1,6 +1,6 @@
 # Qualifying a connected-app integration
 
-The production registry is empty and connected-app actions remain unavailable. The receiver account is reported installed in the test emulator. A consenting test sender and physical-device evidence are still missing. No real block/unblock result is recorded.
+The physical-adapter registry remains empty. A separate experimental contract now enables the exact measured emulator installation and display. Native Block, Unblock, receiving-account binding, name controls, and Stop passed the [live app verification](connected-session-verification.md). A controlled incoming attempt, notification binding, and physical-device evidence remain missing.
 
 ## Acquire measurements before enabling a contract
 
@@ -13,7 +13,7 @@ Measure these boundaries:
 1. Authoritative receiving-account identity, independent of the sender's full number, with no policy transfer across receivers, profiles, clones, or installations.
 2. Full one-to-one profile structure, exact number, explicit business/regular signatures, and fresh blocked/unblocked state. A missing business badge alone does not prove a regular account.
 3. Bounded root-to-field paths, ancestor structure, resource suffixes, classes, expected labels, unique controls, and report/delete/other side-effect exclusions, including disabled and checked controls.
-4. Entry, confirmation, and positive result screens with an uninterrupted identity chain. The current parser requires sender and receiver identity on each supported screen. A name-only dialog requires separately implemented and proven binding; it remains unsupported.
+4. Entry, confirmation, and positive result screens with an uninterrupted identity chain. The legacy physical parser requires sender and receiver identity on each supported screen. The experimental route separately verifies the receiver, then preserves a finite exact-number profile-to-form binding; see its accepted design and source-bound live evidence.
 5. Navigation's unread/read-receipt effects. Automatic routes must preserve them. A read-affecting visible scan requires explicit scoped consent and separate implementation. No route may inspect message subtrees or use coordinates/gestures.
 6. Real Stop, app switch, lock, IME/system windows, overlay placement, user interaction, action-event ordering, slow UI, policy changes, process death, and uncertain results.
 7. Independently checked sender delivery and receiver state. A click return, local job, or screenshot of Business Gate's own subtitle is insufficient proof.

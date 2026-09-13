@@ -60,7 +60,9 @@ class MetadataTests(unittest.TestCase):
         manifest = Path('output/delivery/verification.json')
         self.assertEqual(info['verificationSha256'], hashlib.sha256(manifest.read_bytes()).hexdigest())
         self.assertEqual(len(Path('output/delivery/SHA256SUMS').read_text().splitlines()), 3)
-        self.assertFalse(info['connectedAppActionsEnabled'])
+        self.assertTrue(info['connectedAppActionsEnabled'])
+        self.assertEqual(info['supportLevel'], 'emulator-experimental')
+        self.assertEqual(info['qualifiedAdapters'], [])
         self.assertIsNone(json.loads(manifest.read_text())['signedUpgrade']['previousApkSha256'])
 
     def test_incomplete_or_nonboolean_completion_is_rejected(self):
