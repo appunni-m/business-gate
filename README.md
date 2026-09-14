@@ -4,7 +4,7 @@ Choose the businesses. Keep the people.
 
 A native Android app that applies business blocking rules using explicitly enabled business names. It uses an original blue gate identity, Java, and Android framework components. No third-party runtime libraries, login, analytics, network permission, ads, or subscription.
 
-**Experimental: native Block/Unblock and incoming conversation sessions are verified on one measured Android 36 emulator installation.** Business Gate captures incoming candidates automatically; **Review incoming conversations** starts a visible identity check and native action with Stop. The [verification record](docs/connected-session-verification.md) distinguishes real business notification removal from separately tested Android cancellation. Physical devices remain unqualified. The first message may appear; existing chats remain.
+**Experimental: supported on one measured Android 36 emulator installation.** The optional **Sender name filter** dismisses direct notifications matching ten bundled Indian public business profile names or names learned from verified profiles, unless whitelisted. Opening Business Gate starts a finite visible cleanup with Stop and fresh native identity checks. A shared summary can retain a business preview because cancelling it can also remove personal notifications. Physical devices remain unqualified. The first message may appear; existing chats remain. See the [displayed sender design and evidence](docs/display-sender-filter-design.md).
 
 ## Try the native interface
 
@@ -58,13 +58,15 @@ Local Gradle release APK/AAB files remain unsigned; debug artifacts use the loca
 - Setup and access disclosures, pause, compatibility explanation, offline privacy information, local diagnostics and effort totals, and confirmed local reset.
 - System light/dark appearance, growing rows, native switches, 48 dp controls, and a centered single column on wide screens.
 
-Business name choices are available in **Settings & privacy → Business name choices**. They are saved for the current receiving namespace, with exact spelling and number-specific exceptions. Saving a name requires a visible session to apply pending native actions.
+Connect a supported receiving account and allow notification access, then open **More → Sender name filter → Enable name filtering**. Review the exact-name disclosure once. **Review names and whitelist** lists starter names, public sources and locally learned names. Whitelisting keeps matching notifications immediately; use **Apply pending** to finish native Unblock for previously verified businesses.
+
+Unknown senders stay visible: use **Review unknown incoming senders** to inspect a supported business profile and learn its name. Name rules can also match a personal sender with the same name; they never prove identity. Exact-number permissions are preserved, and unresolved exceptions keep notifications visible. Hidden routes expire after 15 minutes or process/listener loss; history remains, and **Inspect business number** lets you finish a fresh check without guessing a number from a name. Cleanup handles up to five available conversations in three minutes. Stop disables automatic cleanup until **Clear pending businesses now** explicitly resumes it.
 
 The switch represents your choice. The subtitle represents a pending operation or a separately observed outcome. Pausing or deleting local data does not undo blocks in another app. The first message can arrive before discovery.
 
 ## Continue implementation and qualification
 
-The [business-name blocking design](docs/name-visibility-design.md) governs the accepted eventual-blocking behavior and the implemented [incoming session](docs/incoming-notification-design.md). A first preview may appear and existing chats remain. The earlier designs excluded name-based permission and notification suppression; those exclusions no longer describe the requested product.
+The [displayed sender design](docs/display-sender-filter-design.md) extends the [business-name policy](docs/name-visibility-design.md) and [incoming session](docs/incoming-notification-design.md). A first preview may appear and existing chats remain. The earlier designs excluded name-based permission and notification suppression; those exclusions no longer describe the requested product.
 
 [Execution status](docs/execution-status.md) gives every planned fix a disposition. [Implementation and evidence](docs/implementation.md), the [completion plan](docs/implementation-plan.md) and [acceptance ledger](docs/acceptance-ledger.json) distinguish engineering tests from physical qualification. [Adapter qualification](docs/qualification.md) defines the physical inputs and stop conditions. [Privacy](docs/privacy.md) describes the binary's data boundary. [Contributing](CONTRIBUTING.md) describes the development workflow.
 

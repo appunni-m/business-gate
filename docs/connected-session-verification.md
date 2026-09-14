@@ -19,13 +19,13 @@ The bundled [contract evidence](../app/src/main/assets/adapters/evidence/busines
 
 ## Testing boundaries
 
-The account-free emulator runs the synthetic native harness. The receiver emulator runs only the explicitly opted-in `live-business` and `live-incoming` modes; neither mode resets data, inserts fixture accounts, injects a receiver binding, or sends a message. It reads the receiver through the actual route and uses normal repository and native UI commands.
+The account-free emulator runs the synthetic native harness. The receiver emulator runs only the explicitly opted-in `live-business`, `live-incoming` and `live-filter` modes; these modes do not reset data, insert fixture accounts, inject a receiver binding, or send a message. It reads the receiver through the actual route and uses normal repository and native UI commands.
 
 The live mode tests one user-authorized number. It is not invoked by CI, where no real account or sender exists. CI's synthetic device checks must not be described as connected-app qualification.
 
 A newly opened blocked profile has a different measured row count from the immediate post-block screen. Both variants are covered by the route. The helper's early trials did not subscribe to click events; those trials remain historical and do not prove interruption behavior. The main-app result and the updated receipt regression suite cover the implemented event handling.
 
-Physical qualification and multi-conversation batches remain pending. Incoming candidate capture and explicitly started identity/native-action sessions are implemented; the evidence below separates notification removal by the connected app from Business Gate cancellation. Independent sender-side delivery testing is no longer a required milestone. Do not promote the experimental contract to general device support or mark omitted or unrun checks as passed.
+Physical qualification remains pending. Consented displayed-name dismissal and a finite foreground cleanup batch are now implemented; see the newer evidence below. Incoming candidate capture and explicitly started identity/native-action sessions are implemented; the evidence below separates notification removal by the connected app from Business Gate cancellation. Independent sender-side delivery testing is no longer a required milestone. Do not promote the experimental contract to general device support or mark omitted or unrun checks as passed.
 
 ## Incoming notification observation · 14 September 2026
 
@@ -40,3 +40,9 @@ A fresh authorized greeting was acknowledged, then Home was requested without fo
 The outcome was `VERIFIED_NOTIFICATION_REMOVED_BY_CONNECTED_APP`: opening the conversation cleared its notification. Business Gate cancellation itself is covered by the separate [Android fixture](measurements/incoming-notification-fixture.json), including callback acknowledgment, unrelated notifications, policy exclusions, replacement and Stop. Neither result is presented as the other.
 
 The full native sequence was rerun after fixing fresh-list inspection and bounded click receipt handling. The receipt regression exercises reordered events and rejects a duplicate after consumption. See [the incoming design](incoming-notification-design.md) for measured alternatives, accepted read effects and supported environments.
+
+## Displayed sender filtering · 14 September 2026
+
+The [live name-filter record](measurements/display-sender-live-api36.json) passed 22 assertions: automatic direct business notification cancellation acknowledged by Android, preservation of the authorized personal notification, no background navigation during dismissal, automatic cleanup after opening Business Gate, and a fresh exact native Block postcondition. The shared summary retained a business preview before cleanup, so complete preview suppression is explicitly not claimed.
+
+The [owned fixture](measurements/display-sender-fixture-api36.json) covers two matching names plus a personal sender, groups, whitelist and exact-number exclusions, durable history, listener route loss, two-item batch advancement through a synthetic host completion, visible Stop, and reset while unbound. The native Block/Unblock/name-control/Stop session was independently rerun with 25 passing assertions after the foreground and bounded verification changes. Physical qualification and independent blocked-delivery trials are not represented as passed.

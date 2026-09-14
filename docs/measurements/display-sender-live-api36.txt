@@ -1,0 +1,26 @@
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: explicit live name-filter authorization
+TRACE 3: measured installation and existing receiver binding retained
+TRACE 4: authorized business default rule preserved
+TRACE 5: native screen service connected
+TRACE 6: authorized personal incoming notification present before filtering
+TRACE 7: name filtering enabled without background cleanup
+TRACE 8: transaction callback
+TRACE 9: real profile observation learned the business display name
+TRACE 10: FILTER_READY_FOR_AUTHORIZED_GREETING
+TRACE 11: real business notification automatically dismissed with Android acknowledgment
+TRACE 12: real personal notification survives business dismissal
+TRACE 13: automatic dismissal did not bring the connected app to foreground
+FILTER sharedSummaryStillContainsBusinessName=true; physicalQualification=false
+TRACE 14: foreground cleanup consent saved
+TRACE 15: transaction callback
+TRACE 16: one live hidden route ready before opening Business Gate
+TRACE 17: native compatibility circuit permits cleanup
+TRACE 18: opening Business Gate automatically started visible cleanup: VERIFIED_NOTIFICATION_DISMISSED
+TRACE 19: automatic foreground cleanup committed a fresh exact native Block postcondition
+TRACE 20: durable hidden item records verified cleanup for the authorized number
+TRACE 21: cleanup preserved exact-number preference
+TRACE 22: personal notification also survives native business cleanup
+FILTER completed=true; sentMessages=0; finalNativeState=BLOCKED; physicalQualification=false
+PASS 22 Android persistence, permission, recovery and native UI assertions; mode=live-filter
+

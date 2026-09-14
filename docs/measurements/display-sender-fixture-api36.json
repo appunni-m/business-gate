@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-09-14",
+  "scope": "Owned Android notifications and synthetic batch completion. No real business identity or native mutation is asserted by this fixture.",
+  "result": "PASS",
+  "assertions": 72,
+  "report": "display-sender-fixture-api36.txt",
+  "reportSha256": "0b9a18d7558ad987e40d9970fd3135605da382743dccb5d27362e9c4aba53c57",
+  "testedAppApkSha256": "312f5acb777567f5834a1b1065df9640aaef8f5444fddc3726a451a2a141cf77",
+  "testedInstrumentationApkSha256": "ed2ae2aecb4ce0f23db900a2fb03f63f45f65f568e1c6927e1d3791af62981b9",
+  "physicalQualification": false
+}

@@ -22,6 +22,7 @@ public final class SessionOverlay {
             service.getSystemService(WindowManager.class).addView(view,p);return true;
         }catch(RuntimeException error){view=null;return false;}
     }
+    public void progress(int current,int total){if(view!=null){view.setText(service.getString(io.github.appunnim.businessgate.R.string.cleanup_stop,current,total));view.setContentDescription("Clearing businesses "+current+" of "+total+". Stop immediately");}}
     public boolean visible(){return view!=null&&view.isAttachedToWindow();}
     @SuppressWarnings("deprecation") public boolean ownsWindow(int id){
         if(!visible())return false;var node=view.createAccessibilityNodeInfo();try{return node.getWindowId()==id;}finally{node.recycle();}

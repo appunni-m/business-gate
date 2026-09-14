@@ -13,4 +13,5 @@
     <string name="session_stop">Business Gate · Stop</string>
     <string name="reminder_title">Your optional review is ready</string>
     <string name="reminder_detail">New senders are left alone. Review your choices when it suits you.</string>
+    <string name="cleanup_stop">Clearing businesses %1$d/%2$d · Stop</string>
 </resources>

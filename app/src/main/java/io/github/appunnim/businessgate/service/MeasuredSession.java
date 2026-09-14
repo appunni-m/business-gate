@@ -123,6 +123,7 @@ final class MeasuredSession {
             BusinessProfileRoute.Profile profile=BusinessProfileRoute.readProfile(root,host.selectedPackage(),phone);
             if(profile!=null){
                 if(discoveringIncoming){
+                    if(!GateNotificationListener.matchesDisplayed(incoming,profile.name())){fail("DISPLAYED_NAME_CHANGED");return;}
                     phone=profile.phone();incomingName=NameVisibilityPolicy.nameKey(profile.name());
                     discoveringIncoming=false;headerClicked=false;profileOpened=0;scrolls=0;
                     startReceiver();return;

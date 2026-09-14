@@ -29,6 +29,7 @@ public final class BusinessProfileRoute {
         void completed(Result result);
         void failed(Failure failure);
     }
+    private static final long POSTCONDITION_WAIT_MS=12_000;
     private final Host host;
     private final String owner, phone;
     private final Action action;
@@ -108,7 +109,7 @@ public final class BusinessProfileRoute {
             if (!host.active() || !owner.equals(host.selectedPackage()) || now - started >= 25_000)
                 throw new IllegalStateException("SESSION_INACTIVE");
             root = host.root();
-            if (root == null && (phase == 1 || phase == 3) && now - changedAt < 2_500) {
+            if (root == null && (phase == 1 || phase == 3) && now - changedAt < (phase == 3 ? POSTCONDITION_WAIT_MS : 2_500)) {
                 readinessRetries++; schedule(); return;
             }
             if (root == null || !owner.contentEquals(root.getPackageName())) throw new IllegalStateException("FOREGROUND_CHANGED");
@@ -116,7 +117,7 @@ public final class BusinessProfileRoute {
             List<AccessibilityWindowInfo> windows = host.windows();
             try { for (var window : windows) if (window.getId() == root.getWindowId()) active = window.isActive() && window.isFocused(); }
             finally { for (var window : windows) release(window); }
-            if (!active && (phase == 1 || phase == 3) && now - changedAt < 2_500) { readinessRetries++; schedule(); return; }
+            if (!active && (phase == 1 || phase == 3) && now - changedAt < (phase == 3 ? POSTCONDITION_WAIT_MS : 2_500)) { readinessRetries++; schedule(); return; }
             if (!active) throw new IllegalStateException("FOREGROUND_CHANGED");
             if (phase == 0) entry(root);
             else if (phase == 1 || phase == 2) confirmation(root, now);
@@ -224,7 +225,7 @@ public final class BusinessProfileRoute {
                 }
             } finally { release(label); release(entry); release(list); }
         }
-        if (now - changedAt >= 2_500) throw new IllegalStateException("RESULT_UNCONFIRMED");
+        if (now - changedAt >= POSTCONDITION_WAIT_MS) throw new IllegalStateException("RESULT_UNCONFIRMED");
     }
     /** Both fully measured profile variants; the trailing action position is not generalized. */
     public static int entryIndex(int count){return count==24?22:count==23?21:-1;}

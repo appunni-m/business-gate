@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "checkedOn": "2026-09-14",
+  "coverage": "Small starter catalogue of public profile names; not a complete directory or notification measurement.",
+  "entries": [
+    {
+      "name": "Air India",
+      "country": "IN",
+      "profileSource": "https://wa.me/919667034444",
+      "contactSource": "https://www.airindia.com/in/en/contact-us.html",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "Airtel Cares",
+      "country": "IN",
+      "profileSource": "https://wa.me/919910099100",
+      "contactSource": "https://www.airtel.in/blog/prepaid/activate-international-roaming/",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "Axis Bank",
+      "country": "IN",
+      "profileSource": "https://wa.me/917036165000",
+      "contactSource": "https://www.axis.bank.in/contact-us",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "Bank of Baroda",
+      "country": "IN",
+      "profileSource": "https://wa.me/918433888777",
+      "contactSource": "https://bankofbaroda.bank.in/contact-us",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "HDFC Bank Ltd",
+      "country": "IN",
+      "profileSource": "https://wa.me/917070022222",
+      "contactSource": "https://www.hdfc.bank.in/ways-to-bank/chat-banking",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "ICICI Bank",
+      "country": "IN",
+      "profileSource": "https://wa.me/918640086400",
+      "contactSource": "https://www.icicibank.com/personal-banking/life-stages/family",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "IRCTC eCatering",
+      "country": "IN",
+      "profileSource": "https://wa.me/918750001323",
+      "contactSource": "https://ecatering.irctc.co.in/blog/choose-your-food-with-authorised-vendors",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "JioCare",
+      "country": "IN",
+      "profileSource": "https://wa.me/917000770007",
+      "contactSource": "https://www.jio.com/help/contact-us",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "JioHome Care",
+      "country": "IN",
+      "profileSource": "https://wa.me/917000570005",
+      "contactSource": "https://www.jio.com/help/contact-us",
+      "evidence": "public-profile"
+    },
+    {
+      "name": "Kotak Mahindra Bank",
+      "country": "IN",
+      "profileSource": "https://wa.me/912266006022",
+      "contactSource": "https://www.kotak.bank.in/en/get-help/saving-accounts.html",
+      "evidence": "public-profile"
+    }
+  ]
+}

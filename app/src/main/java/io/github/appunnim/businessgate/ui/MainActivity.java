@@ -162,13 +162,15 @@ public final class MainActivity extends Activity {
         if(expanded!=-1){expanded=-1;render();return;}
         finish();
     }
-    @Override protected void onStart(){super.onStart();started=true;repository.addListener(changed);refresh();}
+    @Override protected void onStart(){super.onStart();started=true;repository.addListener(changed);app.senderFilter().addListener(changed);refresh();}
     @Override protected void onResume(){super.onResume();resumed=true;app.managementAttention(true);refresh();
+        main.postDelayed(this::automaticCleanup,700);
         if(numberDraft!=null){Bundle draft=numberDraft;numberDraft=null;if(draft.getLong("namespace")==repository.current().namespace()&&draft.getString("dataIdentity","").equals(repository.dataIdentity()))addNumber(draft.getString("numberPhone",""),draft.getString("numberName",""));}
     }
+    @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(focused&&app!=null)main.postDelayed(this::automaticCleanup,250);}
     @Override protected void onPause(){resumed=false;app.managementAttention(false);super.onPause();}
     @Override public void onUserInteraction(){if(focus!=null)focus.cancel();super.onUserInteraction();}
-    @Override protected void onStop(){numberDraft=captureNumberDraft();started=false;queryGeneration++;focus.cancel();dismissDialogs();repository.removeListener(changed);main.removeCallbacks(searchTask);super.onStop();}
+    @Override protected void onStop(){numberDraft=captureNumberDraft();started=false;queryGeneration++;focus.cancel();dismissDialogs();repository.removeListener(changed);app.senderFilter().removeListener(changed);main.removeCallbacks(searchTask);super.onStop();}
     @Override protected void onSaveInstanceState(Bundle out){
         out.putString("query",search.getText().toString());out.putLong("expanded",expanded);out.putBoolean("review",reviewExpanded);out.putBoolean("people",peopleExpanded);
         out.putLong("namespace",renderNamespace);out.putString("dataIdentity",renderDataIdentity);
@@ -220,6 +222,7 @@ public final class MainActivity extends Activity {
         else if(repository.disarmed()||s.paused()||!s.enabled())text="Rule off · no new blocks will run";
         else if(app.registry().measuredRoute(this,GateAccessibilityService.packageSelected())!=null)text="Rule saved · start a visible session to apply new choices";
         else text=s.pending()>0?"Rule on · "+getResources().getQuantityString(R.plurals.waiting_actions,s.pending(),s.pending()):"Rule on. Checks run in supported visible screens.";
+        if(app.senderFilter().enabled())text="Name filtering on · "+app.senderFilter().current().items().stream().filter(io.github.appunnim.businessgate.data.SenderFilterStore.Item::needsReview).count()+" conversations awaiting cleanup or review";
         if(!status.getText().toString().equals(text))status.setText(text);
         pause.setText(!repository.disarmed()&&s.enabled()&&!s.paused()?"Pause":"Resume");
         int applicable=applicablePending(s);batch.setVisibility(applicable>0?View.VISIBLE:View.GONE);batch.setText(getResources().getQuantityString(R.plurals.pending_actions,applicable,applicable));
@@ -281,7 +284,8 @@ public final class MainActivity extends Activity {
         for(int i=0;i<items.length;i++)menu.getMenu().add(0,i,i,items[i]);
         if(repository.current().binding().bound()&&app.registry().available())menu.getMenu().add(0,4,4,"Inspect business number");
         if(repository.current().binding().bound()&&repository.current().discovery())menu.getMenu().add(0,5,5,"Review incoming conversations");
-        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();case 4->inspectBusiness();case 5->reviewIncoming();default->{}}return true;});menu.show();
+        menu.getMenu().add(0,6,6,"Sender name filter");
+        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();case 4->inspectBusiness();case 5->reviewIncoming();case 6->senderFilter();default->{}}return true;});menu.show();
     }
     private DialogScope dialogScope(){return new DialogScope(repository.choiceScope(),repository.dataIdentity(),repository.current().globalRevision(),repository.epoch());}
     private boolean currentDialog(DialogScope scope){
@@ -467,7 +471,7 @@ public final class MainActivity extends Activity {
         var candidates=io.github.appunnim.businessgate.service.GateNotificationListener.pending();
         if(candidates.isEmpty()){dialog("Incoming conversations").setMessage("No supported incoming conversations are available. Notification access and discovery must be enabled. Groups and unsupported notifications are excluded.").setPositiveButton("Close",null).show();return;}
         String[] labels=new String[candidates.size()];
-        for(int i=0;i<labels.length;i++)labels[i]="Incoming conversation "+(i+1)+" · "+android.text.format.DateUtils.getRelativeTimeSpanString(candidates.get(i).postTime(),System.currentTimeMillis(),android.text.format.DateUtils.MINUTE_IN_MILLIS);
+        for(int i=0;i<labels.length;i++)labels[i]=io.github.appunnim.businessgate.service.GateNotificationListener.displayName(candidates.get(i))+" · "+android.text.format.DateUtils.getRelativeTimeSpanString(candidates.get(i).postTime(),System.currentTimeMillis(),android.text.format.DateUtils.MINUTE_IN_MILLIS);
         dialog("Review incoming conversations").setItems(labels,(d,which)->{
             var selected=candidates.get(which);
             boolean resumeRule=repository.current().paused()||!repository.current().enabled();
@@ -504,6 +508,7 @@ public final class MainActivity extends Activity {
         Snapshot s=repository.current();settingsBindings.clear();LinearLayout box=Ui.column(this);Ui.pad(box,24,0);
         box.addView(Ui.text(this,"LOCAL BY DESIGN",12,R.color.accent,true));Ui.gap(box,8);
         box.addView(Ui.text(this,"Exact numbers, optional names and your choices stay in this phone’s private storage. No account, ads, subscription, analytics or network permission. Chat contents and notification messages are not saved. Backup and device transfer are excluded.",14,R.color.muted,false));Ui.gap(box,12);
+        box.addView(Ui.button(this,"Sender name filter",true,()->{dismissDialogs();senderFilter();}));
         box.addView(Ui.button(this,"Business name choices",false,()->{dismissDialogs();businessNames();}));
         box.addView(settingSwitch("Notification-assisted discovery",()->repository.current().discovery(),value->{if(value)notificationDisclosure();else repository.setting("discovery",false);}));
         if(repository.current().discovery()&&repository.current().binding().bound())box.addView(Ui.button(this,"Review incoming conversations",true,()->{dismissDialogs();reviewIncoming();}));
@@ -517,6 +522,46 @@ public final class MainActivity extends Activity {
         box.addView(Ui.button(this,"Withdraw screen consent",false,()->{GateAccessibilityService.stopNow();repository.emergencyStop();repository.updateSetup("WELCOME",false,()->announce("Consent withdrawn. Actions stopped."));}));
         android.widget.ScrollView scroll=Ui.scroll(this,box);
         AlertDialog dialog=dialog("Settings & privacy").setView(scroll).setPositiveButton("Done",null).create();dialog.setOnDismissListener(d->settingsBindings.clear());dialog.show();
+    }
+    private void automaticCleanup(){
+        if(!resumed||!started||!hasWindowFocus()||isFinishing()||dialogs.stream().anyMatch(AlertDialog::isShowing)||search.hasFocus()&&search.length()>0||GateAccessibilityService.cleanupActive())return;
+        if(app.senderFilter().enabled()&&app.senderFilter().current().cleanup())GateAccessibilityService.requestCleanup(this);
+    }
+    private void senderFilter(){
+        var store=app.senderFilter();var state=store.current();
+        LinearLayout box=Ui.column(this);Ui.pad(box,24,8);
+        box.addView(Ui.text(this,"Displayed sender rules",20,R.color.ink,true));Ui.gap(box,8);
+        box.addView(Ui.text(this,"Exact names only. "+store.catalogue().size()+" Indian public profile names are bundled; "+new java.util.HashSet<>(state.learned().values()).size()+" business names were learned locally. This is a starter list, not every business. Unknown names stay visible until a profile check confirms a business.",14,R.color.muted,false));
+        box.addView(Ui.text(this,state.error().isEmpty()?(store.enabled()?"Filtering enabled":"Filtering off or waiting for a supported account and notification access"):state.error(),14,R.color.ink,true));
+        box.addView(Ui.button(this,store.enabled()?"Turn name filtering off":"Enable name filtering",true,()->{
+            if(store.enabled()){GateAccessibilityService.stopNow();store.configure(false,false,ok->{dismissDialogs();senderFilter();});return;}
+            dialog("Enable displayed sender filtering?").setMessage("A direct notification matching a bundled or learned business name will be dismissed automatically unless whitelisted. A personal sender using the same name can also match. Unknown names and groups stay visible. A shared summary can retain a business preview until its conversation is opened; removing it could also remove personal notifications. Number-specific permissions are preserved; an unresolved exception can prevent filtering.\n\nOpening Business Gate will start a visible cleanup of up to five hidden conversations, for at most three minutes, with Stop. Each actual business profile and receiving account is verified before Block. Opening a chat may mark it as read. If a saved notification route expires, open that conversation and inspect its exact number. No message bodies are stored.")
+                .setNegativeButton("Cancel",null).setPositiveButton("Agree and enable",(d,w)->store.configure(true,true,ok->{if(!ok)announce("Select and verify a receiving account first.");else{repository.setting("discovery",true);dismissDialogs();announce("Name filtering enabled. Allow notification access if it is off.");}})).show();
+        }));
+        box.addView(Ui.button(this,"Review names and whitelist",false,()->{dismissDialogs();senderNames();}));
+        box.addView(Ui.button(this,"Clear pending businesses now",true,()->{
+            store.configure(state.enabled(),true,ok->{if(!resumed||!ok)return;dismissDialogs();if(!GateAccessibilityService.requestCleanup(this))announce("No current hidden routes are ready. Inspect an exact business number for an expired route, or review incoming conversations for an unknown sender.");});
+        }));
+        box.addView(Ui.button(this,"Review unknown incoming senders",false,()->{dismissDialogs();reviewIncoming();}));
+        box.addView(Ui.button(this,"Inspect business number",false,()->{dismissDialogs();inspectBusiness();}));
+        if(!state.items().isEmpty()){
+            Ui.gap(box,12);box.addView(Ui.text(this,"Hidden conversation history",16,R.color.ink,true));
+            for(var item:state.items().subList(0,Math.min(30,state.items().size()))){
+                String result=item.status().equals("HIDDEN_PENDING_PROFILE")?(io.github.appunnim.businessgate.service.GateNotificationListener.cleanupCandidates().stream().anyMatch(c->io.github.appunnim.businessgate.automation.AdapterRegistry.sha256(c.key().getBytes(java.nio.charset.StandardCharsets.UTF_8)).equals(item.id()))?"Hidden · ready for profile cleanup":"Hidden · route expired; inspect the exact business number"):item.status().startsWith("RESULT_UNVERIFIED")?"Block result not verified · inspect again":item.status().startsWith("VERIFIED")?"Profile verified · choices applied":item.status().startsWith("NO_PENDING_ACTION")?"Profile verified · already follows your choices":"Review needed · "+item.status().replace('_',' ').toLowerCase(java.util.Locale.ROOT);
+                box.addView(Ui.text(this,item.name()+" · "+result+" · "+item.count()+" observations",13,R.color.muted,false));
+            }
+        }
+        dialog("Sender name filter").setView(Ui.scroll(this,box)).setPositiveButton("Done",null).show();
+    }
+    private void senderNames(){
+        var store=app.senderFilter();var policy=repository.nameVisibilityPolicy();java.util.TreeSet<String> all=new java.util.TreeSet<>(store.names());if(policy!=null)all.addAll(policy.enabledNames());
+        String[] names=all.toArray(new String[0]);String[] labels=new String[names.length];
+        for(int i=0;i<names.length;i++)labels[i]=names[i]+" · "+(policy!=null&&policy.enabledNames().contains(names[i])?"Whitelisted":store.catalogue().containsKey(names[i])?"Starter catalogue":"Learned from a business profile");
+        dialog("Names and whitelist").setItems(labels,(d,index)->{
+            String name=names[index];var source=store.catalogue().get(name);boolean enabled=policy!=null&&policy.enabledNames().contains(name);
+            dialog(name).setMessage((source==null?"Learned locally from a confirmed business profile.":"Public profile name observed "+source.checkedOn()+". Not a measured notification identity.\n\nProfile source: "+source.source()+"\nContact source: "+source.contact())+"\n\nWhitelisting preserves matching notifications immediately. Previously verified matching businesses may need a visible Unblock session; number choices take precedence.")
+                .setNegativeButton("Close",null).setPositiveButton(enabled?"Remove whitelist":"Whitelist",(confirm,which)->confirmBusinessName(name,!enabled)).show();
+        }).setNegativeButton("Close",null).setPositiveButton("Add whitelist name",(d,w)->enableBusinessName()).show();
     }
     private void businessNames(){
         java.util.List<GateRepository.BusinessNameChoice> choices=repository.businessNameChoices();
@@ -534,7 +579,7 @@ public final class MainActivity extends Activity {
     private void enableBusinessName(){
         GateRepository.BusinessNameScope scope=repository.businessNameScope();
         LinearLayout fields=Ui.column(this);Ui.pad(fields,24,8);
-        fields.addView(Ui.text(this,"Use the exact business name. Permission applies only to confirmed businesses with this spelling in the selected receiving account. Number-specific choices take precedence. Saving does not activate filtering.",14,R.color.muted,false));
+        fields.addView(Ui.text(this,"Use the exact business name. Matching notifications stay visible and confirmed businesses with this spelling are permitted in the selected receiving account. Number-specific choices take precedence. Saving does not activate filtering.",14,R.color.muted,false));
         EditText name=new EditText(this);name.setSingleLine(true);name.setHint("Business name");name.setContentDescription("Exact business name to enable");name.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);name.setMinHeight(Ui.dp(this,56));fields.addView(name);
         AlertDialog form=dialog("Enable a business name").setView(Ui.scroll(this,fields)).setNegativeButton("Cancel",null).setPositiveButton("Enable",null).create();
         form.setOnShowListener(d->{decorateDialog(form);form.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
@@ -544,7 +589,7 @@ public final class MainActivity extends Activity {
             form.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);form.getButton(AlertDialog.BUTTON_POSITIVE).setText("Saving…");
             repository.setBusinessNameEnabled(scope,exact,true,result->{
                 if(!form.isShowing()||!resumed)return;
-                if(result==GateRepository.SaveResult.SAVED){form.dismiss();announce("Business name enabled. Apply pending to update the connected app.");}
+                if(result==GateRepository.SaveResult.SAVED){form.dismiss();announce("Business name whitelisted. Apply pending to finish unblocking verified businesses.");}
                 else{form.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);form.getButton(AlertDialog.BUTTON_POSITIVE).setText("Enable");name.setError(result==GateRepository.SaveResult.FAILED?"Not saved. Keep this name and check storage before retrying.":"Choices changed or a save is pending. Reopen this form and try again.");}
             });
         });});form.show();

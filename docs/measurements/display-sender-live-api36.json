@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-09-14",
+  "scope": "Authorized exact business on the measured receiver emulator. No physical qualification or independent blocked-delivery trial.",
+  "result": "PASS_WITH_DOCUMENTED_SUMMARY_LIMIT",
+  "assertions": 22,
+  "report": "display-sender-live-api36.txt",
+  "reportSha256": "7f63a659207ee9a19be69726b2be535937d9a88bad0991de5974f61d6a395cbf",
+  "testedHashes": {
+    "app/build/outputs/apk/debug/app-debug.apk": "312f5acb777567f5834a1b1065df9640aaef8f5444fddc3726a451a2a141cf77",
+    "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "058bc041f4f8c58f41512c60c9f91eab8967a29d0631a336a0a4ed6000870b3d",
+    "connected-route/src/main/java/io/github/appunnim/businessgate/connected/BusinessProfileRoute.java": "d43930f4651a742a3065d4565c257b4c621f8aaef88a61c526e0a2d00f6de0d9",
+    "connected-route/src/main/java/io/github/appunnim/businessgate/connected/ReceivingAccountRoute.java": "729e7833c2811354e7a0d7b0977a7ca225140307c0d752fde84c61c1b43da517",
+    "app/src/main/java/io/github/appunnim/businessgate/service/MeasuredSession.java": "0b9b80d2778a3a604be7aeb892cd40ac797f40203a9398b5f31182a6bf0e328b",
+    "app/src/main/java/io/github/appunnim/businessgate/service/GateAccessibilityService.java": "cdc0e9b1f5dda07b131ea3da3808aaef3f1f0e379f509e919b37882bd8dc5703",
+    "app/src/main/java/io/github/appunnim/businessgate/service/GateNotificationListener.java": "5fd60ce914b58c343ec3c65ec8e366f8c7a17d6accc55e88ec985a87af857b73",
+    "app/src/main/java/io/github/appunnim/businessgate/data/SenderFilterStore.java": "152a154610268b72a2511e4227728eb1db21c78550659124e284f573368c6409",
+    "app/src/main/java/io/github/appunnim/businessgate/ui/MainActivity.java": "4fb3a208b7845950cc44d125522322fc9fd15618d1bd3f5e5236678d30e89811"
+  },
+  "automaticDirectDismissalAcknowledged": true,
+  "personalNotificationPreserved": true,
+  "noBackgroundActivityLaunchDuringDismissal": true,
+  "automaticForegroundCleanupVerified": true,
+  "freshExactNativeBlockPostconditionVerified": true,
+  "exactNumberChoicePreserved": true,
+  "sharedSummaryRetainedBusinessPreviewBeforeCleanup": true,
+  "completePreviewSuppression": false,
+  "physicalQualification": false,
+  "testExecutionSentMessages": 0,
+  "preparationSentMessages": 1,
+  "preparation": {
+    "acknowledgedSends": 1,
+    "homeRequestedAtUtc": "2026-09-14T16:19:57.397698+00:00",
+    "forceStopped": false
+  }
+}

@@ -74,7 +74,8 @@ public final class IncomingNotificationTests {
     private void nameEnabled(boolean enabled)throws Exception{
         commit(done->repository.setBusinessNameEnabled(repository.businessNameScope(),"Fixture business",enabled,result->{check.accept(result==GateRepository.SaveResult.SAVED,"fixture business-name permission saved");done.run();}));arm();
     }
-    private void visibleStop(Activity activity)throws Exception{
+    private void visibleStop(Activity activity)throws Exception{visibleStop(activity,false);}
+    private void visibleStop(Activity activity,boolean batch)throws Exception{
         var automation=test.getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
         var resolver=context.getContentResolver();String key=android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES;
         String original=android.provider.Settings.Secure.getString(resolver,key),enabled=android.provider.Settings.Secure.getString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
@@ -87,15 +88,36 @@ public final class IncomingNotificationTests {
             var first=postAndClaim();String id=first.candidate.id();GateNotificationListener.Claim[] active={null};
             var listenerField=GateNotificationListener.class.getDeclaredField("connected");listenerField.setAccessible(true);Object listener=listenerField.get(null);
             var claimField=GateNotificationListener.class.getDeclaredField("claim");claimField.setAccessible(true);
+            Activity initiator=batch?test.startActivitySync(new Intent(context,io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK)):activity;
+            if(batch){until(initiator::hasWindowFocus);commit(done->((GateApplication)context.getApplicationContext()).senderFilter().configure(true,true,ok->done.run()));}
             main(()->{
-                check.accept(GateAccessibilityService.requestIncoming(id,true),"visible incoming session starts from the foreground activity");
+                check.accept(batch?GateAccessibilityService.requestCleanup(initiator):GateAccessibilityService.requestIncoming(id,true),batch?"foreground cleanup batch starts with its own Stop control: "+GateAccessibilityService.status():"visible incoming session starts from the foreground activity");
                 try{
                     active[0]=(GateNotificationListener.Claim)claimField.get(listener);
                     var serviceField=GateAccessibilityService.class.getDeclaredField("connected");serviceField.setAccessible(true);Object service=serviceField.get(null);
-                    var overlayField=GateAccessibilityService.class.getDeclaredField("overlay");overlayField.setAccessible(true);Object overlay=overlayField.get(service);
-                    var viewField=overlay.getClass().getDeclaredField("view");viewField.setAccessible(true);((android.widget.Button)viewField.get(overlay)).performClick();
+                    if(batch){
+                        // Only the batch scheduler is under test here. This is a synthetic host
+                        // completion, not evidence that any native business action succeeded.
+                        var finish=GateAccessibilityService.class.getDeclaredMethod("measuredFinished",String.class);finish.setAccessible(true);finish.invoke(service,"VERIFIED_FIXTURE_ONLY");
+                    }else{
+                        var overlayField=GateAccessibilityService.class.getDeclaredField("overlay");overlayField.setAccessible(true);Object overlay=overlayField.get(service);
+                        var viewField=overlay.getClass().getDeclaredField("view");viewField.setAccessible(true);((android.widget.Button)viewField.get(overlay)).performClick();
+                    }
                 }catch(ReflectiveOperationException error){throw new IllegalStateException(error);}
             });
+            if(batch){
+                var prior=active[0];
+                until(()->{try{return claimField.get(listener)!=null&&claimField.get(listener)!=prior;}catch(IllegalAccessException invalid){return false;}});
+                main(()->{
+                    try{
+                        active[0]=(GateNotificationListener.Claim)claimField.get(listener);
+                        check.accept(!GateNotificationListener.valid(prior)&&!active[0].candidate.id().equals(prior.candidate.id()),"synthetic first completion advances to a distinct second route without replay");
+                        var serviceField=GateAccessibilityService.class.getDeclaredField("connected");serviceField.setAccessible(true);Object service=serviceField.get(null);
+                        var overlayField=GateAccessibilityService.class.getDeclaredField("overlay");overlayField.setAccessible(true);Object overlay=overlayField.get(service);
+                        var viewField=overlay.getClass().getDeclaredField("view");viewField.setAccessible(true);((android.widget.Button)viewField.get(overlay)).performClick();
+                    }catch(ReflectiveOperationException invalid){throw new IllegalStateException(invalid);}
+                });
+            }
             check.accept(active[0]!=null&&!GateNotificationListener.valid(active[0])&&repository.disarmed(),"actual Stop button revokes the incoming claim and native authority");
             Thread.sleep(900);check.accept(GateAccessibilityService.status().equals("USER_STOP"),"delayed incoming navigation does not resume after Stop");
         }finally{
@@ -178,15 +200,66 @@ public final class IncomingNotificationTests {
             check.accept(GateNotificationListener.dismissalResult(exact[0]).equals("NOTIFICATION_DISMISSED"),"Android callback and active snapshot confirm cancellation");
             check.accept(java.util.Arrays.stream(manager.getActiveNotifications()).noneMatch(n->n.getId()==targetId),"selected framework notification removed");
             check.accept(java.util.Arrays.stream(manager.getActiveNotifications()).anyMatch(n->n.getId()==otherId),"unrelated framework notification retained");
+            filterFlow(app,connectedField,activity);
             var revoked=postAndClaim();main(()->repository.setting("discovery",false));until(()->!repository.optionEnabled("discovery"));
             check.accept(!GateNotificationListener.valid(revoked),"discovery revocation immediately prevents action");
             main(()->check.accept(GateNotificationListener.pending().isEmpty(),"discovery revocation drops in-memory candidates"));main(activity::finish);
+            commit(repository::localChoices);commit(repository::reset);
+            until(()->{try(var db=android.database.sqlite.SQLiteDatabase.openDatabase(context.getDatabasePath("sender-filter.db").getPath(),null,android.database.sqlite.SQLiteDatabase.OPEN_READONLY)){return android.database.DatabaseUtils.longForQuery(db,"SELECT count(*) FROM queue",null)==0&&android.database.DatabaseUtils.longForQuery(db,"SELECT count(*) FROM learned",null)==0;}});
+            check.accept(app.senderFilter().current().items().isEmpty()&&!app.senderFilter().enabled(),"reset while unbound erases learned names and hidden history");
         }finally{
             manager.cancelAll();manager.deleteNotificationChannel(channel);shell("cmd notification disallow_listener "+component);
             main(()->{try{rows.put(0,original);}catch(org.json.JSONException error){throw new IllegalStateException(error);}});
             check.accept(app.registry().measuredRoute(context,pkg)==null,"production compatibility restored after the fixture");
         }
     }
+    private Notification namedNotice(int id,String name,boolean group){
+        var style=new Notification.MessagingStyle(new Person.Builder().setName("Receiver fixture").build()).setGroupConversation(group)
+            .addMessage("Owned notification fixture",System.currentTimeMillis(),new Person.Builder().setName(name).build());
+        return new Notification.Builder(context,channel).setSmallIcon(io.github.appunnim.businessgate.R.drawable.ic_gate).setStyle(style).setContentTitle(name)
+            .setContentIntent(token(id,false)).setGroup("name-filter-fixture").build();
+    }
+    private boolean posted(int id){return java.util.Arrays.stream(manager.getActiveNotifications()).anyMatch(n->n.getId()==id);}
+    private void filterFlow(GateApplication app,java.lang.reflect.Field field,Activity activity)throws Exception{
+        manager.cancelAll();var currentClaim=GateNotificationListener.class.getDeclaredField("claim");currentClaim.setAccessible(true);
+        main(()->{try{GateNotificationListener.release((GateNotificationListener.Claim)currentClaim.get(readField(field)));}catch(IllegalAccessException invalid){throw new IllegalStateException(invalid);}});
+        var store=app.senderFilter();until(()->store.current().ready());
+        check.accept(!store.enabled(),"displayed-name filtering requires separate opt-in");
+        String learned="Harbor Clinic";String phone="+12025550104";
+        arm();var state=repository.current();commit(done->repository.observe(new Evidence(state.namespace(),phone,Kind.BUSINESS_CONFIRMED,BlockState.UNBLOCKED,SystemClock.elapsedRealtime(),1,1,state.binding().receiver(),state.binding().adapter(),true,true),learned,done));
+        until(()->store.names().contains(learned));check.accept(store.current().learned().get(phone).equals(learned),"fresh confirmed profile teaches the exact business name");
+        check.accept(!store.names().contains("Fixture sender"),"notification display names alone are not learned as businesses");
+        commit(done->store.configure(true,false,ok->{check.accept(ok,"name filter consent saved");done.run();}));until(store::enabled);
+        int a=++next,b=++next,personal=++next,summary=++next,group=++next;
+        manager.notify(summary,new Notification.Builder(context,channel).setSmallIcon(io.github.appunnim.businessgate.R.drawable.ic_gate).setGroup("name-filter-fixture").setGroupSummary(true).setContentTitle("Three conversations").build());
+        manager.notify(personal,namedNotice(personal,"Personal fixture",false));manager.notify(group,namedNotice(group,learned,true));
+        manager.notify(a,namedNotice(a,learned,false));manager.notify(b,namedNotice(b,"HDFC Bank Ltd",false));
+        until(()->!posted(a)&&!posted(b)&&store.current().items().stream().filter(i->i.status().equals("HIDDEN_PENDING_PROFILE")).count()==2);
+        check.accept(posted(personal),"two matching business notices hidden while personal child remains");
+        check.accept(posted(summary),"shared summary is preserved rather than canceling other conversations");
+        check.accept(posted(group),"name match cannot dismiss group conversation");
+        main(()->check.accept(GateNotificationListener.cleanupCandidates().size()==2,"acknowledged hidden notices retain two foreground routes"));
+        GateNotificationListener.Claim[] hidden={null};main(()->hidden[0]=GateNotificationListener.claim(GateNotificationListener.cleanupCandidates().get(0).id()));
+        check.accept(hidden[0]!=null&&GateNotificationListener.valid(hidden[0]),"own acknowledged cancellation remains claimable without an active notice");
+        check.accept(!GateNotificationListener.matchesDisplayed(hidden[0],"Different business"),"changed profile name cannot inherit native action from a hidden route");
+        main(()->GateNotificationListener.release(hidden[0]));
+        visibleStop(activity,true);
+        until(()->!store.current().cleanup());check.accept(!GateAccessibilityService.cleanupActive(),"Stop disables automatic batch retry until explicit resume");
+        commit(done->repository.setBusinessNameEnabled(repository.businessNameScope(),learned,true,result->{check.accept(result==GateRepository.SaveResult.SAVED,"learned name whitelist saved");done.run();}));
+        int allowed=++next;manager.notify(allowed,namedNotice(allowed,learned,false));Thread.sleep(500);check.accept(posted(allowed),"whitelist immediately preserves matching incoming notifications");
+        var account=repository.current().accounts().stream().filter(value->value.phone().equals(phone)).findFirst().orElseThrow();
+        commit(done->repository.choose(account.id(),Choice.ALLOW,done));
+        commit(done->repository.setBusinessNameEnabled(repository.businessNameScope(),learned,false,result->done.run()));
+        int exact=++next;manager.notify(exact,namedNotice(exact,learned,false));Thread.sleep(500);check.accept(posted(exact),"exact-number allow wins over the learned-name rule");
+        main(()->{var listener=(GateNotificationListener)readField(field);listener.onListenerDisconnected();listener.onListenerConnected();check.accept(GateNotificationListener.cleanupCandidates().isEmpty(),"listener loss removes opaque hidden routes");});
+        check.accept(store.current().items().size()==2,"durable pending history survives listener route loss");
+        try(var db=android.database.sqlite.SQLiteDatabase.openDatabase(context.getDatabasePath("sender-filter.db").getPath(),null,android.database.sqlite.SQLiteDatabase.OPEN_READONLY)){
+            check.accept(android.database.DatabaseUtils.longForQuery(db,"SELECT count(*) FROM queue WHERE scope=?",new String[]{store.current().scope()})==2,"hidden receipts committed to disk");
+        }
+        commit(done->store.configure(false,false,ok->done.run()));check.accept(!store.enabled(),"turning off the feature revokes future name cancellation");
+        commit(done->repository.choose(account.id(),Choice.DEFAULT,done));manager.cancelAll();
+    }
+    private Object readField(java.lang.reflect.Field field){try{return field.get(null);}catch(IllegalAccessException invalid){throw new IllegalStateException(invalid);}}
     private void snapshotReplay()throws Exception{
         int id=++next;GateNotificationListener.Claim[] selected={null};
         main(()->{

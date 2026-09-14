@@ -43,6 +43,56 @@ public final class GateAccessibilityService extends AccessibilityService {
     private GateNotificationListener.Claim incomingClaim;
     private boolean requested,arming,checkingCompatibility,activatingRule;
     private Readiness sessionScope;
+    private final Handler batchHandler=new Handler(Looper.getMainLooper());
+    private final java.util.ArrayDeque<String> cleanupQueue=new java.util.ArrayDeque<>();
+    private boolean cleanupRunning,startingCleanup;
+    private long cleanupDeadline;
+    private int cleanupTotal,cleanupDone;
+    private String cleanupScope="";
+    private java.lang.ref.WeakReference<android.app.Activity> cleanupInitiator;
+    public static boolean cleanupActive(){return connected!=null&&connected.cleanupRunning;}
+    public static boolean requestCleanup(android.app.Activity activity){return connected!=null&&activity!=null&&activity.getApplication()==connected.getApplication()&&activity.hasWindowFocus()&&!activity.isFinishing()&&!activity.isDestroyed()&&connected.beginCleanup(activity);}
+    private boolean beginCleanup(android.app.Activity activity){
+        if(cleanupRunning||requested||!app().senderFilter().enabled()||!app().senderFilter().current().cleanup())return false;
+        var pending=GateNotificationListener.cleanupCandidates();if(pending.isEmpty())return false;
+        if(!pending.get(0).selectedPackage().equals(targetPackage)&&!select(pending.get(0).selectedPackage()))return false;
+        cleanupQueue.clear();for(var c:pending)if(c.selectedPackage().equals(targetPackage)&&cleanupQueue.size()<5)cleanupQueue.add(c.id());
+        cleanupTotal=cleanupQueue.size();cleanupDone=0;cleanupScope=app().senderFilter().current().scope();cleanupDeadline=SystemClock.elapsedRealtime()+180_000;cleanupRunning=true;cleanupInitiator=new java.lang.ref.WeakReference<>(activity);
+        batchHandler.postDelayed(()->{if(cleanupRunning)stop();},180_000);nextCleanup();return cleanupRunning;
+    }
+    private AccessibilityNodeInfo freshRoot(){
+        // Package-filtered events can leave cached window metadata behind a navigation.
+        // Reacquire only the root; measured routes request their own bounded children.
+        if(Build.VERSION.SDK_INT>=33){clearCache();return getRootInActiveWindow(0);}
+        return getRootInActiveWindow();
+    }
+    private void nextCleanup(){
+        if(!cleanupRunning)return;
+        if(!app().senderFilter().enabled()||!app().senderFilter().current().cleanup()||!cleanupScope.equals(app().senderFilter().current().scope())||SystemClock.elapsedRealtime()>=cleanupDeadline){stop();return;}
+        if(cleanupQueue.isEmpty()){cleanupRunning=false;batchHandler.removeCallbacksAndMessages(null);reason="CLEANUP_BATCH_FINISHED";return;}
+        android.app.Activity initiator=cleanupInitiator==null?null:cleanupInitiator.get();cleanupInitiator=null;
+        AccessibilityNodeInfo foreground=initiator==null?freshRoot():null;boolean visible=initiator!=null&&initiator.hasWindowFocus()&&!initiator.isFinishing()&&!initiator.isDestroyed();
+        try{
+            if(foreground!=null&&(getPackageName().contentEquals(foreground.getPackageName())||targetPackage.contentEquals(foreground.getPackageName()))){
+                for(var window:getWindows()){if(window.getId()==foreground.getWindowId())visible=window.isActive()&&window.isFocused();window.recycle();}
+            }
+        }finally{if(foreground!=null)foreground.recycle();}
+        if(!visible){stop();reason="CLEANUP_FOREGROUND_CHANGED";return;}
+        String id=cleanupQueue.removeFirst();var claim=GateNotificationListener.claim(id);
+        if(claim==null){cleanupDone++;batchHandler.post(this::nextCleanup);return;}
+        startingCleanup=true;boolean begun;
+        try{begun=requestMeasured("",false,true,false,claim);}finally{startingCleanup=false;}
+        if(!begun){GateNotificationListener.release(claim);stop();return;}
+        overlay.progress(cleanupDone+1,cleanupTotal);
+    }
+    private void measuredFinished(String status){
+        GateNotificationListener.completed(incomingClaim,status);
+        measuredSession=null;finishSession();reason=status;
+        if(cleanupRunning){
+            if(!status.startsWith("VERIFIED")&&!status.startsWith("NO_PENDING_ACTION")){stop();reason=status;return;}
+            cleanupDone++;batchHandler.postDelayed(this::nextCleanup,400);
+        }
+    }
     private BoundedNodes.Budget callbackBudget;
     private void callback(Runnable work){
         boolean owner=callbackBudget==null;if(owner)callbackBudget=new BoundedNodes.Budget();
@@ -164,7 +214,7 @@ public final class GateAccessibilityService extends AccessibilityService {
             public String selectedPackage(){return targetPackage;} public String adapter(){return app().registry().measuredRoute(GateAccessibilityService.this,targetPackage);}
             public boolean active(){return owner==generation&&requested&&overlay.visible()&&SystemClock.elapsedRealtime()<deadline
                 &&getSystemService(PowerManager.class).isInteractive()&&!getSystemService(KeyguardManager.class).isKeyguardLocked();}
-            public AccessibilityNodeInfo root(){return getRootInActiveWindow();}
+            public AccessibilityNodeInfo root(){return freshRoot();}
             public java.util.List<android.view.accessibility.AccessibilityWindowInfo> windows(){return getWindows();}
             public boolean back(){return performGlobalAction(GLOBAL_ACTION_BACK);}
             public boolean clearFor(AccessibilityNodeInfo node){
@@ -186,13 +236,13 @@ public final class GateAccessibilityService extends AccessibilityService {
             }
             public void later(Runnable r,long delay){handler.postDelayed(()->{if(owner==generation)r.run();},delay);}
             public void candidate(String receiver,long at){measuredCandidate(receiver,at);}
-            public void finished(String status){if(owner!=generation)return;measuredSession=null;finishSession();reason=status;}
+            public void finished(String status){if(owner!=generation)return;measuredFinished(status);}
         },repository,phone,owner,connectOnly,activate,checkOnly,incoming);
         if(incoming!=null&&!GateNotificationListener.open(incoming)){stop();reason="INCOMING_ROUTE_UNAVAILABLE";return false;}
         handler.postDelayed(()->{if(owner==generation)stop();},60_000);
         handler.postDelayed(new Runnable(){int stableWindow=-1;public void run(){
             if(owner!=generation||measuredSession==null)return;
-            AccessibilityNodeInfo root=getRootInActiveWindow();boolean target=false;int id=-1;
+            AccessibilityNodeInfo root=freshRoot();boolean target=false;int id=-1;
             if(root!=null&&targetPackage.contentEquals(root.getPackageName())){
                 id=root.getWindowId();for(var window:getWindows()){if(window.getId()==id)target=window.isActive()&&window.isFocused();window.recycle();}
             }
@@ -296,7 +346,9 @@ public final class GateAccessibilityService extends AccessibilityService {
         }
     };
     private void finishSession(){GateNotificationListener.release(incomingClaim);incomingClaim=null;if(overlay!=null)overlay.hide();activeAccount=-1;requested=false;arming=false;checkingCompatibility=false;activatingRule=false;sessionScope=null;pendingObservation="";requestedPhone="";handler.removeCallbacksAndMessages(null);app().sessionAttention(false);}
-    private void stop(){if(repository==null)return;generation++;if(measuredSession!=null){var session=measuredSession;measuredSession=null;session.stop();}controller.stop(port);finishSession();repository.emergencyStop();reason="USER_STOP";}
+    private void stop(){if(repository==null)return;
+        if(!startingCleanup&&cleanupRunning){cleanupRunning=false;cleanupInitiator=null;cleanupQueue.clear();batchHandler.removeCallbacksAndMessages(null);app().senderFilter().configure(app().senderFilter().current().enabled(),false,null);}
+        generation++;if(measuredSession!=null){var session=measuredSession;measuredSession=null;session.stop();}controller.stop(port);finishSession();repository.emergencyStop();reason="USER_STOP";}
     @Override public void onInterrupt(){stop();}
     @Override public void onDestroy(){stop();if(repository!=null)repository.removeListener(repositoryChanged);try{unregisterReceiver(screenOff);}catch(IllegalArgumentException ignored){/* Connection was never completed. */}connected=null;super.onDestroy();}
 }

@@ -1,0 +1,145 @@
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: notification runtime fixture uses API 36 or newer
+TRACE 3: later native click consumes its own receipt when an earlier event is delayed
+TRACE 4: delayed earlier click consumes only its remaining exact receipt
+TRACE 5: consumed native receipt cannot authorize a duplicate click
+TRACE 6: owned fixture has no production connected-app qualification
+TRACE 7: group, summary or mutable token excluded: 0
+TRACE 8: group, summary or mutable token excluded: 1
+TRACE 9: group, summary or mutable token excluded: 2
+TRACE 10: active snapshot is claimable before its posted callback
+TRACE 11: first posted callback acknowledges the same snapshot without revoking its claim
+TRACE 12: select owned fixture for visible Stop test
+TRACE 13: actual posted direct notification can be explicitly claimed
+TRACE 14: visible incoming session starts from the foreground activity
+TRACE 15: actual Stop button revokes the incoming claim and native authority
+TRACE 16: delayed incoming navigation does not resume after Stop
+TRACE 17: actual posted direct notification can be explicitly claimed
+TRACE 18: same-key update revokes the notification claim
+TRACE 19: actual posted direct notification can be explicitly claimed
+TRACE 20: Stop releases notification authority
+TRACE 21: actual posted direct notification can be explicitly claimed
+TRACE 22: personal profile cannot authorize notification cancellation
+TRACE 23: actual posted direct notification can be explicitly claimed
+TRACE 24: unknown sender cannot authorize cancellation
+TRACE 25: actual posted direct notification can be explicitly claimed
+TRACE 26: exact-number allow keeps a confirmed-business notification
+TRACE 27: fixture business-name permission saved
+TRACE 28: actual posted direct notification can be explicitly claimed
+TRACE 29: enabled business name keeps its notification
+TRACE 30: actual posted direct notification can be explicitly claimed
+TRACE 31: exact-number deny takes precedence over the enabled name: NOTIFICATION_DISMISSAL_REQUESTED
+TRACE 32: fixture business-name permission saved
+TRACE 33: actual posted direct notification can be explicitly claimed
+TRACE 34: saved business state alone cannot bind an incoming notification
+TRACE 35: actual posted direct notification can be explicitly claimed
+TRACE 36: revoked epoch prevents notification cancellation
+TRACE 37: actual posted direct notification can be explicitly claimed
+TRACE 38: actual posted direct notification can be explicitly claimed
+TRACE 39: new session revokes the preceding notification claim
+TRACE 40: hidden business requests cancellation of one exact notification
+TRACE 41: Android callback and active snapshot confirm cancellation
+TRACE 42: selected framework notification removed
+TRACE 43: unrelated framework notification retained
+TRACE 44: displayed-name filtering requires separate opt-in
+TRACE 45: fresh confirmed profile teaches the exact business name
+TRACE 46: notification display names alone are not learned as businesses
+TRACE 47: name filter consent saved
+TRACE 48: two matching business notices hidden while personal child remains
+TRACE 49: shared summary is preserved rather than canceling other conversations
+TRACE 50: name match cannot dismiss group conversation
+TRACE 51: acknowledged hidden notices retain two foreground routes
+TRACE 52: own acknowledged cancellation remains claimable without an active notice
+TRACE 53: changed profile name cannot inherit native action from a hidden route
+TRACE 54: select owned fixture for visible Stop test
+TRACE 55: actual posted direct notification can be explicitly claimed
+TRACE 56: foreground cleanup batch starts with its own Stop control: CHECKING_RECEIVING_ACCOUNT
+TRACE 57: synthetic first completion advances to a distinct second route without replay
+TRACE 58: actual Stop button revokes the incoming claim and native authority
+TRACE 59: delayed incoming navigation does not resume after Stop
+TRACE 60: Stop disables automatic batch retry until explicit resume
+TRACE 61: learned name whitelist saved
+TRACE 62: whitelist immediately preserves matching incoming notifications
+TRACE 63: exact-number allow wins over the learned-name rule
+TRACE 64: listener loss removes opaque hidden routes
+TRACE 65: durable pending history survives listener route loss
+TRACE 66: hidden receipts committed to disk
+TRACE 67: turning off the feature revokes future name cancellation
+TRACE 68: actual posted direct notification can be explicitly claimed
+TRACE 69: discovery revocation immediately prevents action
+TRACE 70: discovery revocation drops in-memory candidates
+TRACE 71: reset while unbound erases learned names and hidden history
+TRACE 72: production compatibility restored after the fixture
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: notification runtime fixture uses API 36 or newer
+TRACE 3: later native click consumes its own receipt when an earlier event is delayed
+TRACE 4: delayed earlier click consumes only its remaining exact receipt
+TRACE 5: consumed native receipt cannot authorize a duplicate click
+TRACE 6: owned fixture has no production connected-app qualification
+TRACE 7: group, summary or mutable token excluded: 0
+TRACE 8: group, summary or mutable token excluded: 1
+TRACE 9: group, summary or mutable token excluded: 2
+TRACE 10: active snapshot is claimable before its posted callback
+TRACE 11: first posted callback acknowledges the same snapshot without revoking its claim
+TRACE 12: select owned fixture for visible Stop test
+TRACE 13: actual posted direct notification can be explicitly claimed
+TRACE 14: visible incoming session starts from the foreground activity
+TRACE 15: actual Stop button revokes the incoming claim and native authority
+TRACE 16: delayed incoming navigation does not resume after Stop
+TRACE 17: actual posted direct notification can be explicitly claimed
+TRACE 18: same-key update revokes the notification claim
+TRACE 19: actual posted direct notification can be explicitly claimed
+TRACE 20: Stop releases notification authority
+TRACE 21: actual posted direct notification can be explicitly claimed
+TRACE 22: personal profile cannot authorize notification cancellation
+TRACE 23: actual posted direct notification can be explicitly claimed
+TRACE 24: unknown sender cannot authorize cancellation
+TRACE 25: actual posted direct notification can be explicitly claimed
+TRACE 26: exact-number allow keeps a confirmed-business notification
+TRACE 27: fixture business-name permission saved
+TRACE 28: actual posted direct notification can be explicitly claimed
+TRACE 29: enabled business name keeps its notification
+TRACE 30: actual posted direct notification can be explicitly claimed
+TRACE 31: exact-number deny takes precedence over the enabled name: NOTIFICATION_DISMISSAL_REQUESTED
+TRACE 32: fixture business-name permission saved
+TRACE 33: actual posted direct notification can be explicitly claimed
+TRACE 34: saved business state alone cannot bind an incoming notification
+TRACE 35: actual posted direct notification can be explicitly claimed
+TRACE 36: revoked epoch prevents notification cancellation
+TRACE 37: actual posted direct notification can be explicitly claimed
+TRACE 38: actual posted direct notification can be explicitly claimed
+TRACE 39: new session revokes the preceding notification claim
+TRACE 40: hidden business requests cancellation of one exact notification
+TRACE 41: Android callback and active snapshot confirm cancellation
+TRACE 42: selected framework notification removed
+TRACE 43: unrelated framework notification retained
+TRACE 44: displayed-name filtering requires separate opt-in
+TRACE 45: fresh confirmed profile teaches the exact business name
+TRACE 46: notification display names alone are not learned as businesses
+TRACE 47: name filter consent saved
+TRACE 48: two matching business notices hidden while personal child remains
+TRACE 49: shared summary is preserved rather than canceling other conversations
+TRACE 50: name match cannot dismiss group conversation
+TRACE 51: acknowledged hidden notices retain two foreground routes
+TRACE 52: own acknowledged cancellation remains claimable without an active notice
+TRACE 53: changed profile name cannot inherit native action from a hidden route
+TRACE 54: select owned fixture for visible Stop test
+TRACE 55: actual posted direct notification can be explicitly claimed
+TRACE 56: foreground cleanup batch starts with its own Stop control: CHECKING_RECEIVING_ACCOUNT
+TRACE 57: synthetic first completion advances to a distinct second route without replay
+TRACE 58: actual Stop button revokes the incoming claim and native authority
+TRACE 59: delayed incoming navigation does not resume after Stop
+TRACE 60: Stop disables automatic batch retry until explicit resume
+TRACE 61: learned name whitelist saved
+TRACE 62: whitelist immediately preserves matching incoming notifications
+TRACE 63: exact-number allow wins over the learned-name rule
+TRACE 64: listener loss removes opaque hidden routes
+TRACE 65: durable pending history survives listener route loss
+TRACE 66: hidden receipts committed to disk
+TRACE 67: turning off the feature revokes future name cancellation
+TRACE 68: actual posted direct notification can be explicitly claimed
+TRACE 69: discovery revocation immediately prevents action
+TRACE 70: discovery revocation drops in-memory candidates
+TRACE 71: reset while unbound erases learned names and hidden history
+TRACE 72: production compatibility restored after the fixture
+PASS 72 Android persistence, permission, recovery and native UI assertions; mode=notifications

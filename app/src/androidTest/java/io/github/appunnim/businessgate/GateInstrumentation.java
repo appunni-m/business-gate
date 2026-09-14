@@ -42,6 +42,8 @@ public final class GateInstrumentation extends Instrumentation {
             String mode=arguments.getString("mode","all");
             if(mode.equals("live-business")){
                 liveBusiness();
+            }else if(mode.equals("live-filter")){
+                liveFilter();
             }else if(mode.equals("live-incoming")){
                 liveIncoming();
             }else if(mode.equals("notifications")){
@@ -114,6 +116,82 @@ public final class GateInstrumentation extends Instrumentation {
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"; recent="+recentChecks+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
     /** Opt-in real-account test. No reset, fixtures, database injection, or message send. */
+    /** Authorized real business only; waits for a separately authorized greeting, never sends. */
+    private void liveFilter()throws Exception{
+        check(arguments.getString("authorizeNativeBlockAndUnblock","").equals("true"),"explicit live name-filter authorization");
+        String phone=io.github.appunnim.businessgate.policy.Identity.canonicalPhone(arguments.getString("phone",""));String pkg=arguments.getString("selectedPackage","");
+        String personal=io.github.appunnim.businessgate.policy.Identity.canonicalPhone(arguments.getString("personalPhone",""));
+        GateApplication app=(GateApplication)getTargetContext().getApplicationContext();var store=app.senderFilter();
+        check(app.registry().measuredRoute(getTargetContext(),pkg)!=null&&repository.current().binding().bound(),"measured installation and existing receiver binding retained");
+        Account prior=repository.current().accounts().stream().filter(a->a.phone().equals(phone)).findFirst().orElseThrow();
+        check(prior.kind()==Kind.BUSINESS_CONFIRMED&&prior.choice()==Choice.DEFAULT&&!repository.businessNameEnabled(prior),"authorized business default rule preserved");
+        runOnMainSync(()->repository.setting("discovery",true));until(()->repository.optionEnabled("discovery"));until(()->store.current().ready());
+        var automation=getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        automation.adoptShellPermissionIdentity(android.Manifest.permission.WRITE_SECURE_SETTINGS);
+        try{
+            var resolver=getTargetContext().getContentResolver();String setting=android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES;
+            String original=android.provider.Settings.Secure.getString(resolver,setting);
+            String component=new android.content.ComponentName(getTargetContext(),io.github.appunnim.businessgate.service.GateAccessibilityService.class).flattenToString();
+            java.util.List<String> entries=new java.util.ArrayList<>();if(original!=null)for(String entry:original.split(":"))if(!entry.isEmpty()&&!entry.equals(component))entries.add(entry);
+            android.provider.Settings.Secure.putString(resolver,setting,String.join(":",entries));Thread.sleep(400);
+            entries.add(component);android.provider.Settings.Secure.putString(resolver,setting,String.join(":",entries));
+            android.provider.Settings.Secure.putString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED,"1");
+        }finally{automation.dropShellPermissionIdentity();}
+        until(io.github.appunnim.businessgate.service.GateAccessibilityService::connected);
+        check(io.github.appunnim.businessgate.service.GateAccessibilityService.connected(),"native screen service connected");
+        var listenerField=io.github.appunnim.businessgate.service.GateNotificationListener.class.getDeclaredField("connected");listenerField.setAccessible(true);
+        until(()->{try{return listenerField.get(null)!=null;}catch(IllegalAccessException invalid){return false;}});
+        var listener=(io.github.appunnim.businessgate.service.GateNotificationListener)listenerField.get(null);
+        java.util.Set<String> personalKeys=new java.util.HashSet<>();
+        for(var n:listener.getActiveNotifications())if(n.getPackageName().equals(pkg)&&(n.getNotification().flags&android.app.Notification.FLAG_GROUP_SUMMARY)==0){
+            String title=String.valueOf(n.getNotification().extras.getCharSequence(android.app.Notification.EXTRA_TITLE,""));
+            try{if(io.github.appunnim.businessgate.policy.Identity.canonicalPhone(title).equals(personal))personalKeys.add(n.getKey());}catch(IllegalArgumentException ignored){/* Only the authorized personal sender is inspected. */}
+        }
+        check(personalKeys.size()==1,"authorized personal incoming notification present before filtering");
+        committed(done->store.configure(true,false,ok->{check(ok,"name filtering enabled without background cleanup");done.run();}));
+        until(()->store.enabled()&&store.names().contains(prior.businessName()));
+        check(store.names().contains(prior.businessName()),"real profile observation learned the business display name");
+        automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME);
+        long began=System.currentTimeMillis();check(true,"FILTER_READY_FOR_AUTHORIZED_GREETING");
+        long waitEnd=android.os.SystemClock.elapsedRealtime()+180000;
+        while(store.current().items().stream().noneMatch(i->i.name().equals(prior.businessName())&&i.updatedAt()>=began&&i.status().equals("HIDDEN_PENDING_PROFILE"))){if(android.os.SystemClock.elapsedRealtime()>waitEnd)throw new AssertionError("No acknowledged real incoming dismissal before deadline");Thread.sleep(50);}
+        var receipt=store.current().items().stream().filter(i->i.name().equals(prior.businessName())&&i.updatedAt()>=began&&i.status().equals("HIDDEN_PENDING_PROFILE")).findFirst().orElseThrow();
+        check(true,"real business notification automatically dismissed with Android acknowledgment");
+        check(java.util.Arrays.stream(listener.getActiveNotifications()).anyMatch(n->personalKeys.contains(n.getKey())),"real personal notification survives business dismissal");
+        var foreground=automation.getRootInActiveWindow();try{check(foreground!=null&&!pkg.contentEquals(foreground.getPackageName()),"automatic dismissal did not bring the connected app to foreground");}finally{if(foreground!=null)foreground.recycle();}
+        boolean summaryPreview=false;for(var n:listener.getActiveNotifications())if(n.getPackageName().equals(pkg)&&(n.getNotification().flags&android.app.Notification.FLAG_GROUP_SUMMARY)!=0){
+            var lines=n.getNotification().extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES);
+            if(lines!=null)for(var line:lines)if(line!=null&&line.toString().contains(prior.businessName()))summaryPreview=true;
+        }
+        metrics+="FILTER sharedSummaryStillContainsBusinessName="+summaryPreview+"; physicalQualification=false\n";
+        // A shared summary belongs to the posting app. Preserve it and the personal child;
+        // record the measured preview limitation instead of claiming complete suppression.
+        committed(done->store.configure(true,true,ok->{check(ok,"foreground cleanup consent saved");done.run();}));
+        runOnMainSync(()->check(io.github.appunnim.businessgate.service.GateNotificationListener.cleanupCandidates().size()==1,"one live hidden route ready before opening Business Gate"));
+        check(!repository.current().circuitOpen(),"native compatibility circuit permits cleanup");
+        Activity activity=startActivitySync(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));
+        long end=android.os.SystemClock.elapsedRealtime()+70000;boolean seen=false;
+        do{
+            seen|=io.github.appunnim.businessgate.service.GateAccessibilityService.cleanupActive();
+            if(store.current().items().stream().anyMatch(i->i.id().equals(receipt.id())&&i.status().startsWith("VERIFIED")))break;
+            if(seen&&!io.github.appunnim.businessgate.service.GateAccessibilityService.cleanupActive()){
+                var root=automation.getRootInActiveWindow();String current=root==null?"":String.valueOf(root.getPackageName());if(root!=null)root.recycle();
+                String input=android.provider.Settings.Secure.getString(getTargetContext().getContentResolver(),android.provider.Settings.Secure.DEFAULT_INPUT_METHOD);
+                String surface=current.equals(pkg)?"SELECTED_APP":current.equals(getTargetContext().getPackageName())?"OWN_APP":input!=null&&input.startsWith(current+"/")?"INPUT_METHOD":current.isEmpty()?"NO_ROOT":"OTHER_APP";
+                metrics+="FILTER stoppedSurface="+surface+"; status="+io.github.appunnim.businessgate.service.GateAccessibilityService.status()+"\n";break;
+            }
+            Thread.sleep(50);
+        }while(android.os.SystemClock.elapsedRealtime()<end);
+        check(seen,"opening Business Gate automatically started visible cleanup: "+io.github.appunnim.businessgate.service.GateAccessibilityService.status());
+        var result=repository.current().account(prior.id());
+        check(result.kind()==Kind.BUSINESS_CONFIRMED&&result.blockState()==BlockState.BLOCKED&&result.checkedAt()>=began,"automatic foreground cleanup committed a fresh exact native Block postcondition");
+        check(store.current().items().stream().anyMatch(i->i.id().equals(receipt.id())&&i.phone().equals(phone)&&i.status().equals("VERIFIED_NOTIFICATION_DISMISSED")),"durable hidden item records verified cleanup for the authorized number");
+        check(result.choice()==prior.choice(),"cleanup preserved exact-number preference");
+        check(java.util.Arrays.stream(listener.getActiveNotifications()).anyMatch(n->personalKeys.contains(n.getKey())),"personal notification also survives native business cleanup");
+        metrics+="FILTER completed=true; sentMessages=0; finalNativeState=BLOCKED; physicalQualification=false\n";
+        resumeLive(activity);
+    }
+
     private void liveIncoming()throws Exception{
         check(arguments.getString("authorizeNativeBlockAndUnblock","").equals("true"),"explicit incoming-session test authorization");
         String phone=io.github.appunnim.businessgate.policy.Identity.canonicalPhone(arguments.getString("phone",""));
@@ -911,7 +989,7 @@ public final class GateInstrumentation extends Instrumentation {
         search(recreated,"😀".repeat(130));
         check(ownsView(recreated,v->v instanceof EditText e&&Character.codePointCount(e.getText(),0,e.length())==128&&e.length()==256),"search limit counts Unicode code points without splitting supplementary characters");
         search(recreated,"");
-        for(String method:new String[]{"settings","compatibility","diagnostics","accessDisclosure","notificationDisclosure","salesDisclosure","clearLocal"}){
+        for(String method:new String[]{"settings","compatibility","diagnostics","accessDisclosure","notificationDisclosure","salesDisclosure","clearLocal","senderFilter","senderNames"}){
             invokeOwned(recreated,method,null);android.app.AlertDialog dialog=ownDialog(recreated);check(dialog!=null,"owned supporting dialog opens: "+method);
             runOnMainSync(dialog::cancel);until(()->ownDialog(recreated)==null);check(ownDialog(recreated)==null,"supporting dialog cancels without replay: "+method);
         }
