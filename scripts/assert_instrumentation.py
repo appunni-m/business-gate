@@ -20,7 +20,7 @@ if os.environ.get('GITHUB_ACTIONS') == 'true':
         print(f'::notice title=Android {mode} metrics::{metric}')
 passed = len(report)<=64_000 and success is not None and 'FAIL' not in report
 if not passed:
-    failure = next((line for line in report.splitlines() if 'FAIL' in line), 'No passing instrumentation result')
+    failure = next((line for line in report.splitlines() if 'FAIL' in line), 'No passing instrumentation result\n' + report[-1600:])
     if failure.startswith('FAIL Android instrumentation command exited '):
         failure += '\n' + report.replace(failure, '').strip()[:1600]
     if os.environ.get('GITHUB_ACTIONS') == 'true':

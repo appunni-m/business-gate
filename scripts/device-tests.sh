@@ -10,7 +10,9 @@ adb_bin="$ANDROID_HOME/platform-tools/adb"
 for test_mode in $(python3 scripts/verification_evidence.py native-modes); do
     "$adb_bin" -s "$GATE_TEST_SERIAL" shell am force-stop io.github.appunnim.businessgate.debug
     command_result=0
-    test_result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e mode "$test_mode" io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation 2>&1) || command_result=$?
+    trace=false
+    if [ "$test_mode" = notifications ]; then trace=true; fi
+    test_result=$("$adb_bin" -s "$GATE_TEST_SERIAL" shell am instrument -w -e trace "$trace" -e mode "$test_mode" io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation 2>&1) || command_result=$?
     if [ "$command_result" -ne 0 ]; then
         test_result="$test_result
 FAIL Android instrumentation command exited $command_result"

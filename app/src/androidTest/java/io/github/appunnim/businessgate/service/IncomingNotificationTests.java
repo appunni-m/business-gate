@@ -28,7 +28,10 @@ public final class IncomingNotificationTests {
         long end=SystemClock.elapsedRealtime()+10000;
         while(!ready.getAsBoolean()){if(SystemClock.elapsedRealtime()>end)throw new AssertionError("Notification fixture did not settle");Thread.sleep(25);}
     }
-    private void main(Runnable action){test.runOnMainSync(action);}
+    private void main(Runnable action){
+        Throwable[] failure={null};test.runOnMainSync(()->{try{action.run();}catch(Throwable error){failure[0]=error;}});
+        if(failure[0]!=null)throw new AssertionError("Main-thread fixture action failed: "+failure[0],failure[0]);
+    }
     private void commit(java.util.function.Consumer<Runnable> action)throws Exception{
         CountDownLatch latch=new CountDownLatch(1);main(()->action.accept(latch::countDown));if(!latch.await(10,TimeUnit.SECONDS))throw new AssertionError("Notification fixture transaction timed out");
     }
@@ -100,6 +103,15 @@ public final class IncomingNotificationTests {
         }
     }
     public void run()throws Exception{
+        var previous=Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((thread,error)->{
+            String detail=android.util.Log.getStackTraceString(error);if(detail.length()>6000)detail=detail.substring(0,6000);
+            var report=new android.os.Bundle();report.putString("stream","FAIL uncaught notification fixture error on "+thread.getName()+": "+detail+"\n");
+            try{test.sendStatus(0,report);}finally{if(previous!=null)previous.uncaughtException(thread,error);}
+        });
+        try{runFixture();}finally{Thread.setDefaultUncaughtExceptionHandler(previous);}
+    }
+    private void runFixture()throws Exception{
         check.accept(android.os.Build.VERSION.SDK_INT>=36,"notification runtime fixture uses API 36 or newer");
         routeReceipts();
         GateApplication app=(GateApplication)context.getApplicationContext();
