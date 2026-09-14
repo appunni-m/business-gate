@@ -14,7 +14,7 @@ The owner-authorized greeting on 14 September produced a message notification ma
 
 ## Incoming release checkpoint · 14 September 2026
 
-The final local source passed pure policy/controller/schema/brand gates, 19 action-receipt regressions, wrapper validation, debug/release lint and builds, both probe builds, release artifact audit and the 15-mode account-free Android harness: **646 assertions**, including 45 notification/event checks. The artifact audit found 186 mapped app/compiler classes, minimal permissions, backup disabled and no runtime SDK, native library or test harness in release. The separate live records contain 25 native-session and 17 fresh incoming-session assertions.
+The final local source passed pure policy/controller/schema/brand gates, 19 action-receipt regressions, wrapper validation, debug/release lint and builds, both probe builds, release artifact audit and the 15-mode account-free Android harness: **648 assertions**, including 47 notification/event checks. The artifact audit found 186 mapped app/compiler classes, minimal permissions, backup disabled and no runtime SDK, native library or test harness in release. The separate live records contain 25 native-session and 17 fresh incoming-session assertions.
 
 These local checks do not substitute for GitHub delivery. Each main build must pass the full CI layout/minimum-API matrix, signed upgrade and anonymous download verification before its APK is delivered. Public build metadata identifies that run and source commit.
 

@@ -20,6 +20,8 @@ A default token send was blocked by Android's activity-start rules even while Bu
 
 Real trials also exposed a separately acquired stale profile list after Block, deferred click events with action field zero, and non-sequential receipt delivery. The route refreshes the list before choosing either measured row position and matches each event to its exact outstanding receipt. The deferred exception requires the same retained Android node, resource, class and window within 250 ms; missing sources retain the stricter explicit-action requirement. Each receipt is consumed once. Receipts acknowledge a dispatched control; they do not grant action authority. Stop, policy revisions, fresh identity and native postconditions remain independent checks. Android's [event contract](https://developer.android.com/reference/android/view/accessibility/AccessibilityEvent) does not promise strict delivery order or identify a human actor from the action field alone.
 
+A forced Android regression reproduced a snapshot/callback race: the current notification was visible before its first queued posted callback, and the callback incorrectly revoked the claim. The listener now acknowledges that first identical callback without changing the candidate ID. Subsequent posts still revoke an active claim. The regression failed before the fix and passes afterward, including at the CI display size with animations disabled.
+
 Failed trials were retained locally as failed results. A subsequent complete native sequence passed 25 assertions and the fresh incoming sequence passed 17. No failed or merely dispatched action was promoted to success.
 
 ## Evidence boundaries

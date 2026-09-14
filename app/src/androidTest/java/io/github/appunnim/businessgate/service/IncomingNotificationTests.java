@@ -143,6 +143,7 @@ public final class IncomingNotificationTests {
                 int id=++next;manager.notify(id,notice(id,variant==0,variant==1,variant==2));Thread.sleep(150);
                 boolean[] absent={false};main(()->absent[0]=GateNotificationListener.pending().isEmpty());check.accept(absent[0],"group, summary or mutable token excluded: "+variant);manager.cancel(id);
             }
+            snapshotReplay();
             visibleStop(activity);
             var replace=postAndClaim();manager.notify(next,notice(next,false,false,false));until(()->replace.invalid);
             check.accept(!GateNotificationListener.valid(replace),"same-key update revokes the notification claim");
@@ -158,7 +159,8 @@ public final class IncomingNotificationTests {
             nameEnabled(true);var named=postAndClaim();
             check.accept(dismiss(named,account.phone()).equals("NOTIFICATION_KEPT"),"enabled business name keeps its notification");
             commit(done->repository.choose(account.id(),Choice.DENY_MANUAL,done));arm();var denied=postAndClaim();
-            check.accept(dismiss(denied,account.phone()).equals("NOTIFICATION_DISMISSAL_REQUESTED"),"exact-number deny takes precedence over the enabled name");
+            String deniedResult=dismiss(denied,account.phone());
+            check.accept(deniedResult.equals("NOTIFICATION_DISMISSAL_REQUESTED"),"exact-number deny takes precedence over the enabled name: "+deniedResult);
             until(()->denied.removedByGate);
             commit(done->repository.choose(account.id(),Choice.DEFAULT,done));nameEnabled(false);
             var noIdentity=postAndClaim();String[] unverified={null};main(()->unverified[0]=GateNotificationListener.dismiss(noIdentity,account.phone(),"Fixture business",repository.current().globalRevision(),repository.epoch()));
@@ -184,6 +186,21 @@ public final class IncomingNotificationTests {
             main(()->{try{rows.put(0,original);}catch(org.json.JSONException error){throw new IllegalStateException(error);}});
             check.accept(app.registry().measuredRoute(context,pkg)==null,"production compatibility restored after the fixture");
         }
+    }
+    private void snapshotReplay()throws Exception{
+        int id=++next;GateNotificationListener.Claim[] selected={null};
+        main(()->{
+            // Hold the callback thread while Android posts the notice. The framework snapshot
+            // can become visible before its queued onNotificationPosted callback is delivered.
+            manager.notify(id,notice(id,false,false,false));long end=SystemClock.elapsedRealtime()+2000;
+            GateNotificationListener.Candidate value;
+            while((value=candidate(id))==null&&SystemClock.elapsedRealtime()<end)SystemClock.sleep(10);
+            check.accept(value!=null&&!value.postedReceived(),"active snapshot is claimable before its posted callback");
+            selected[0]=GateNotificationListener.claim(value.id());
+        });
+        until(()->{boolean[] delivered={false};main(()->{var value=candidate(id);delivered[0]=value!=null&&value.postedReceived();});return delivered[0];});
+        check.accept(GateNotificationListener.valid(selected[0]),"first posted callback acknowledges the same snapshot without revoking its claim");
+        main(()->GateNotificationListener.release(selected[0]));manager.cancel(id);
     }
     private void routeReceipts()throws Exception{
         java.util.List<String> failures=new java.util.ArrayList<>();

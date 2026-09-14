@@ -23,7 +23,7 @@ public final class GateNotificationListener extends NotificationListenerService 
     private static final long TTL = 15 * 60_000;
     private static GateNotificationListener connected;
     public record Candidate(String id, String key, String selectedPackage, long postTime,
-                            long seenAt, long namespace, Binding binding, PendingIntent route) {}
+                            long seenAt, long namespace, Binding binding, PendingIntent route, boolean postedReceived) {}
     static final class Claim {
         final Candidate candidate;
         final long startedAt = SystemClock.elapsedRealtime();
@@ -81,12 +81,20 @@ public final class GateNotificationListener extends NotificationListenerService 
             prune();
             if (notice == null) return;
             String key = notice.getKey();
-            if (posted && claim != null && claim.candidate.key().equals(key)) claim.invalid = true;
-            if (!eligible(notice)) { candidates.remove(key); return; }
             Candidate old = candidates.get(key);
+            boolean eligible = eligible(notice);
+            if (posted && eligible && old != null && !old.postedReceived() && same(old, notice)) {
+                // A current snapshot can precede its first queued callback. Acknowledge that
+                // delivery without manufacturing a replacement or changing the selected ID.
+                candidates.put(key, new Candidate(old.id(), old.key(), old.selectedPackage(), old.postTime(),
+                    old.seenAt(), old.namespace(), old.binding(), old.route(), true));
+                return;
+            }
+            if (posted && claim != null && claim.candidate.key().equals(key)) claim.invalid = true;
+            if (!eligible) { candidates.remove(key); return; }
             if (!posted && old != null && same(old, notice)) return;
             candidates.put(key, new Candidate(UUID.randomUUID().toString(), key, notice.getPackageName(), notice.getPostTime(),
-                SystemClock.elapsedRealtime(), repository.current().namespace(), repository.current().binding(), notice.getNotification().contentIntent));
+                SystemClock.elapsedRealtime(), repository.current().namespace(), repository.current().binding(), notice.getNotification().contentIntent, posted));
             while (candidates.size() > CAP) candidates.remove(candidates.keySet().iterator().next());
         } catch (RuntimeException unavailable) { if (claim != null) claim.invalid = true; }
     }

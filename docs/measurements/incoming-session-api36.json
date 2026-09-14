@@ -7,12 +7,12 @@
   "report": "incoming-session-api36.txt",
   "reportSha256": "fc3875296cc2d08f9eb95bd3d957ea851a273f1847fbffcb14b60d6ce7c456e7",
   "testedHashes": {
-    "app/build/outputs/apk/debug/app-debug.apk": "b11acb22322e099c1efd168e0308d1c96777a418028e469527f416e4dfe09b87",
-    "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "0d129413812c0861071ea6ef00690fec8626a5fa9782d800586ed9c5942686af",
+    "app/build/outputs/apk/debug/app-debug.apk": "e7315e5137221d62d01b846c57bc5b80977e6f8624bac682c5b54cd85ae1339f",
+    "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "dd1b91acc86e7c0d50a069994b4ea996dee220748cac2fc601cab06ebffd50d6",
     "connected-route/src/main/java/io/github/appunnim/businessgate/connected/BusinessProfileRoute.java": "9b723ea06759473d1e03acbc7ce5185bc8a1e18e6e08afa7b7ce5facf26ffa86",
     "connected-route/src/main/java/io/github/appunnim/businessgate/connected/ReceivingAccountRoute.java": "729e7833c2811354e7a0d7b0977a7ca225140307c0d752fde84c61c1b43da517",
     "app/src/main/java/io/github/appunnim/businessgate/service/MeasuredSession.java": "6a9ef328ced903ec50171ef23ca68b5026c6e34272bcc2233079645df8bce900",
-    "app/src/main/java/io/github/appunnim/businessgate/service/GateNotificationListener.java": "77cced4e089ab412c8d28584acd3162cebed3ddbc9feaf2b1e0be455b681dbfc",
+    "app/src/main/java/io/github/appunnim/businessgate/service/GateNotificationListener.java": "ffd34005d10ccc6f6c227875710d6c2589e05c54cddd1de59ee322ff77c01834",
     "app/src/main/java/io/github/appunnim/businessgate/service/GateAccessibilityService.java": "40895edfd61d213b75c7632f65bf2a5ea7a50b57746deff8fc45720bc5eadc56"
   },
   "receivingAccountBindingVerified": true,
@@ -26,7 +26,7 @@
   "preparationSentMessages": 1,
   "preparation": {
     "acknowledgedSends": 1,
-    "homeRequestedAtUtc": "2026-09-14T07:58:56.297585+00:00",
+    "homeRequestedAtUtc": "2026-09-14T08:39:25.370573+00:00",
     "forceStopped": false
   },
   "messageBodiesInspected": false,

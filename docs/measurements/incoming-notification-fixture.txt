@@ -1,1 +1,95 @@
-PASS 45 Android persistence, permission, recovery and native UI assertions; mode=notifications
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: notification runtime fixture uses API 36 or newer
+TRACE 3: later native click consumes its own receipt when an earlier event is delayed
+TRACE 4: delayed earlier click consumes only its remaining exact receipt
+TRACE 5: consumed native receipt cannot authorize a duplicate click
+TRACE 6: owned fixture has no production connected-app qualification
+TRACE 7: group, summary or mutable token excluded: 0
+TRACE 8: group, summary or mutable token excluded: 1
+TRACE 9: group, summary or mutable token excluded: 2
+TRACE 10: active snapshot is claimable before its posted callback
+TRACE 11: first posted callback acknowledges the same snapshot without revoking its claim
+TRACE 12: select owned fixture for visible Stop test
+TRACE 13: actual posted direct notification can be explicitly claimed
+TRACE 14: visible incoming session starts from the foreground activity
+TRACE 15: actual Stop button revokes the incoming claim and native authority
+TRACE 16: delayed incoming navigation does not resume after Stop
+TRACE 17: actual posted direct notification can be explicitly claimed
+TRACE 18: same-key update revokes the notification claim
+TRACE 19: actual posted direct notification can be explicitly claimed
+TRACE 20: Stop releases notification authority
+TRACE 21: actual posted direct notification can be explicitly claimed
+TRACE 22: personal profile cannot authorize notification cancellation
+TRACE 23: actual posted direct notification can be explicitly claimed
+TRACE 24: unknown sender cannot authorize cancellation
+TRACE 25: actual posted direct notification can be explicitly claimed
+TRACE 26: exact-number allow keeps a confirmed-business notification
+TRACE 27: fixture business-name permission saved
+TRACE 28: actual posted direct notification can be explicitly claimed
+TRACE 29: enabled business name keeps its notification
+TRACE 30: actual posted direct notification can be explicitly claimed
+TRACE 31: exact-number deny takes precedence over the enabled name: NOTIFICATION_DISMISSAL_REQUESTED
+TRACE 32: fixture business-name permission saved
+TRACE 33: actual posted direct notification can be explicitly claimed
+TRACE 34: saved business state alone cannot bind an incoming notification
+TRACE 35: actual posted direct notification can be explicitly claimed
+TRACE 36: revoked epoch prevents notification cancellation
+TRACE 37: actual posted direct notification can be explicitly claimed
+TRACE 38: actual posted direct notification can be explicitly claimed
+TRACE 39: new session revokes the preceding notification claim
+TRACE 40: hidden business requests cancellation of one exact notification
+TRACE 41: Android callback and active snapshot confirm cancellation
+TRACE 42: selected framework notification removed
+TRACE 43: unrelated framework notification retained
+TRACE 44: actual posted direct notification can be explicitly claimed
+TRACE 45: discovery revocation immediately prevents action
+TRACE 46: discovery revocation drops in-memory candidates
+TRACE 47: production compatibility restored after the fixture
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: notification runtime fixture uses API 36 or newer
+TRACE 3: later native click consumes its own receipt when an earlier event is delayed
+TRACE 4: delayed earlier click consumes only its remaining exact receipt
+TRACE 5: consumed native receipt cannot authorize a duplicate click
+TRACE 6: owned fixture has no production connected-app qualification
+TRACE 7: group, summary or mutable token excluded: 0
+TRACE 8: group, summary or mutable token excluded: 1
+TRACE 9: group, summary or mutable token excluded: 2
+TRACE 10: active snapshot is claimable before its posted callback
+TRACE 11: first posted callback acknowledges the same snapshot without revoking its claim
+TRACE 12: select owned fixture for visible Stop test
+TRACE 13: actual posted direct notification can be explicitly claimed
+TRACE 14: visible incoming session starts from the foreground activity
+TRACE 15: actual Stop button revokes the incoming claim and native authority
+TRACE 16: delayed incoming navigation does not resume after Stop
+TRACE 17: actual posted direct notification can be explicitly claimed
+TRACE 18: same-key update revokes the notification claim
+TRACE 19: actual posted direct notification can be explicitly claimed
+TRACE 20: Stop releases notification authority
+TRACE 21: actual posted direct notification can be explicitly claimed
+TRACE 22: personal profile cannot authorize notification cancellation
+TRACE 23: actual posted direct notification can be explicitly claimed
+TRACE 24: unknown sender cannot authorize cancellation
+TRACE 25: actual posted direct notification can be explicitly claimed
+TRACE 26: exact-number allow keeps a confirmed-business notification
+TRACE 27: fixture business-name permission saved
+TRACE 28: actual posted direct notification can be explicitly claimed
+TRACE 29: enabled business name keeps its notification
+TRACE 30: actual posted direct notification can be explicitly claimed
+TRACE 31: exact-number deny takes precedence over the enabled name: NOTIFICATION_DISMISSAL_REQUESTED
+TRACE 32: fixture business-name permission saved
+TRACE 33: actual posted direct notification can be explicitly claimed
+TRACE 34: saved business state alone cannot bind an incoming notification
+TRACE 35: actual posted direct notification can be explicitly claimed
+TRACE 36: revoked epoch prevents notification cancellation
+TRACE 37: actual posted direct notification can be explicitly claimed
+TRACE 38: actual posted direct notification can be explicitly claimed
+TRACE 39: new session revokes the preceding notification claim
+TRACE 40: hidden business requests cancellation of one exact notification
+TRACE 41: Android callback and active snapshot confirm cancellation
+TRACE 42: selected framework notification removed
+TRACE 43: unrelated framework notification retained
+TRACE 44: actual posted direct notification can be explicitly claimed
+TRACE 45: discovery revocation immediately prevents action
+TRACE 46: discovery revocation drops in-memory candidates
+TRACE 47: production compatibility restored after the fixture
+PASS 47 Android persistence, permission, recovery and native UI assertions; mode=notifications

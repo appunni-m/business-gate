@@ -4,13 +4,17 @@ Reviewed 10 September 2026 at source commit `408eb9d9226072f8fda2d341e1fddb3d72d
 
 ## Incoming-feature review · 14 September 2026
 
-The workflow still gates main-branch delivery on successful verification, audits and signs the verified build, runs the separate signed-upgrade probe, and verifies anonymous versioned and rolling downloads. The incoming change adds `notifications` to the required native-mode manifest; release metadata rejects a verification manifest missing that mode. Local evidence passes 45 notification/event assertions and all 646 assertions across 15 native modes. No signing secret was inspected or changed. The original run-20 findings below remain a historical checkpoint; each later release carries its own run/commit verification.
+The workflow still gates main-branch delivery on successful verification, audits and signs the verified build, runs the separate signed-upgrade probe, and verifies anonymous versioned and rolling downloads. The incoming change adds `notifications` to the required native-mode manifest; release metadata rejects a verification manifest missing that mode. Local evidence passes 47 notification/event assertions and all 648 assertions across 15 native modes. No signing secret was inspected or changed. The original run-20 findings below remain a historical checkpoint; each later release carries its own run/commit verification.
 
 ## Run 34 follow-up
 
 [Run 34](https://github.com/appunni-m/business-gate/actions/runs/34821462119) passed compilation, lint, artifact checks and the first six native modes, then reported an instrumentation process crash in `notifications`. Delivery was skipped. Its public test artifact matches GitHub's SHA-256 metadata. The same notification suite passes 45 assertions locally at the CI display size (320×640, 160 dpi) with animations disabled; this does not establish the cause of the remote crash.
 
 The follow-up reports main-thread fixture exceptions on the instrumentation thread, emits bounded uncaught-error details before preserving Android's normal crash handling, and retains notification-mode step traces. Missing results remain failures. Subsequent workflow outcomes must be checked on their exact commits.
+
+## Run 35 and callback-race fix
+
+[Run 35](https://github.com/appunni-m/business-gate/actions/runs/34822717477) reported the exact-number Deny notification-cancellation assertion rather than an opaque process crash; delivery remained skipped. A deterministic Android regression then reproduced an active-snapshot claim being revoked by its first queued posted callback. The fix acknowledges the first identical callback and retains replacement revocation. The expanded notification suite passes 47 assertions locally, including 320×640 at 160 dpi with animations disabled; a fresh real incoming session also passes 17 assertions. These local results do not substitute for the next exact-commit CI run.
 
 ## Verdict
 

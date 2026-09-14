@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "capturedOn": "2026-09-14",
   "scope": "Actual Android notification lifecycle with fictional identities and a test-local compatibility seam, plus owned Android click events replayed out of order through the production receipt handler. No native business mutation or real receiving-account qualification is claimed.",
-  "assertions": 45,
+  "assertions": 47,
   "result": "PASS",
   "report": "incoming-notification-fixture.txt",
-  "reportSha256": "066746360213d4fb786899fe953566367a33be342bb3bb03894504e6c8c40b56",
+  "reportSha256": "c6659e270cb326972a118e6a4ae8584c0a5e0ad6700385492a3ab50b81b3b33a",
   "physicalQualification": false,
-  "testedAppApkSha256": "05b4030629859769db9115d3bbae091c3a2f72479955397d1a70ab1848ac02b1",
-  "testedInstrumentationApkSha256": "46eb6e8803f95c7970110c48af4ff1fc69700ed09ea4d2e3474102ea00f492d0"
+  "testedAppApkSha256": "e7315e5137221d62d01b846c57bc5b80977e6f8624bac682c5b54cd85ae1339f",
+  "testedInstrumentationApkSha256": "dd1b91acc86e7c0d50a069994b4ea996dee220748cac2fc601cab06ebffd50d6"
 }
