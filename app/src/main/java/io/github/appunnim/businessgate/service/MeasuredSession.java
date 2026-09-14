@@ -25,7 +25,11 @@ final class MeasuredSession {
     }
     private final Host host;
     private final GateRepository repository;
-    private final String phone,adapter;
+    private String phone;
+    private final String adapter;
+    private final GateNotificationListener.Claim incoming;
+    private boolean discoveringIncoming;
+    private String incomingName;
     private final long generation;
     private final boolean connectOnly,activate,checkOnly;
     private final Binding binding;
@@ -43,13 +47,22 @@ final class MeasuredSession {
     private io.github.appunnim.businessgate.connected.ActionEcho expectedHeader;
 
     MeasuredSession(Host host,GateRepository repository,String phone,long generation,boolean connectOnly,boolean activate,boolean checkOnly){
+        this(host,repository,phone,generation,connectOnly,activate,checkOnly,null);
+    }
+    MeasuredSession(Host host,GateRepository repository,String phone,long generation,boolean connectOnly,boolean activate,boolean checkOnly,GateNotificationListener.Claim incoming){
         this.host=host;this.repository=repository;this.phone=phone;this.generation=generation;this.connectOnly=connectOnly;this.activate=activate;this.checkOnly=checkOnly;
+        this.incoming=incoming;
         var s=repository.current();binding=s.binding();namespace=s.namespace();initialRevision=s.globalRevision();initialEpoch=repository.epoch();adapter=host.adapter();
         sessionScope=new Readiness(namespace,initialRevision,initialEpoch,SystemClock.elapsedRealtime(),binding);
     }
     private boolean active(){return !done&&host.active()&&adapter.equals(host.adapter())&&repository.consented()
-        &&repository.current().namespace()==namespace&&repository.current().binding().equals(binding)&&repository.current().error().isEmpty();}
+        &&repository.current().namespace()==namespace&&repository.current().binding().equals(binding)&&repository.current().error().isEmpty()
+        &&(incoming==null||GateNotificationListener.valid(incoming));}
     void start(){
+        if(incoming!=null){discoveringIncoming=true;phone=null;contactOpened=SystemClock.elapsedRealtime();inspectContact();}
+        else startReceiver();
+    }
+    private void startReceiver(){
         if(!active()){fail("SESSION_CHANGED");return;}
         receiverRoute=new ReceivingAccountRoute(new ReceivingAccountRoute.Host(){
             public String selectedPackage(){return host.selectedPackage();} public boolean active(){return MeasuredSession.this.active();}
@@ -70,8 +83,11 @@ final class MeasuredSession {
                     if(!active()){fail("SESSION_CHANGED");return;}
                     armedEpoch=repository.epoch();commandRevision=repository.current().globalRevision();
                     if(phone.isEmpty()){finish("RULE_READY");return;}
-                    Intent intent=new Intent(Intent.ACTION_SENDTO,Uri.fromParts("smsto",phone,null)).setPackage(host.selectedPackage()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    contactOpened=SystemClock.elapsedRealtime();host.open(intent);host.later(MeasuredSession.this::inspectContact,500);
+                    contactOpened=SystemClock.elapsedRealtime();
+                    // After the notification establishes the candidate, navigate within the freshly
+                    // verified receiving account. Replaying a creator-updatable token could switch it.
+                    Intent intent=new Intent(Intent.ACTION_SENDTO,Uri.fromParts("smsto",phone,null)).setPackage(host.selectedPackage()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);host.open(intent);
+                    host.later(MeasuredSession.this::inspectContact,500);
                 });
             }
         });receiverRoute.start();
@@ -89,7 +105,9 @@ final class MeasuredSession {
         if(businessRoute!=null){businessRoute.event(event);return;}
         if(event.getEventType()==AccessibilityEvent.TYPE_VIEW_CLICKED)fail("CONTACT_INTERACTION_CHANGED");
     }
-    private boolean scope(){return active()&&!repository.disarmed()&&repository.epoch()==armedEpoch&&repository.current().globalRevision()==commandRevision
+    private boolean scope(){
+        if(discoveringIncoming)return active()&&repository.epoch()==initialEpoch&&repository.current().globalRevision()==initialRevision;
+        return active()&&!repository.disarmed()&&repository.epoch()==armedEpoch&&repository.current().globalRevision()==commandRevision
         &&!repository.current().circuitOpen()&&repository.nameVisibilityPolicy()!=null;}
     private void inspectContact(){
         if(done||observing)return;
@@ -104,7 +122,14 @@ final class MeasuredSession {
             if(!focused||(headerClicked&&now-profileOpened<800)){host.later(this::inspectContact,200);return;}
             BusinessProfileRoute.Profile profile=BusinessProfileRoute.readProfile(root,host.selectedPackage(),phone);
             if(profile!=null){
+                if(discoveringIncoming){
+                    phone=profile.phone();incomingName=NameVisibilityPolicy.nameKey(profile.name());
+                    discoveringIncoming=false;headerClicked=false;profileOpened=0;scrolls=0;
+                    startReceiver();return;
+                }
+                if(incoming!=null&&!incomingName.equals(NameVisibilityPolicy.nameKey(profile.name()))){fail("INCOMING_PROFILE_CHANGED");return;}
                 list=root.getChild(0);
+                if(list==null||!list.refresh()){fail("PROFILE_LIST_UNAVAILABLE");return;}
                 if(BusinessProfileRoute.entryIndex(list.getChildCount())>=0){entry=list.getChild(BusinessProfileRoute.entryIndex(list.getChildCount()));label=entry==null?null:entry.getChild(0);}
                 if(!field(entry,"block_contact_btn","android.widget.LinearLayout",1)||!entry.isVisibleToUser()){
                     if(scrolls>=2||!list.isScrollable()||!list.isVisibleToUser()){
@@ -123,12 +148,14 @@ final class MeasuredSession {
                 if(state==BlockState.UNKNOWN){fail("BUSINESS_STATE_UNAVAILABLE");return;}
                 var fresh=BusinessProfileRoute.readProfile(root,host.selectedPackage(),phone);
                 if(fresh==null||!fresh.name().equals(profile.name())){fail("BUSINESS_IDENTITY_CHANGED");return;}
+                if(incoming!=null&&!GateNotificationListener.bindIdentity(incoming,phone,fresh.name(),binding.receiver())){fail("INCOMING_IDENTITY_CHANGED");return;}
                 observing=true;
                 repository.observe(evidence(fresh,state),fresh.name(),()->{
                     observing=false;if(!scope()){fail("POLICY_CHANGED");return;}
                     command=repository.current().accounts().stream().filter(a->a.phone().equals(phone)).findFirst().orElse(null);
                     if(command==null){fail("OBSERVATION_NOT_SAVED");return;}
-                    if(!command.pending()){finish("NO_PENDING_ACTION");return;}
+                    if(!command.pending()){finishProfile(fresh,state,"NO_PENDING_ACTION");return;}
+                    if(incoming!=null&&command.jobAction()==Action.BLOCK&&(!repository.current().enabled()||repository.current().paused())){finish("BUSINESS_RULE_PAUSED");return;}
                     startBusiness();
                 });return;
             }
@@ -167,7 +194,7 @@ final class MeasuredSession {
                 if(!authorize(result.profile(),result.action())){fail("POLICY_CHANGED");return;}
                 var p=plan(result.profile(),result.action()==BusinessProfileRoute.Action.BLOCK?BusinessProfileRoute.Step.CONFIRM:BusinessProfileRoute.Step.ENTRY,result.mutated());
                 repository.verified(p,evidence(result.profile(),result.action()==BusinessProfileRoute.Action.BLOCK?BlockState.BLOCKED:BlockState.UNBLOCKED),outcome->{
-                    if(outcome==AutomationController.CommitResult.COMMITTED)finish("VERIFIED");else fail("RESULT_NOT_COMMITTED");
+                    if(outcome==AutomationController.CommitResult.COMMITTED)finishProfile(result.profile(),result.action()==BusinessProfileRoute.Action.BLOCK?BlockState.BLOCKED:BlockState.UNBLOCKED,"VERIFIED");else fail("RESULT_NOT_COMMITTED");
                 });
             }
         },phone,action);businessRoute.start();
@@ -187,12 +214,26 @@ final class MeasuredSession {
         return new AutomationController.Plan(command.id(),commandRevision,command.revision(),generation,command.jobAction(),control,phone,binding.receiver(),profile.windowId(),namespace,adapter,command.nonce(),attempted);
     }
     private Evidence evidence(BusinessProfileRoute.Profile p,BlockState state){return new Evidence(namespace,phone,Kind.BUSINESS_CONFIRMED,state,p.observedAt(),generation,p.windowId(),binding.receiver(),adapter,true,true);}
+    private void finishProfile(BusinessProfileRoute.Profile profile,BlockState state,String status){
+        if(incoming==null){finish(status);return;}
+        if(!scope()){fail("SESSION_CHANGED");return;}
+        String outcome=state==BlockState.BLOCKED?GateNotificationListener.dismiss(incoming,phone,profile.name(),commandRevision,armedEpoch):"NOTIFICATION_KEPT";
+        if(!outcome.equals("NOTIFICATION_DISMISSAL_REQUESTED")){finish(status+"_"+outcome);return;}
+        long requestedAt=SystemClock.elapsedRealtime();
+        host.later(new Runnable(){public void run(){
+            if(!scope()){fail("SESSION_CHANGED");return;}
+            String result=GateNotificationListener.dismissalResult(incoming);
+            if(!result.equals("NOTIFICATION_DISMISSAL_REQUESTED")){finish(status+"_"+result);return;}
+            if(SystemClock.elapsedRealtime()-requestedAt>=2000){finish(status+"_NOTIFICATION_DISMISSAL_UNCONFIRMED");return;}
+            host.later(this,100);
+        }},100);
+    }
     private boolean field(AccessibilityNodeInfo n,String id,String type,int children){return n!=null&&n.refresh()&&host.selectedPackage().contentEquals(n.getPackageName())&&(host.selectedPackage()+":id/"+id).equals(n.getViewIdResourceName())&&type.contentEquals(n.getClassName())&&n.getChildCount()==children&&n.isEnabled();}
     void stop(){fail("USER_STOP");}
     private void fail(String reason){
         if(done)return;done=true;clear();repository.emergencyStop();
         repository.interrupted(lastIntent,reason.equals("USER_STOP")?AutomationController.StopReason.USER_STOP:AutomationController.StopReason.GUARD_FAILED,mutationPossible,sessionScope);
-        host.finished(mutationPossible?"RESULT_UNVERIFIED":reason);
+        host.finished(mutationPossible?"RESULT_UNVERIFIED_"+reason:reason);
     }
     private void finish(String reason){if(done)return;done=true;clear();host.finished(reason);}
     private void clear(){if(receiverRoute!=null){var route=receiverRoute;receiverRoute=null;route.stop();}if(businessRoute!=null){var route=businessRoute;businessRoute=null;route.stop();}expectedHeader=null;}

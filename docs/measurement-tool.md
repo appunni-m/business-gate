@@ -1,6 +1,6 @@
 # Existing-account integration measurements
 
-The signed development APK still has no qualified connected-app adapter. This separate developer tool obtains missing installation and selected-node measurements; it neither blocks accounts nor promotes a contract. A successful capture is an observation, not proof of a working blocking route, account binding, sender delivery, or physical qualification.
+Connected native actions are experimental on the measured emulator; physical devices remain unqualified. This separate developer tool collects installation, selected-node and structured notification measurements. Its explicit block/unblock trial modes require exact-number authorization. A capture alone does not qualify a route or promote a compatibility contract. See [connected-session verification](connected-session-verification.md) for demonstrated app behavior.
 
 The owner asked to work with existing accounts first and will supply a later incoming test message. A separate sender is not required to begin profile and confirmation measurements. Every real mutation still needs an exact selected number, explicit authority, and a verified route.
 
@@ -24,7 +24,7 @@ python3 scripts/emulator-session.py start
 adb -s emulator-5574 install -r qualification-probe/build/outputs/apk/debug/qualification-probe-debug.apk
 ```
 
-This module has its own application ID and test key, with no dependency from the main application. The release artifact audit rejects measurement classes in the app's mapping. Both external entry points, an Activity for the owned self-test and a receiver for captures, require Android’s `DUMP` permission, available to the authorized development shell. Private report files are retrieved through `run-as` and then removed. No recorder, probe, runtime import, or experimental adapter is added to the distributed app.
+This module has its own application ID and test key, with no dependency from the main application. The release artifact audit rejects measurement classes in the app's mapping. Both external entry points, an Activity for the owned self-test and a receiver for captures, require Android’s `DUMP` permission, available to the authorized development shell. Private report files are retrieved through `run-as` and then removed. The measurement APK adds no recorder, probe or runtime import to the distributed app. The app's separately reviewed experimental contract is described in connected-session verification.
 
 The service declares ordinary window-content retrieval, resource IDs and interactive-window access, with `isAccessibilityTool=false` on API 31+, matching the relevant production capability restrictions. It cannot perform gestures. Capture uses a protected asynchronous broadcast and the normal service lifecycle. It does not launch a probe Activity over the observed screen. The owned self-test alone uses the Activity and synthetic fixture. The initial instrumentation attempt left a dead system binding on the isolated API 29 emulator; a reboot of that account-free emulator cleared it. The current self-test passes through the ordinary lifecycle.
 
@@ -69,7 +69,7 @@ python3 scripts/measure-installation.py self-test \
 
 Current observed records are under `output/measurements/`. The [sanitized receiver-profile observation](measurements/receiver-profile-api36.json) retains the measured environment, explicit ancestor path, field suffix, text-presence and number-syntax result. No phone value or phone digest is retained. The profile was opened through its exposed navigation button; Android separately reported `ProfileInfoActivity`. Each capture restores the exact accessibility settings. These are API 36 emulator observations, not physical qualification or official-source certification.
 
-The existing production parser accepts the measured phone syntax, but its current screen recipes require receiver identity on the business profile and both confirmation screens. An own-profile field alone does not satisfy that contract. No receiver binding, business classification, block/unblock, delivery result or registry entry has been created.
+The existing production parser accepts the measured phone syntax, but its current screen recipes require receiver identity on the business profile and both confirmation screens. An own-profile field alone does not satisfy that contract. Those initial captures did not create a receiver binding, business classification, native result or registry entry. The subsequently implemented measured session is documented separately.
 
 ## Explicit navigation measurements
 
@@ -79,7 +79,7 @@ The existing production parser accepts the measured phone syntax, but its curren
 
 These modes are explicit navigation operations, so they are not described as read-only. Reports distinguish `inputFocusRequested` and `navigationAction`; these navigation records have `mutationPerformed=false`. The separately authorized outgoing-message mode below sets that field to true. A successful navigation dispatch is not proof that the destination opened; the destination is measured separately. No coordinate, gesture or private-component launch bypass is used. The separately authorized test-chat exception below does not change the production restriction against message-tree traversal.
 
-## Remaining route work
+## Initial route prerequisites · historical
 
 The receiver page has now been reached and measured without a sender. The next live target must be an exact existing business number authorized by the owner. Before any block/unblock attempt, measure that profile, classification, entry/confirmation controls, receiver continuity, side effects and postconditions. A random incoming number cannot establish business status. Ask for the later incoming message only once the qualified flow is ready. Physical and acceptance evidence remains necessary before distribution can enable an adapter.
 
@@ -104,9 +104,27 @@ On 13 September the owner explicitly allowed inspection of anything in the suppl
 The owner authorized one repeat message using a distinct reply marker. Exactly one additional Send action was acknowledged at 12:17:41 UTC. The emulator had validated Internet connectivity, notification permission and a synchronized clock. Those checks do not prove message delivery. Delivery and reply evidence are recorded separately from dispatch; production compatibility remains disabled pending full route and physical qualification.
 
 
-The final [sanitized outgoing-test record](measurements/outgoing-test-api36.json) records both outgoing tests with the exposed **Delivered** status. The repeat message and a following welcome/support response both displayed 5:47 PM; the earlier pair displayed 8:20 AM. The two responses contained the same text, rather than the requested unique reply marker. This is a receiving-account UI observation; the business's sender-side receipt was not independently inspected. No extra message was sent to follow a support link. No block/unblock or blocked-delivery test has passed.
+The final [sanitized outgoing-test record](measurements/outgoing-test-api36.json) records both outgoing tests with the exposed **Delivered** status. The repeat message and a following welcome/support response both displayed 5:47 PM; the earlier pair displayed 8:20 AM. The two responses contained the same text, rather than the requested unique reply marker. This is a receiving-account UI observation; the business's sender-side receipt was not independently inspected. No extra message was sent to follow a support link. That outgoing-test record did not test Block/Unblock or blocked delivery. Later native and incoming results are linked at the top of this document.
 
 The final local verification passed all pure/schema/brand gates, 75 bounded helper checks, 19 report regressions, debug/release lint and builds, the wrapper/workflow checks and release artifact audit. The account-free API 36 native harness passed 14 modes and 532 assertions; the helper's separate lifecycle self-test passed four assertions. Main application code and the empty compatibility registry were unchanged. Physical qualification remains unrun.
 
 
 The follow-up profile capture measured 21 rows, with the identity prefix and business contact controls visible. Attempting the next off-screen row was rejected with `PATH_UNAVAILABLE`; no fallback click or guessed selector was used. The block/unblock entry and confirmation route, continuous receiving-account binding and side effects still need qualification. The welcome responses resolve the earlier uncertainty about ordinary message reception, not those blocking prerequisites.
+## Structured notification identity measurement
+
+The separate developer probe can inspect public notification metadata without
+opening a conversation or exporting message bodies, names or raw identities:
+
+```sh
+python3 scripts/measure-notifications.py \
+  --serial "$GATE_TEST_SERIAL" --target-apk "$GATE_SELECTED_APK" \
+  --expected-phone "$GATE_TEST_BUSINESS" --expected-receiver "$GATE_TEST_RECEIVER" \
+  --enable-emulator-listener --output output/notification-metadata.json
+```
+
+Build the qualification probe first. Set the four variables to the authorized
+test setup. The script installs the probe without clearing data, verifies its
+APK and the selected installation, enables only its listener on an emulator,
+and restores the original notification-listener setting. Physical devices must
+grant access in Android settings. Reports contain bounded shape, digest and
+expectation-match fields. This command never promotes compatibility evidence.

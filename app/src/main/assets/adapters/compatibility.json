@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "status": "awaiting-physical-qualification",
   "adapters": [],
-  "reason": "No measured receiving-account binding, screen recipe, signing lineage or physical mutation evidence has been supplied. Connected-app actions stay unavailable.",
+  "reason": "Experimental native sessions support only the measured emulator installation and display. Physical environments remain unqualified.",
   "measuredRoutes": [
     {
       "id": "business-profile-v1",
@@ -27,10 +27,10 @@
         "densityDpi": 420,
         "orientation": 1
       },
-      "businessRouteSha256": "c950ffaa95a46a7abe6b27401c066688c4d72933496382eaf563dfad05f1ea45",
+      "businessRouteSha256": "9b723ea06759473d1e03acbc7ce5185bc8a1e18e6e08afa7b7ce5facf26ffa86",
       "receiverRouteSha256": "729e7833c2811354e7a0d7b0977a7ca225140307c0d752fde84c61c1b43da517",
-      "evidenceSha256": "fb730d58c4b783bcc83f9678c8bb3b027ac5c174f942b558d9bc2859e8aef9c1",
-      "actionEchoSha256": "d303bce2e4c0a368369e5b8bd973209c868d1189a34019a42b6194e221f64aad"
+      "evidenceSha256": "afa34ac71ad0fa82c375c32d88962294c1d33953d776ed80f3aae4328184db51",
+      "actionEchoSha256": "122f20f0cd98178e1cc412e2823f08cfbac6014f860b6eacfe4ee6612a539105"
     }
   ]
 }

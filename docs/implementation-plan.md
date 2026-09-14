@@ -4,6 +4,10 @@ Prepared 10 September 2026 against commit `092ce8f` and installed release `0.1.0
 
 **Current scope and evidence:** the accepted [business-name design](name-visibility-design.md) supersedes the earlier zero-preview requirement. Use the [execution status](execution-status.md) and [live session verification](connected-session-verification.md) for current results and remaining gaps. The baseline defect descriptions below are historical; the [workflow review](workflow-review.md) records the specific older run it inspected.
 
+**Owner acceptance decision · 14 September 2026:** verify Business Gate's native Block/Unblock action and exact-number postcondition, and delegate subsequent message blocking to the connected app. Independent sender-side delivery testing is not required. A second sender account is not a prerequisite for incoming discovery/dismissal development. This changes acceptance scope; it does not turn an omitted test into a pass.
+
+**Incoming-session checkpoint · 14 September 2026:** the [foreground incoming route](incoming-notification-design.md) passed a fresh 17-assertion live test; native name controls and Stop passed 25 assertions. Automatic candidate capture is implemented. Multi-profile batches, physical qualification and the full pilot remain partial.
+
 ## Outcome and current baseline
 
 The required outcome is a complete native Business Gate experience that applies exact-number choices through a measured, supported connected-app interface, verifies the result, and publishes installable signed APKs through GitHub.
@@ -137,7 +141,7 @@ In [SessionOverlay](../app/src/main/java/io/github/appunnim/businessgate/support
 
 ### F16 — Add live integration and actual-release qualification · P0
 
-After F02–F15, prove the first controlled block and explicit unblock on the actual route. Independently verify sender delivery behavior and receiver block state; a click return or local label is insufficient. Exercise identity confusion, ALLOW, personal/unknown/group contexts, manual external blocks, wrong builds, side effects, unread/read-receipt changes, and interruptions. Verify the compiled signed APK as well as the debug/controller implementation.
+After F02–F15, prove the first controlled block and explicit unblock on the actual route. Re-read the exact native profile identity and positive action postcondition before committing success; a click return or Business Gate label is insufficient. Independent sender-side delivery testing is excluded by the owner's 14 September decision. Exercise identity confusion, ALLOW, personal/unknown/group contexts, manual external blocks, wrong builds, side effects, unread/read-receipt changes, and interruptions. Verify the compiled signed APK as well as the debug/controller implementation.
 
 **Done when:** recorded physical evidence, fixtures, reviewed environment metadata, and applicable safety cases support each advertised configuration. Test tools use disposable test signing and remain outside release; publisher credentials remain confined to the release-signing process. The first happy-path pass does not qualify all configurations.
 
@@ -155,7 +159,7 @@ Connect [SessionBudget](../app/src/main/java/io/github/appunnim/businessgate/pol
 
 ### F19 — Qualify the notification-to-candidate bridge · P1
 
-[GateNotificationListener](../app/src/main/java/io/github/appunnim/businessgate/service/GateNotificationListener.java) currently stores opaque keys in memory without a downstream discovery consumer. Establish actual provenance, supported one-to-one candidate binding, repost/removal deduplication, and queued reinspection. A notification or display name cannot establish business classification or mutation authority. Check the selected namespace/installation before any extras access; handle grouped, redacted, unrelated, work-profile, and unavailable notifications conservatively.
+Implemented on 14 September for the exact experimental emulator: [the incoming design and evidence](incoming-notification-design.md) cover bounded capture/replay, immutable token provenance, visible profile/receiver verification, policy/native action, replacement and notification handling. Broader deployment still requires environment qualification. A notification or display name cannot establish business classification or mutation authority. Check the selected namespace/installation before any extras access; handle grouped, redacted, unrelated, work-profile, and unavailable notifications conservatively.
 
 **Done when:** candidates reach the supported discovery path without opening chats in the background or inspecting unsupported content. The feature remains optional and its actual coverage is measured.
 

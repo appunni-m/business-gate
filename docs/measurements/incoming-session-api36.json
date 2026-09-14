@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-09-14",
+  "scope": "User-started incoming session on the exact measured receiver emulator. No physical qualification or independent sender-side blocked-delivery trial.",
+  "result": "PASS",
+  "assertions": 17,
+  "report": "incoming-session-api36.txt",
+  "reportSha256": "fc3875296cc2d08f9eb95bd3d957ea851a273f1847fbffcb14b60d6ce7c456e7",
+  "testedHashes": {
+    "app/build/outputs/apk/debug/app-debug.apk": "b11acb22322e099c1efd168e0308d1c96777a418028e469527f416e4dfe09b87",
+    "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "0d129413812c0861071ea6ef00690fec8626a5fa9782d800586ed9c5942686af",
+    "connected-route/src/main/java/io/github/appunnim/businessgate/connected/BusinessProfileRoute.java": "9b723ea06759473d1e03acbc7ce5185bc8a1e18e6e08afa7b7ce5facf26ffa86",
+    "connected-route/src/main/java/io/github/appunnim/businessgate/connected/ReceivingAccountRoute.java": "729e7833c2811354e7a0d7b0977a7ca225140307c0d752fde84c61c1b43da517",
+    "app/src/main/java/io/github/appunnim/businessgate/service/MeasuredSession.java": "6a9ef328ced903ec50171ef23ca68b5026c6e34272bcc2233079645df8bce900",
+    "app/src/main/java/io/github/appunnim/businessgate/service/GateNotificationListener.java": "77cced4e089ab412c8d28584acd3162cebed3ddbc9feaf2b1e0be455b681dbfc",
+    "app/src/main/java/io/github/appunnim/businessgate/service/GateAccessibilityService.java": "40895edfd61d213b75c7632f65bf2a5ea7a50b57746deff8fc45720bc5eadc56"
+  },
+  "receivingAccountBindingVerified": true,
+  "freshBusinessIdentityVerified": true,
+  "nativeBlockPostconditionVerified": true,
+  "exactNumberChoicePreserved": true,
+  "notificationAbsentAfterSession": true,
+  "notificationOutcome": "VERIFIED_NOTIFICATION_REMOVED_BY_CONNECTED_APP",
+  "gateCancellationOfRealBusinessNotificationObserved": false,
+  "testExecutionSentMessages": 0,
+  "preparationSentMessages": 1,
+  "preparation": {
+    "acknowledgedSends": 1,
+    "homeRequestedAtUtc": "2026-09-14T07:58:56.297585+00:00",
+    "forceStopped": false
+  },
+  "messageBodiesInspected": false,
+  "physicalQualification": false,
+  "selectionBoundary": "The harness selects only the authorized existing business by its saved label. Production authority comes from the live profile and receiving-account route, never the label."
+}

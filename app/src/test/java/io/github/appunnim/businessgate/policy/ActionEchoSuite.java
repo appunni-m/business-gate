@@ -19,6 +19,14 @@ public final class ActionEchoSuite {
         check(!receipt.matches("owned.fixture",16,7,"android.widget.Button",2501,null,false),"expired event");
         check(!receipt.matches("owned.fixture",16,7,"android.widget.Button",1050,"owned.fixture:id/other",true),"available source must match");
         check(!receipt.matches("owned.fixture",16,7,"android.widget.Button",1050,null,true),"a present source that lost its measured identity is rejected");
+        check(receipt.matchesDeferred("owned.fixture",0,7,"android.widget.Button",1130,"owned.fixture:id/action",true),"measured deferred exact-node echo lacks the action field");
+        check(!receipt.matchesDeferred("owned.fixture",0,7,"android.widget.Button",1130,"owned.fixture:id/action",false),"same resource on a different actual node cannot match");
+        check(!receipt.matchesDeferred("owned.fixture",0,7,"android.widget.Button",1251,"owned.fixture:id/action",true),"deferred receipt has a separate short deadline");
+        check(!receipt.matchesDeferred("owned.fixture",0,7,"android.widget.Button",999,"owned.fixture:id/action",true),"deferred event before dispatch rejected");
+        check(!receipt.matchesDeferred("owned.fixture",0,7,"android.widget.Button",1130,null,true),"deferred source identity cannot be missing");
+        check(!receipt.matchesDeferred("owned.fixture",0,8,"android.widget.Button",1130,"owned.fixture:id/action",true),"deferred replacement window rejected");
+        check(!receipt.matchesDeferred("owned.fixture",0,7,"android.widget.Button",1130,"owned.fixture:id/other",true),"deferred unrelated control rejected");
+        check(!receipt.matchesDeferred("owned.fixture",32,7,"android.widget.Button",1130,"owned.fixture:id/action",true),"deferred different action rejected");
         System.out.println("PASS "+checks+" action receipt and user-interruption checks");
     }
 }

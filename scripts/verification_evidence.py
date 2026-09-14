@@ -11,7 +11,7 @@ import struct
 import subprocess
 import sys
 
-NATIVE = ('all', 'ui', 'focus', 'dialogs', 'interaction', 'service-lifecycle', 'privacy-boundary', 'performance', 'prepare-attention',
+NATIVE = ('all', 'ui', 'focus', 'dialogs', 'interaction', 'service-lifecycle', 'notifications', 'privacy-boundary', 'performance', 'prepare-attention',
           'verify-attention', 'prepare-recovery-entry', 'verify-recovery-entry',
           'prepare-recovery-confirm', 'verify-recovery-confirm')
 LAYOUT = tuple('layout-' + '-'.join(parts) for parts in itertools.product(

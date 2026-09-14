@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-09-14",
+  "environment": {
+    "packageSha256": "04a1f5ddc4e1c6d0f4b29c1a47e8f0dbf56d3303995bdce4d6e0311afeb4d001",
+    "versionCode": 263507133,
+    "signingSha256": [
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "signingHistorySha256": [
+      "3987d043d10aefaf5a8710b3671418fe57e0e19b653c9df82558feb5ffce5d44",
+      "fb920d381bee1b2093f27dc8f13d994da629dc91887d0529b35c9a2dc4f4a6c2"
+    ],
+    "api": 36,
+    "manufacturer": "Google",
+    "model": "sdk_gphone64_arm64",
+    "deviceLocale": "en-US",
+    "fontScalePercent": 100,
+    "densityDpi": 420,
+    "orientation": 1,
+    "emulatorHint": true
+  },
+  "probeApkSha256": "2931c4c3fa9990e3386b0e516376ede666d7df7f99bd79e5e1d6bcd14b7d56b7",
+  "directNotificationsObserved": 2,
+  "senderPersonUriPresent": 0,
+  "senderPersonKeyPresent": 0,
+  "receiverPersonUriPresent": 0,
+  "receiverPersonKeyPresent": 0,
+  "immutableActivityIntentsWithMatchingCreatorAndUser": 2,
+  "rankingShortcutIntentPresent": 0,
+  "messageBodiesRead": false,
+  "rawIdentitiesExported": false,
+  "physicalQualification": false,
+  "conclusion": "Structured metadata alone cannot establish exact sender and receiving-account identity. A visible profile and receiving-account route are required."
+}

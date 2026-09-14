@@ -280,7 +280,8 @@ public final class MainActivity extends Activity {
         String[] items={"Enable a number","Settings & privacy","Compatibility & help","Clear local data"};
         for(int i=0;i<items.length;i++)menu.getMenu().add(0,i,i,items[i]);
         if(repository.current().binding().bound()&&app.registry().available())menu.getMenu().add(0,4,4,"Inspect business number");
-        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();case 4->inspectBusiness();default->{}}return true;});menu.show();
+        if(repository.current().binding().bound()&&repository.current().discovery())menu.getMenu().add(0,5,5,"Review incoming conversations");
+        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0->addNumber();case 1->settings();case 2->compatibility();case 3->clearLocal();case 4->inspectBusiness();case 5->reviewIncoming();default->{}}return true;});menu.show();
     }
     private DialogScope dialogScope(){return new DialogScope(repository.choiceScope(),repository.dataIdentity(),repository.current().globalRevision(),repository.epoch());}
     private boolean currentDialog(DialogScope scope){
@@ -462,6 +463,20 @@ public final class MainActivity extends Activity {
                 if(open==null){GateAccessibilityService.stopNow();return;}try{startActivity(open);}catch(RuntimeException error){GateAccessibilityService.stopNow();}
             }).show();
     }
+    private void reviewIncoming(){
+        var candidates=io.github.appunnim.businessgate.service.GateNotificationListener.pending();
+        if(candidates.isEmpty()){dialog("Incoming conversations").setMessage("No supported incoming conversations are available. Notification access and discovery must be enabled. Groups and unsupported notifications are excluded.").setPositiveButton("Close",null).show();return;}
+        String[] labels=new String[candidates.size()];
+        for(int i=0;i<labels.length;i++)labels[i]="Incoming conversation "+(i+1)+" · "+android.text.format.DateUtils.getRelativeTimeSpanString(candidates.get(i).postTime(),System.currentTimeMillis(),android.text.format.DateUtils.MINUTE_IN_MILLIS);
+        dialog("Review incoming conversations").setItems(labels,(d,which)->{
+            var selected=candidates.get(which);
+            boolean resumeRule=repository.current().paused()||!repository.current().enabled();
+            dialog("Inspect this incoming conversation?").setMessage((resumeRule?"Resume the business rule for this receiving account and inspect this conversation. ":"")+"Business Gate will open its notification, verify the receiving account and business profile, then apply your current choices. Personal, group or uncertain profiles stop the session. Opening the chat may mark it as read and clear its notification. Stop ends the session immediately.")
+                .setNegativeButton("Cancel",null).setPositiveButton(resumeRule?"Resume and inspect":"Inspect and apply",(confirm,button)->{
+                    if(!resumed||!GateAccessibilityService.requestIncoming(selected.id(),resumeRule))announce("This notification changed or the connected installation is unavailable. Review incoming conversations again.");
+                }).show();
+        }).setNegativeButton("Close",null).show();
+    }
     private void compatibility(){
         LinearLayout box=Ui.column(this);Ui.pad(box,24,8);
         box.addView(Ui.text(this,"Your choices are safe here.",18,R.color.ink,true));Ui.gap(box,8);
@@ -491,6 +506,7 @@ public final class MainActivity extends Activity {
         box.addView(Ui.text(this,"Exact numbers, optional names and your choices stay in this phone’s private storage. No account, ads, subscription, analytics or network permission. Chat contents and notification messages are not saved. Backup and device transfer are excluded.",14,R.color.muted,false));Ui.gap(box,12);
         box.addView(Ui.button(this,"Business name choices",false,()->{dismissDialogs();businessNames();}));
         box.addView(settingSwitch("Notification-assisted discovery",()->repository.current().discovery(),value->{if(value)notificationDisclosure();else repository.setting("discovery",false);}));
+        if(repository.current().discovery()&&repository.current().binding().bound())box.addView(Ui.button(this,"Review incoming conversations",true,()->{dismissDialogs();reviewIncoming();}));
         box.addView(settingSwitch("Optional sales hints",()->repository.current().salesHints(),value->{if(value)salesDisclosure();else repository.setting("sales_hints",false);}));
         box.addView(Ui.text(this,"Hints are off by default. They can be wrong and never authorize a block. Notification text analysis stays unavailable until a notification binding is qualified.",12,R.color.muted,false));Ui.gap(box,8);
         box.addView(settingSwitch("Quiet review reminder",()->repository.current().digest(),value->{repository.setting("digest",value);if(value&&Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},70);}));

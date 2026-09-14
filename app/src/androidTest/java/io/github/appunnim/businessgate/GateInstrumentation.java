@@ -42,6 +42,10 @@ public final class GateInstrumentation extends Instrumentation {
             String mode=arguments.getString("mode","all");
             if(mode.equals("live-business")){
                 liveBusiness();
+            }else if(mode.equals("live-incoming")){
+                liveIncoming();
+            }else if(mode.equals("notifications")){
+                new io.github.appunnim.businessgate.service.IncomingNotificationTests(this,repository,this::check).run();
             }else if(mode.equals("verify-attention")){
                 check(repository.businessNameChoices().stream().anyMatch(choice->choice.name().equals("Restart Shop")&&choice.enabled()),"business-name permission survives actual process death");
                 long saved=effortTotal();check(saved>=4500,"visible interval checkpoint survives actual process death");
@@ -109,6 +113,70 @@ public final class GateInstrumentation extends Instrumentation {
             result.putString("stream",metrics+"PASS "+assertions+" Android persistence, permission, recovery and native UI assertions; mode="+mode+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream",metrics+"FAIL after "+assertions+" assertions: "+error.getClass().getSimpleName()+": "+error.getMessage()+"; recent="+recentChecks+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
+    /** Opt-in real-account test. No reset, fixtures, database injection, or message send. */
+    private void liveIncoming()throws Exception{
+        check(arguments.getString("authorizeNativeBlockAndUnblock","").equals("true"),"explicit incoming-session test authorization");
+        String phone=io.github.appunnim.businessgate.policy.Identity.canonicalPhone(arguments.getString("phone",""));
+        String pkg=arguments.getString("selectedPackage","");
+        GateApplication app=(GateApplication)getTargetContext().getApplicationContext();
+        check(app.registry().measuredRoute(getTargetContext(),pkg)!=null,"exact measured incoming installation");
+        check(repository.current().binding().bound(),"existing real receiver binding retained");
+        Account prior=repository.current().accounts().stream().filter(a->a.phone().equals(phone)).findFirst().orElseThrow();
+        check(prior.kind()==Kind.BUSINESS_CONFIRMED&&!prior.businessName().isEmpty(),"authorized business available for test selection only");
+        check(prior.choice()==Choice.DEFAULT&&!repository.businessNameEnabled(prior),"test preserves exact-number and business-name permissions");
+        runOnMainSync(()->repository.setting("discovery",true));until(()->repository.optionEnabled("discovery"));
+        check(repository.optionEnabled("discovery"),"discovery consent committed");
+        var automation=getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        automation.adoptShellPermissionIdentity(android.Manifest.permission.WRITE_SECURE_SETTINGS);
+        try{
+            var resolver=getTargetContext().getContentResolver();String setting=android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES;
+            String original=android.provider.Settings.Secure.getString(resolver,setting);
+            String component=new android.content.ComponentName(getTargetContext(),io.github.appunnim.businessgate.service.GateAccessibilityService.class).flattenToString();
+            java.util.List<String> entries=new java.util.ArrayList<>();if(original!=null)for(String entry:original.split(":"))if(!entry.isEmpty()&&!entry.equals(component))entries.add(entry);
+            android.provider.Settings.Secure.putString(resolver,setting,String.join(":",entries));Thread.sleep(400);
+            entries.add(component);android.provider.Settings.Secure.putString(resolver,setting,String.join(":",entries));
+            android.provider.Settings.Secure.putString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED,"1");
+        }finally{automation.dropShellPermissionIdentity();}
+        until(io.github.appunnim.businessgate.service.GateAccessibilityService::connected);
+        check(io.github.appunnim.businessgate.service.GateAccessibilityService.connected(),"native screen service connected");
+        Activity activity=startActivitySync(new Intent(getTargetContext(),io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));
+        until(activity::hasWindowFocus);
+        runOnMainSync(()->check(io.github.appunnim.businessgate.service.GateAccessibilityService.selectInstallation(pkg),"selected measured installation for incoming session"));
+        var field=io.github.appunnim.businessgate.service.GateNotificationListener.class.getDeclaredField("connected");field.setAccessible(true);
+        until(()->{try{return field.get(null)!=null;}catch(IllegalAccessException error){return false;}});
+        var listener=(io.github.appunnim.businessgate.service.GateNotificationListener)field.get(null);
+        java.util.List<String> keys=new java.util.ArrayList<>();
+        for(var n:listener.getActiveNotifications()){
+            if(!n.getPackageName().equals(pkg)||(n.getNotification().flags&android.app.Notification.FLAG_GROUP_SUMMARY)!=0)continue;
+            CharSequence title=n.getNotification().extras.getCharSequence(android.app.Notification.EXTRA_TITLE);
+            if(title!=null&&java.text.Normalizer.normalize(title.toString().strip(),java.text.Normalizer.Form.NFC).equals(prior.businessName()))keys.add(n.getKey());
+        }
+        check(keys.size()==1,"one existing notification matches the authorized test business label; identity still requires profile route");
+        java.util.concurrent.atomic.AtomicReference<io.github.appunnim.businessgate.service.GateNotificationListener.Candidate> selected=new java.util.concurrent.atomic.AtomicReference<>();
+        runOnMainSync(()->selected.set(io.github.appunnim.businessgate.service.GateNotificationListener.pending().stream().filter(c->c.key().equals(keys.get(0))).findFirst().orElse(null)));
+        check(selected.get()!=null,"real listener automatically captured the direct incoming candidate");
+        long began=System.currentTimeMillis();
+        runOnMainSync(()->check(io.github.appunnim.businessgate.service.GateAccessibilityService.requestIncoming(selected.get().id(),true),"explicit resume and visible incoming session accepted"));
+        long end=android.os.SystemClock.elapsedRealtime()+65000;
+        String status;
+        do{
+            Thread.sleep(20);status=io.github.appunnim.businessgate.service.GateAccessibilityService.status();
+            var serviceField=io.github.appunnim.businessgate.service.GateAccessibilityService.class.getDeclaredField("connected");serviceField.setAccessible(true);Object service=serviceField.get(null);
+            var sessionField=service.getClass().getDeclaredField("measuredSession");sessionField.setAccessible(true);Object session=sessionField.get(service);
+            if(session!=null){var phoneField=session.getClass().getDeclaredField("phone");phoneField.setAccessible(true);String observed=(String)phoneField.get(session);
+                if(observed!=null&&!observed.isEmpty()&&!observed.equals(phone)){runOnMainSync(io.github.appunnim.businessgate.service.GateAccessibilityService::stopNow);throw new AssertionError("Incoming test recipient differs from authorization");}}
+            if(!status.equals("CHECKING_RECEIVING_ACCOUNT"))break;
+        }while(android.os.SystemClock.elapsedRealtime()<end);
+        metrics+="INCOMING status="+status+"; sentMessages=0; physicalQualification=false\n";
+        check(java.util.Set.of("VERIFIED_NOTIFICATION_DISMISSED","VERIFIED_NOTIFICATION_REMOVED_BY_CONNECTED_APP","NO_PENDING_ACTION_NOTIFICATION_REMOVED_BY_CONNECTED_APP").contains(status),"incoming session completed with native verification: "+status);
+        Account result=repository.current().account(prior.id());
+        check(result.kind()==Kind.BUSINESS_CONFIRMED&&result.blockState()==BlockState.BLOCKED&&result.checkedAt()>=began,"fresh exact business identity and native blocked state committed");
+        check(result.choice()==prior.choice(),"incoming inspection preserved the exact-number choice");
+        check(repository.current().binding().equals(selected.get().binding()),"incoming notification retained the verified receiving-account namespace");
+        check(java.util.Arrays.stream(listener.getActiveNotifications()).noneMatch(n->n.getKey().equals(selected.get().key())),"selected real incoming notification is absent after session");
+        resumeLive(activity);
+    }
+
     /** Opt-in real-account test. No reset, fixtures, database injection, or message send. */
     private void liveBusiness()throws Exception{
         check(arguments.getString("authorizeNativeBlockAndUnblock","").equals("true"),"explicit native mutation test authorization");

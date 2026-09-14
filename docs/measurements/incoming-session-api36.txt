@@ -1,0 +1,36 @@
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: explicit incoming-session test authorization
+TRACE 3: exact measured incoming installation
+TRACE 4: existing real receiver binding retained
+TRACE 5: authorized business available for test selection only
+TRACE 6: test preserves exact-number and business-name permissions
+TRACE 7: discovery consent committed
+TRACE 8: native screen service connected
+TRACE 9: selected measured installation for incoming session
+TRACE 10: one existing notification matches the authorized test business label; identity still requires profile route
+TRACE 11: real listener automatically captured the direct incoming candidate
+TRACE 12: explicit resume and visible incoming session accepted
+TRACE 13: incoming session completed with native verification: VERIFIED_NOTIFICATION_REMOVED_BY_CONNECTED_APP
+TRACE 14: fresh exact business identity and native blocked state committed
+TRACE 15: incoming inspection preserved the exact-number choice
+TRACE 16: incoming notification retained the verified receiving-account namespace
+TRACE 17: selected real incoming notification is absent after session
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: explicit incoming-session test authorization
+TRACE 3: exact measured incoming installation
+TRACE 4: existing real receiver binding retained
+TRACE 5: authorized business available for test selection only
+TRACE 6: test preserves exact-number and business-name permissions
+TRACE 7: discovery consent committed
+TRACE 8: native screen service connected
+TRACE 9: selected measured installation for incoming session
+TRACE 10: one existing notification matches the authorized test business label; identity still requires profile route
+TRACE 11: real listener automatically captured the direct incoming candidate
+TRACE 12: explicit resume and visible incoming session accepted
+INCOMING status=VERIFIED_NOTIFICATION_REMOVED_BY_CONNECTED_APP; sentMessages=0; physicalQualification=false
+TRACE 13: incoming session completed with native verification: VERIFIED_NOTIFICATION_REMOVED_BY_CONNECTED_APP
+TRACE 14: fresh exact business identity and native blocked state committed
+TRACE 15: incoming inspection preserved the exact-number choice
+TRACE 16: incoming notification retained the verified receiving-account namespace
+TRACE 17: selected real incoming notification is absent after session
+PASS 17 Android persistence, permission, recovery and native UI assertions; mode=live-incoming

@@ -40,6 +40,7 @@ public final class GateAccessibilityService extends AccessibilityService {
     private String targetPackage="",reason="NO_CONNECTION",pendingObservation="",requestedPhone="";
     private Binding candidate;
     private MeasuredSession measuredSession;
+    private GateNotificationListener.Claim incomingClaim;
     private boolean requested,arming,checkingCompatibility,activatingRule;
     private Readiness sessionScope;
     private BoundedNodes.Budget callbackBudget;
@@ -74,6 +75,18 @@ public final class GateAccessibilityService extends AccessibilityService {
     public static boolean requestInspect(String phone){
         try{return connected!=null&&connected.requestMeasured(io.github.appunnim.businessgate.policy.Identity.canonicalPhone(phone),false,true,false);}
         catch(IllegalArgumentException invalid){return false;}
+    }
+    public static boolean requestIncoming(String id){
+        return requestIncoming(id,false);
+    }
+    public static boolean requestIncoming(String id,boolean resumeRule){
+        if(connected==null)return false;
+        connected.stop();
+        var claim=GateNotificationListener.claim(id);if(claim==null)return false;
+        if(!claim.candidate.selectedPackage().equals(connected.targetPackage)){GateNotificationListener.release(claim);return false;}
+        boolean started=connected.requestMeasured("",false,resumeRule,false,claim);
+        if(!started)GateNotificationListener.release(claim);
+        return started;
     }
     public static boolean requestApply(long accountId){return connected!=null&&connected.request(false,false,accountId);}
     public static boolean requestActivation(){return connected!=null&&connected.request(false,true,-1);}
@@ -139,9 +152,12 @@ public final class GateAccessibilityService extends AccessibilityService {
         candidateAt=observedAt;
     }
     private boolean requestMeasured(String phone,boolean connectOnly,boolean activate,boolean checkOnly){
+        return requestMeasured(phone,connectOnly,activate,checkOnly,null);
+    }
+    private boolean requestMeasured(String phone,boolean connectOnly,boolean activate,boolean checkOnly,GateNotificationListener.Claim incoming){
         if(repository==null||!repository.consented()||app().registry().measuredRoute(this,targetPackage)==null||(!connectOnly&&!repository.current().binding().bound()))return false;
         if(!connectOnly&&!checkOnly&&repository.current().circuitOpen()){reason="COMPATIBILITY_CHECK_REQUIRED";return false;}
-        stop();long owner=++generation;deadline=SystemClock.elapsedRealtime()+60_000;requested=true;reason="CHECKING_RECEIVING_ACCOUNT";
+        stop();incomingClaim=incoming;long owner=++generation;deadline=SystemClock.elapsedRealtime()+60_000;requested=true;reason="CHECKING_RECEIVING_ACCOUNT";
         if(!overlay.show(this::stop)){stop();reason="STOP_CONTROL_UNAVAILABLE";return false;}
         app().sessionAttention(true);
         measuredSession=new MeasuredSession(new MeasuredSession.Host(){
@@ -171,7 +187,8 @@ public final class GateAccessibilityService extends AccessibilityService {
             public void later(Runnable r,long delay){handler.postDelayed(()->{if(owner==generation)r.run();},delay);}
             public void candidate(String receiver,long at){measuredCandidate(receiver,at);}
             public void finished(String status){if(owner!=generation)return;measuredSession=null;finishSession();reason=status;}
-        },repository,phone,owner,connectOnly,activate,checkOnly);
+        },repository,phone,owner,connectOnly,activate,checkOnly,incoming);
+        if(incoming!=null&&!GateNotificationListener.open(incoming)){stop();reason="INCOMING_ROUTE_UNAVAILABLE";return false;}
         handler.postDelayed(()->{if(owner==generation)stop();},60_000);
         handler.postDelayed(new Runnable(){int stableWindow=-1;public void run(){
             if(owner!=generation||measuredSession==null)return;
@@ -278,7 +295,7 @@ public final class GateAccessibilityService extends AccessibilityService {
             finishSession();reason=uncertain?"RESULT_UNVERIFIED":stopReason.name();
         }
     };
-    private void finishSession(){if(overlay!=null)overlay.hide();activeAccount=-1;requested=false;arming=false;checkingCompatibility=false;activatingRule=false;sessionScope=null;pendingObservation="";requestedPhone="";handler.removeCallbacksAndMessages(null);app().sessionAttention(false);}
+    private void finishSession(){GateNotificationListener.release(incomingClaim);incomingClaim=null;if(overlay!=null)overlay.hide();activeAccount=-1;requested=false;arming=false;checkingCompatibility=false;activatingRule=false;sessionScope=null;pendingObservation="";requestedPhone="";handler.removeCallbacksAndMessages(null);app().sessionAttention(false);}
     private void stop(){if(repository==null)return;generation++;if(measuredSession!=null){var session=measuredSession;measuredSession=null;session.stop();}controller.stop(port);finishSession();repository.emergencyStop();reason="USER_STOP";}
     @Override public void onInterrupt(){stop();}
     @Override public void onDestroy(){stop();if(repository!=null)repository.removeListener(repositoryChanged);try{unregisterReceiver(screenOff);}catch(IllegalArgumentException ignored){/* Connection was never completed. */}connected=null;super.onDestroy();}

@@ -32,7 +32,8 @@ public final class BusinessProfileRoute {
     private final Host host;
     private final String owner, phone;
     private final Action action;
-    private final ArrayDeque<ActionEcho> clicks = new ArrayDeque<>();
+    private record Click(ActionEcho echo, AccessibilityNodeInfo node) {}
+    private final ArrayDeque<Click> clicks = new ArrayDeque<>();
     private final long started = SystemClock.elapsedRealtime();
     private long changedAt = started;
     private Profile identity;
@@ -50,18 +51,33 @@ public final class BusinessProfileRoute {
         if (done || event.getEventType() != AccessibilityEvent.TYPE_VIEW_CLICKED) return;
         AccessibilityNodeInfo source = event.getSource();
         try {
-            ActionEcho expected=clicks.peekFirst();
-            if(expected==null||!expected.matches(String.valueOf(event.getPackageName()),event.getAction(),event.getWindowId(),String.valueOf(event.getClassName()),event.getEventTime(),source==null?null:source.getViewIdResourceName(),source!=null))fail("INTERACTION_CHANGED");
-            else clicks.removeFirst();
+            // Native events can be omitted or delivered after a subsequent dispatch. Match
+            // the exact outstanding receipt, never infer identity from queue position.
+            for(var iterator=clicks.iterator();iterator.hasNext();){
+                Click candidate=iterator.next();ActionEcho echo=candidate.echo();
+                if(echo.matches(String.valueOf(event.getPackageName()),event.getAction(),event.getWindowId(),String.valueOf(event.getClassName()),event.getEventTime(),source==null?null:source.getViewIdResourceName(),source!=null)
+                    ||echo.matchesDeferred(String.valueOf(event.getPackageName()),event.getAction(),event.getWindowId(),String.valueOf(event.getClassName()),event.getEventTime(),source==null?null:source.getViewIdResourceName(),source!=null&&source.equals(candidate.node()))){
+                    iterator.remove();release(candidate.node());return;
+                }
+            }
+            Click receipt=clicks.peekFirst();ActionEcho expected=receipt==null?null:receipt.echo();
+            if(expected==null)fail("INTERACTION_CHANGED_NO_RECEIPT");
+            else
+                fail("INTERACTION_CHANGED_OWNER_"+expected.owner().contentEquals(event.getPackageName())
+                    +"_ACTION_"+event.getAction()+"_WINDOW_"+(expected.windowId()==event.getWindowId())
+                    +"_CLASS_"+expected.className().contentEquals(event.getClassName())
+                    +"_AGE_"+(event.getEventTime()-expected.sentAt())+"_SOURCE_"+(source!=null)
+                    +"_RESOURCE_"+(source==null||java.util.Objects.equals(expected.resource(),source.getViewIdResourceName()))
+                    +"_NODE_"+(source!=null&&source.equals(receipt.node())));
         } finally { release(source); }
     }
     private void fail(String reason) {
         if (done) return;
-        done = true; clicks.clear(); host.failed(new Failure(reason, phase, mutationPossible));
+        done = true; clearClicks(); host.failed(new Failure(reason, phase, mutationPossible));
     }
     private void schedule() { if (!done) host.later(this::tick, 150); }
     private void finish(Profile profile) {
-        done = true; clicks.clear();
+        done = true; clearClicks();
         host.completed(new Result(action, profile, mutationPossible, readinessRetries, scrolls, SystemClock.elapsedRealtime() - started));
     }
     private boolean field(AccessibilityNodeInfo node, String suffix, String type, int count) {
@@ -80,7 +96,7 @@ public final class BusinessProfileRoute {
         authority();
         if (!node.refresh() || !node.isVisibleToUser() || !node.isEnabled() || !node.isClickable()
             || !owner.contentEquals(node.getPackageName())) throw new IllegalStateException("ACTION_CONTEXT_CHANGED");
-        clicks.addLast(new ActionEcho(owner,node.getWindowId(),String.valueOf(node.getClassName()),owner+":id/"+suffix,SystemClock.uptimeMillis()));
+        clicks.addLast(new Click(new ActionEcho(owner,node.getWindowId(),String.valueOf(node.getClassName()),owner+":id/"+suffix,SystemClock.uptimeMillis()),copy(node)));
         if (!node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) throw new IllegalStateException("ACTION_UNCONFIRMED");
         changedAt = SystemClock.elapsedRealtime();
     }
@@ -121,6 +137,7 @@ public final class BusinessProfileRoute {
         identity = fresh; authority();
         AccessibilityNodeInfo list = root.getChild(0), entry = null, label = null;
         try {
+            if (list == null || !list.refresh()) throw new IllegalStateException("PROFILE_LIST_UNAVAILABLE");
             if (entryIndex(list.getChildCount()) >= 0) { entry = list.getChild(entryIndex(list.getChildCount())); label = entry == null ? null : entry.getChild(0); }
             if (entry == null || !entry.isVisibleToUser()) {
                 if (scrolls >= 2 || !list.isScrollable() || !list.isVisibleToUser()) throw new IllegalStateException("ENTRY_UNAVAILABLE");
@@ -194,6 +211,9 @@ public final class BusinessProfileRoute {
         if (sameIdentity(identity, after)) {
             AccessibilityNodeInfo list = root.getChild(0), entry = null, label = null;
             try {
+                // A fresh identity read does not refresh a separately acquired list node. The
+                // native postcondition can remove a row; use this node's current children.
+                if (list == null || !list.refresh()) throw new IllegalStateException("PROFILE_LIST_UNAVAILABLE");
                 if (entryIndex(list.getChildCount()) >= 0) {
                     entry = list.getChild(entryIndex(list.getChildCount())); label = entry == null ? null : entry.getChild(0);
                     String expected = action == Action.BLOCK ? "Unblock business" : "Block business";
@@ -240,5 +260,7 @@ public final class BusinessProfileRoute {
             && (owner + ":id/" + suffix).equals(node.getViewIdResourceName()) && type.contentEquals(node.getClassName()) && node.getChildCount() == children;
     }
     @SuppressWarnings("deprecation") private static void release(AccessibilityNodeInfo node) { if (node != null) node.recycle(); }
+    private void clearClicks(){while(!clicks.isEmpty())release(clicks.removeFirst().node());}
+    @SuppressWarnings("deprecation") private static AccessibilityNodeInfo copy(AccessibilityNodeInfo node){return AccessibilityNodeInfo.obtain(node);}
     @SuppressWarnings("deprecation") private static void release(AccessibilityWindowInfo window) { if (window != null) window.recycle(); }
 }

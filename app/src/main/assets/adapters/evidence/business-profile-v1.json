@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "user-authorized-emulator-app-session",
-  "capturedOn": "2026-09-13",
+  "capturedOn": "2026-09-14",
   "physicalQualification": false,
   "receiverIdentitySyntaxVerified": true,
   "receivingAccountBindingVerified": true,
@@ -19,8 +19,8 @@
   "finalObservedState": "BLOCKED",
   "sentMessages": 0,
   "liveAssertions": 25,
-  "testedAppApkSha256": "85035a874ae680d94d9948fee6a332c8e46c7c6379d7a530c076f71bc29f7c8d",
-  "testedSessionSourceSha256": "2110311d8d3b180254ad3a85b2c215612d503e4cab137c8d6ce7b41e508a99af",
+  "testedAppApkSha256": "b11acb22322e099c1efd168e0308d1c96777a418028e469527f416e4dfe09b87",
+  "testedSessionSourceSha256": "6a9ef328ced903ec50171ef23ca68b5026c6e34272bcc2233079645df8bce900",
   "environment": {
     "packageSha256": "04a1f5ddc4e1c6d0f4b29c1a47e8f0dbf56d3303995bdce4d6e0311afeb4d001",
     "versionCode": 263507133,
@@ -44,15 +44,15 @@
   "limits": [
     "Only this measured emulator installation and display are enabled.",
     "No independent incoming-message attempt while blocked was observed.",
-    "Notification identity binding and dismissal remain unqualified.",
+    "This native-session record does not establish notification behavior; see the separate incoming-session verification.",
     "Physical-device qualification is unrun.",
     "Sessions are explicitly started in the foreground; no background activity takeover."
   ],
   "artifacts": [
     {
       "path": "adapters/evidence/business-profile-v1-live.txt",
-      "sha256": "55331f0aea86bc55d77d6ca6ad7dec70a3d781ad5899d63af31259851d4fa72f"
+      "sha256": "4025247026cb5d8a42055185d4f73320f50b9ca2c372140b01a3b12b64a3cc46"
     }
   ],
-  "contractSha256": "d0d540de73288d86d13dffc921ad99c7a08c2c6d47377949dd0c94ec3b731d05"
+  "contractSha256": "cb9e5c937df58bf0061ec1947bc47f3fe143a17a4cb5ddb2ea2dadd0d8b54336"
 }

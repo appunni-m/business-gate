@@ -2,7 +2,9 @@
 
 The accepted behavior is eventual native blocking. A first message or preview may appear. Existing chats remain, and opening a chat to inspect its profile may mark messages as read. The earlier requirement to prevent every first-frame preview is superseded.
 
-Business Gate uses the connected app's native Block and Unblock actions. A successful native block is recorded only after the same full number and business name are re-read and the opposite action label confirms the resulting state. Notification dismissal is a separate capability and is not yet qualified.
+Business Gate uses the connected app's native Block and Unblock actions. A successful native block is recorded only after the same full number and business name are re-read and the opposite action label confirms the resulting state. Notification handling is separately exercised through [incoming sessions](incoming-notification-design.md) and an account-free Android cancellation fixture.
+
+On 14 September 2026 the owner removed independent sender-side delivery testing from the acceptance requirements. Business Gate must verify its native action and exact-number postcondition; subsequent message blocking is delegated to the connected app. A second sender account is not a prerequisite for this work. The omitted delivery test is not recorded as passed.
 
 ## User flow
 
@@ -13,7 +15,7 @@ Business Gate uses the connected app's native Block and Unblock actions. A succe
 5. The main list shows the verified business name and exact number. The business-name switch opens an explicit confirmation. Enabling a name creates scoped Unblock jobs for known matching businesses; disabling it creates Block jobs. Exact-number overrides take precedence and remain available in the details.
 6. Apply a pending choice in another visible session. **Stop** revokes the session immediately. Every session rechecks the receiving account; no background activity takeover occurs.
 
-The current Apply action handles one pending account per session. New incoming senders are not yet automatically discovered and processed. Existing native blocks remain effective when Business Gate's session ends.
+The current Apply action handles one pending account per session. With notification access and discovery enabled, incoming candidates are captured automatically. Choose **Review incoming conversations** to start a visible profile/receiver check and apply the current rule. A paused rule requires **Resume and inspect**. No activity launches on notification arrival. Existing native blocks remain effective when Business Gate's session ends.
 
 ## Current compatibility
 
@@ -37,7 +39,7 @@ Two profile variants were measured: 24 rows with the action at row 22, and a reo
 
 Block opens a reason form. The route selects **Other**, requires **Report** to remain unchecked, requires optional feedback to remain empty, journals the final intent, and presses Block. Unblock is a direct profile action and is journaled before that click; it has no second confirmation screen.
 
-The route distinguishes its own click receipts using the framework action, original window, control class, and a bounded event timestamp. An available source must also match its resource identity. Ordinary user clicks, unrelated click events, changed windows, and stale receipts stop execution. Temporary incomplete frames are retried only within the measured transition deadline; no action occurs while focus or identity is missing.
+The route distinguishes its own click receipts using the framework action, original window, control class, and a bounded event timestamp. An available source must also match its resource identity. Outstanding receipts can arrive out of order and are consumed only once. A deferred zero-action event additionally requires the same retained Android node within 250 ms. Unmatched input, changed windows, and stale receipts stop execution; a receipt never grants new action authority. Temporary incomplete frames are retried only within the measured transition deadline; no action occurs while focus or identity is missing.
 
 The visible Stop control moves away from the next control before dispatch. Higher windows covering the action prevent dispatch. Journals and positive postconditions persist separately, so an interrupted action remains unverified rather than becoming an optimistic success.
 
@@ -51,9 +53,13 @@ The actual app passed a receiver-bound Block → name Enable → Unblock → nam
 | Native Block, direct Unblock, and re-block | Verified through Business Gate |
 | Main-list name controls and Stop | Verified through the actual native UI |
 | Saved choices, migrations, recovery, and policy guards | Automated regression suites |
-| Independent incoming attempt after blocking | Not observed |
-| Notification-to-receiver binding and dismissal | Not qualified |
-| Automatic incoming discovery and multi-account batching | Pending |
+| Independent incoming attempt after blocking | Not required by owner decision on 14 September 2026; not performed or claimed as passed |
+| Incoming candidate → exact profile/receiver → native Block → notification absent | 17 live assertions on the measured emulator; connected app removed the notification on opening |
+| Business Gate cancellation and preservation rules | Actual Android listener/cancellation fixture with fictional identities |
+| Automatic incoming candidate capture | Implemented; processing requires one visible session per conversation |
+| Multi-account batching | Pending |
 | Physical devices and other installations/configurations | Not qualified |
+
+The owner-authorized greeting test on 14 September produced a message notification whose title matched the saved business identity 3.681 seconds after returning to Home. That initial observation was followed by a fresh reply and a complete 17-assertion incoming session. See the [incoming evidence and boundaries](incoming-notification-design.md).
 
 A supported cloud blocking API requires a separately provisioned business-platform account and credentials. No supported API controlling the ordinary signed-in account was established. The implemented route uses Android framework APIs and adds no network permission or runtime SDK.

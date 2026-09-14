@@ -4,7 +4,7 @@ Choose the businesses. Keep the people.
 
 A native Android app that applies business blocking rules using explicitly enabled business names. It uses an original blue gate identity, Java, and Android framework components. No third-party runtime libraries, login, analytics, network permission, ads, or subscription.
 
-**Experimental: native Block and Unblock are verified on one measured Android 36 emulator installation.** Business-name switches, receiving-account binding, durable action results, and Stop passed the [live app test](docs/connected-session-verification.md). Physical devices, automatic incoming discovery, and notification dismissal remain unqualified. The first message may appear; existing chats remain.
+**Experimental: native Block/Unblock and incoming conversation sessions are verified on one measured Android 36 emulator installation.** Business Gate captures incoming candidates automatically; **Review incoming conversations** starts a visible identity check and native action with Stop. The [verification record](docs/connected-session-verification.md) distinguishes real business notification removal from separately tested Android cancellation. Physical devices remain unqualified. The first message may appear; existing chats remain.
 
 ## Try the native interface
 
@@ -64,7 +64,7 @@ The switch represents your choice. The subtitle represents a pending operation o
 
 ## Continue implementation and qualification
 
-The [business-name blocking design](docs/name-visibility-design.md) governs the accepted eventual-blocking behavior and its remaining incoming-discovery and notification work. A first preview may appear and existing chats remain. The earlier designs excluded name-based permission and notification suppression; those exclusions no longer describe the requested product.
+The [business-name blocking design](docs/name-visibility-design.md) governs the accepted eventual-blocking behavior and the implemented [incoming session](docs/incoming-notification-design.md). A first preview may appear and existing chats remain. The earlier designs excluded name-based permission and notification suppression; those exclusions no longer describe the requested product.
 
 [Execution status](docs/execution-status.md) gives every planned fix a disposition. [Implementation and evidence](docs/implementation.md), the [completion plan](docs/implementation-plan.md) and [acceptance ledger](docs/acceptance-ledger.json) distinguish engineering tests from physical qualification. [Adapter qualification](docs/qualification.md) defines the physical inputs and stop conditions. [Privacy](docs/privacy.md) describes the binary's data boundary. [Contributing](CONTRIBUTING.md) describes the development workflow.
 

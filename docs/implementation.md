@@ -1,22 +1,22 @@
 # Implementation and verification
 
-Updated 13 September 2026. This remains an Android development implementation with **connected-app actions disabled**. The compatibility registry is empty. Building, installing, or passing synthetic tests does not establish physical compatibility.
+Updated 14 September 2026. **Experimental actions are enabled only for the exact measured Android 36 emulator.** Native Block/Unblock, receiver binding, name controls and Stop pass 25 live assertions. Incoming sessions pass 17 live assertions. The physical-adapter registry remains empty; synthetic tests and APK installation do not establish physical compatibility.
 
 ## Changes implemented from the completion plan
 
-The [business-name visibility design](name-visibility-design.md) defines the current requested behavior and unresolved platform dependency. The earlier [completion plan](implementation-plan.md) records the retained implementation foundation. The [acceptance ledger](acceptance-ledger.json) keeps the full design's 96 cases separate from the companion's 97 cases. Engineering coverage is explicitly distinguished from a full acceptance pass.
+The [business-name visibility design](name-visibility-design.md) defines the current accepted behavior and measured implementation. The earlier [completion plan](implementation-plan.md) records the retained implementation foundation. The [acceptance ledger](acceptance-ledger.json) keeps the full design's 96 cases separate from the companion's 97 cases. Engineering coverage is explicitly distinguished from a full acceptance pass.
 
 | Area | Current implementation | Verification boundary |
 | --- | --- | --- |
-| Identity and choices | Original blue gate identity, native one-page UI, exact-number choices and independent receiver namespaces | Pure policy and actual Android database/UI tests; live receiver extraction unqualified |
-| Migration | Transactional upgrades from actual shipped schema versions 1 and 2 to version 3; number choices preserved; no automatic name grants | Actual Android helper upgrades, interruption/rollback and SQLite schema checks |
-| Business names | Canonical exact-name permission policy, scoped durable enable/disable choices, native forms, failed-save and stale-write handling | Pure policy plus native database/UI/restart tests; no notification or entry enforcement is wired |
+| Identity and choices | Original blue gate identity, native one-page UI, exact-number choices and independent receiver namespaces | Pure/database/UI tests plus measured live receiver extraction |
+| Migration | Transactional upgrades from shipped schema versions to version 4; number choices preserved; no automatic name grants | Actual Android helper upgrades, interruption/rollback and SQLite schema checks |
+| Business names | Canonical exact-name permission policy, scoped durable enable/disable choices, native forms, failed-save and stale-write handling | Pure/database/UI/restart tests plus actual native name controls and incoming policy application |
 | Cancellation | Separate data and authority generations; immediate Stop/ALLOW veto; callbacks cannot rearm an old lease or repopulate a reset namespace | Deterministic writer-held Android tests and pure callback regressions |
-| Action state | Durable verification acknowledgement, action/identity/revision/grant matching, idempotent observation completion, settled block-job reconciliation | Pure controller and Android repository tests; external dispatch/postconditions unqualified |
-| Compatibility | Bounded exact-environment registry, signing-history checks, reviewed evidence and artifact hashes, structural ancestor validation | Source/artifact gates; no nonempty production contract is qualified |
+| Action state | Durable verification acknowledgement, action/identity/revision/grant matching, idempotent observation completion, settled block-job reconciliation | Pure/controller/repository tests plus measured exact native postconditions |
+| Compatibility | Bounded exact-environment registry, signing-history checks, reviewed evidence and artifact hashes, structural ancestor validation | Source/artifact gates; separate measured emulator contract, physical adapters empty |
 | Execution boundary | Named guard observations, specific entry/confirmation dispatch, live control/identity geometry checks, finite visible sessions, fenced deadlines | Compiles and passes lint; physical window/interaction behavior remains unrun |
-| Connection UI | System installation picker, explicit receiver review, readiness-based activation and current-profile session request | Inactive with the empty registry; complete live journey remains unqualified |
-| Optional features | Bounded pure hint classifier, notification-cache cleanup, reminder permission/consent recheck, separate management/session effort intervals with UTC day splitting | Pure timing/hint tests; notification provenance, delivery races, and physical attention measurements remain incomplete |
+| Connection UI | System installation picker, explicit receiver review, readiness-based activation and current-profile session request | Measured receiver review and finite business/incoming journeys; other environments disabled |
+| Optional features | Bounded pure hint classifier, notification-cache cleanup, reminder permission/consent recheck, separate management/session effort intervals with UTC day splitting | Pure timing/hint tests, measured incoming identity route and Android cancellation tests; incoming-text analysis and physical attention remain incomplete |
 | UI and capacity | Stable search/list IDs, immediate invalidation of old search results, scrollable custom dialogs, failed-job copy, bounded accounts with optional-cache eviction before rejecting a new explicit choice | Native UI and large-database harness; physical accessibility/device matrix remains unrun |
 | Delivery | Signed GitHub APKs, certificate pinning, immutable versioned releases, rolling download, source provenance, and a separate upgrade probe using its own test key | Existing public delivery verified; new workflow checks must pass on the corresponding source commit |
 
@@ -53,10 +53,10 @@ Search runs on the serial worker against an immutable projection of the last com
 
 ## Remaining implementation and evidence
 
-The integration is still incomplete. Measured receiver/profile/dialog contracts, reliable own-action versus user-interaction handling, full navigation/batching/scanning, notification provenance and scoring integration, safe recovery/compensation across real external transitions, and physical block/unblock outcomes are not qualified. Some of these still require implementation once the actual interface is measured; JSON metadata alone cannot complete them.
+The full product plan remains partial. Measured receiver/profile/dialog contracts and incoming candidate processing are implemented for the declared emulator. Multi-profile batching/scanning, incoming-text scoring, complete recovery/compensation across external transitions, and physical outcomes remain unqualified. JSON metadata alone cannot establish these results.
 
-The service conservatively stops on click/scroll events. No optimistic exception for its own clicks is enabled. A target whose event ordering cannot meet the safe contract remains unsupported. Current sessions operate on a visible profile; qualified navigation and multi-profile batches are unfinished.
+Native sessions use bounded, single-use receipts for their dispatched controls and stop on unmatched interaction. Deferred events require a retained exact node and a shorter deadline. Fresh authority, receiver/profile identity and positive postconditions remain independently required. See [incoming sessions](incoming-notification-design.md) for the event regression and evidence boundaries.
 
-TalkBack behavior, the complete physical OS/OEM/layout matrix, transfer/corruption recovery, real sender delivery/read receipts, discovery coverage, and the monthly attention pilot remain unrun. See [qualification](qualification.md). Do not claim a completed blocker, discovery percentage, or one-minute monthly effort from the engineering suite.
+TalkBack behavior, the complete physical OS/OEM/layout matrix, transfer/corruption recovery, the full read-effects matrix, discovery coverage, and the monthly attention pilot remain unrun. See [qualification](qualification.md). Do not claim a completed blocker, discovery percentage, or one-minute monthly effort from the engineering suite.
 
 GitHub delivery is already release-signed. Local Gradle release outputs remain unsigned. The configured repository signing secret does not need to be recreated. No store sale/publication has occurred, and the owner has not selected an open-source license or final public support/privacy endpoints.

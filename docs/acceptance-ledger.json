@@ -3198,7 +3198,7 @@
       ],
       "status": "unrun",
       "tests": [],
-      "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+      "remaining": "The owner excluded the sender-behavior-after-reconnection component on 14 September 2026. Truthful labeling of an offline native UI observation remains required. No omitted test is marked passed; see docs/name-visibility-design.md."
     },
     {
       "id": "companion:T039",
@@ -4217,6 +4217,22 @@
       "status": "unrun",
       "tests": [],
       "remaining": "Additional companion scenario retained separately. Apply the full design if its explicit manual-choice model or other requirement conflicts."
+    }
+  ],
+  "ownerScopeDecisions": [
+    {
+      "date": "2026-09-14",
+      "decision": "Independent sender-side blocked-delivery testing is not required. Verify Business Gate native actions and fresh exact-profile postconditions; delegate subsequent message blocking to the connected app.",
+      "source": "docs/name-visibility-design.md",
+      "affectedFixes": [
+        "F02",
+        "F16",
+        "F30"
+      ],
+      "partiallySupersededCases": [
+        "companion:T038"
+      ],
+      "omittedTestsClaimedPassed": false
     }
   ]
 }

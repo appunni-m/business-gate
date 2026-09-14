@@ -1,0 +1,31 @@
+# Incoming conversation sessions
+
+Incoming discovery and explicitly started native processing are implemented for the exact measured Android 36 emulator. The [live incoming record](measurements/incoming-session-api36.json) passes 17 assertions after a fresh business reply. The separate [Android notification fixture](measurements/incoming-notification-fixture.json) exercises Business Gate cancellation and policy exclusions. These records do not establish physical-device support or unattended background navigation.
+
+## User flow and runtime contract
+
+1. Enable notification access and **Notification-assisted discovery** after reviewing the disclosure. A bound account and an exact supported installation are required. Business Gate captures and replays active direct-notification candidates automatically, with at most 128 entries kept only in memory for 15 minutes. It does not read message bodies or launch an activity when a notification arrives.
+2. Choose **Review incoming conversations** in the menu or Settings, select a candidate, and choose **Inspect and apply**. A paused rule requires the explicit **Resume and inspect** choice. The session is limited to one conversation and 60 seconds, with visible **Stop** throughout.
+3. Revalidate the notification, immutable activity token, creator, Android user, installation and binding. Open the selected token with Android's foreground-only activity-start option. Read only the measured conversation header and business-profile identity.
+4. Verify the receiving account through Settings and its own profile. Open the measured exact-number public intent within that freshly verified account, and re-read the same full business number and name. The original token is not replayed: its creator can update its destination even when it is immutable to callers. Personal, group, uncertain, changed and unsupported profiles stop without blocking.
+5. Evaluate current business-name permissions and exact-number exceptions. Only fresh confirmed-business evidence and current authority can dispatch native Block. Enabled names and exact-number Allow remain visible; an exact-number Deny overrides an enabled name. Verify the exact native postcondition before committing success.
+6. Cancel only the selected, still-current notification after identity confirmation, HIDE policy and verified BLOCKED state. A replacement is outside this session. Require the Android cancellation callback and active-notification absence before reporting dismissal. If the connected app cleared its own notification on opening, report that separately.
+7. Stop, expiry, disconnect, discovery/consent revocation and binding changes invalidate authority. Each further conversation requires another explicit session. Existing chats remain; opening a conversation may mark it read, and a first preview may appear.
+
+## Measured alternatives and fixes
+
+The [structured metadata measurement](measurements/incoming-metadata-api36.json) found no sender or receiving-account Person URI/key, no useful account subtext, opaque shortcut identifiers, and stripped ranking shortcut intents. Display labels cannot establish exact identity. These fields therefore cannot authorize unattended blocking or cancellation. The framework token plus visible native identity route supplies the supported path. See Android's [MessagingStyle](https://developer.android.com/reference/android/app/Notification.MessagingStyle) and [notification listener](https://developer.android.com/reference/android/service/notification/NotificationListenerService) contracts.
+
+A default token send was blocked by Android's activity-start rules even while Business Gate was visible. The implemented request uses `MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE`; it does not request a background takeover. See the [Android activity-start guidance](https://developer.android.com/guide/components/activities/secure-bal).
+
+Real trials also exposed a separately acquired stale profile list after Block, deferred click events with action field zero, and non-sequential receipt delivery. The route refreshes the list before choosing either measured row position and matches each event to its exact outstanding receipt. The deferred exception requires the same retained Android node, resource, class and window within 250 ms; missing sources retain the stricter explicit-action requirement. Each receipt is consumed once. Receipts acknowledge a dispatched control; they do not grant action authority. Stop, policy revisions, fresh identity and native postconditions remain independent checks. Android's [event contract](https://developer.android.com/reference/android/view/accessibility/AccessibilityEvent) does not promise strict delivery order or identify a human actor from the action field alone.
+
+Failed trials were retained locally as failed results. A subsequent complete native sequence passed 25 assertions and the fresh incoming sequence passed 17. No failed or merely dispatched action was promoted to success.
+
+## Evidence boundaries
+
+The real business notification disappeared when its conversation opened. The final live result is `VERIFIED_NOTIFICATION_REMOVED_BY_CONNECTED_APP`; it is not evidence of Business Gate calling cancellation on that business notification. Actual framework cancellation, callback acknowledgment, unrelated-notification preservation, groups, uncertain/personal identities, name permissions, exact-number overrides, replacement, revocation and Stop are exercised separately with fictional data on the account-free emulator.
+
+The live harness reconnects the service and therefore exercises active-notification replay. The fixture also exercises actual posted-notification callbacks. Test labels select the one authorized business; production never treats those labels as identity authority. No notification message body is inspected or persisted.
+
+Multi-conversation batches, physical qualification, generalized installation support, incoming-text analysis and the full pilot remain outside this demonstrated route. Independent sender-side blocked-delivery testing was removed from acceptance by the owner; native Block enforcement is delegated to the connected app after Business Gate verifies the action.

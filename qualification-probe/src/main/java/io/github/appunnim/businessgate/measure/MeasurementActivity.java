@@ -53,6 +53,7 @@ public final class MeasurementActivity extends Activity {
         void start() {
             try {
                 if (target == null || !target.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")) throw new IllegalArgumentException("INVALID_INSTALLATION");
+                if ("notifications".equals(mode)) { startNotifications(); return; }
                 String expectedPhone = input.getStringExtra("expectedPhone"), expectedText = input.getStringExtra("expectedTextSha256");
                 if (expectedPhone != null && ((!"send-draft".equals(mode) && !"chat-node".equals(mode) && !"profile-identity".equals(mode) && !"open-business-block".equals(mode) && !"open-business-unblock".equals(mode) && !"block-trial".equals(mode) && !"unblock-trial".equals(mode) && !mode.startsWith("scroll-profile-") && (!"node".equals(mode) || !List.of("profile", "receiver").contains(surface == null ? "" : surface)))
                     || !expectedPhone.matches("\\+[1-9][0-9]{6,14}"))) throw new IllegalArgumentException("INVALID_PHONE_EXPECTATION");
@@ -88,6 +89,28 @@ public final class MeasurementActivity extends Activity {
                     report.put("surfaceAttestation", surface);
                 } else throw new IllegalArgumentException("UNKNOWN_MODE");
                 awaitService();
+            } catch (Exception failure) { fail(failure); }
+        }
+        private void startNotifications() throws Exception {
+            before = environment(context, target);
+            if (!Long.toString(before.getLong("versionCode")).equals(input.getStringExtra("expectedVersion"))
+                || !before.getJSONArray("signingSha256").getString(0).equals(input.getStringExtra("expectedSigner"))
+                || before.getInt("api") != input.getIntExtra("expectedApi", -1)) throw new IllegalStateException("INSTALLATION_CHANGED");
+            for (String key : List.of("expectedPhone", "expectedReceiver"))
+                if (!Neutral.internationalPhoneSyntax(input.getStringExtra(key))) throw new IllegalStateException("IDENTITY_EXPECTATION_REQUIRED");
+            report = new JSONObject().put("schemaVersion", 1).put("mode", mode).put("environment", before)
+                .put("physicalQualification", false).put("mutationPerformed", false)
+                .put("probeApkSha256", Neutral.digest(java.nio.file.Files.readAllBytes(new File(context.getApplicationInfo().sourceDir).toPath())))
+                .put("capturedAtUtc", java.time.Instant.now().toString());
+            captureNotifications();
+        }
+        private void captureNotifications() {
+            if (!current()) return;
+            var listener = NotificationMeasurementService.connected();
+            if (listener == null) { handler.postDelayed(this::captureNotifications, 100); return; }
+            try {
+                report.put("measurement", listener.capture(target, input.getStringExtra("expectedPhone"), input.getStringExtra("expectedReceiver")));
+                complete();
             } catch (Exception failure) { fail(failure); }
         }
         private boolean current() {

@@ -2,6 +2,10 @@
 
 Reviewed 10 September 2026 at source commit `408eb9d9226072f8fda2d341e1fddb3d72ddf8e4`. Scope: workflow and delivery scripts, public run/job/annotation/release data, anonymous artifact downloads, local offline publication tests and workflow lint. This review made no workflow changes, dispatched no run, read no signing secret and installed no APK.
 
+## Incoming-feature review · 14 September 2026
+
+The workflow still gates main-branch delivery on successful verification, audits and signs the verified build, runs the separate signed-upgrade probe, and verifies anonymous versioned and rolling downloads. The incoming change adds `notifications` to the required native-mode manifest; release metadata rejects a verification manifest missing that mode. Local evidence passes 45 notification/event assertions and all 646 assertions across 15 native modes. No signing secret was inspected or changed. The original run-20 findings below remain a historical checkpoint; each later release carries its own run/commit verification.
+
 ## Verdict
 
 **The current workflow works for signed development APK delivery.** [Run 20](https://github.com/appunni-m/business-gate/actions/runs/34456095039) completed successfully at 08:44:02 UTC on 10 September 2026. Both [verify](https://github.com/appunni-m/business-gate/actions/runs/34456095039/job/102802707873) and [deliver](https://github.com/appunni-m/business-gate/actions/runs/34456095039/job/102804297879) passed. The [versioned release](https://github.com/appunni-m/business-gate/releases/tag/build-102001) contains a signed APK, checksums and build metadata. The [continuous APK download](https://github.com/appunni-m/business-gate/releases/download/development/business-gate.apk) works without a GitHub login.

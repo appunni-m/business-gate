@@ -1,10 +1,10 @@
 # Qualifying a connected-app integration
 
-The physical-adapter registry remains empty. A separate experimental contract now enables the exact measured emulator installation and display. Native Block, Unblock, receiving-account binding, name controls, and Stop passed the [live app verification](connected-session-verification.md). A controlled incoming attempt, notification binding, and physical-device evidence remain missing.
+The physical-adapter registry remains empty. A separate experimental contract now enables the exact measured emulator installation and display. Native Block, Unblock, receiving-account binding, name controls, and Stop passed the [live app verification](connected-session-verification.md). The [incoming session](incoming-notification-design.md) also passed with a fresh business reply. Direct Android cancellation has separate fixture coverage; physical-device evidence remains missing.
 
 ## Acquire measurements before enabling a contract
 
-Use dedicated consenting receiver/sender accounts with synthetic test content and no unrelated conversations. A spare phone and second test number, or a trusted consenting test participant, can provide the sender. A Business Gate fixture can test engineering behavior but cannot establish real sender delivery, block state, or read receipts.
+Use the authorized receiving account and scoped consenting business contacts with test content. The existing business reply can supply incoming notifications for development. On 14 September 2026 the owner removed independent sender-side delivery testing from the acceptance requirements; a second sender account is not a prerequisite. Native action postconditions, identity, side-effect and interruption checks remain required. A Business Gate fixture supplies engineering evidence, not physical qualification.
 
 Record the selected official installation's runtime identity fingerprint, exact long version code, current signing certificate and reviewed history, Android API, device family, device language, actual connected-app UI language, display/font configuration, orientation, and navigation mode. Never put the external product name or literal package identifier in project files. Identity fingerprints verify a package selected at runtime; they must not reconstruct or disguise an embedded identifier.
 
@@ -16,7 +16,7 @@ Measure these boundaries:
 4. Entry, confirmation, and positive result screens with an uninterrupted identity chain. The legacy physical parser requires sender and receiver identity on each supported screen. The experimental route separately verifies the receiver, then preserves a finite exact-number profile-to-form binding; see its accepted design and source-bound live evidence.
 5. Navigation's unread/read-receipt effects. Automatic routes must preserve them. A read-affecting visible scan requires explicit scoped consent and separate implementation. No route may inspect message subtrees or use coordinates/gestures.
 6. Real Stop, app switch, lock, IME/system windows, overlay placement, user interaction, action-event ordering, slow UI, policy changes, process death, and uncertain results.
-7. Independently checked sender delivery and receiver state. A click return, local job, or screenshot of Business Gate's own subtitle is insufficient proof.
+7. Re-read the exact native profile identity and positive Block/Unblock postcondition before committing success. A click return, local job, or Business Gate subtitle alone is insufficient. Subsequent message delivery enforcement is delegated to the connected app; independent sender-side delivery trials are not required and must not be claimed as passed.
 
 Keep original measurements outside the public project when they contain restricted branding or private data. Reviewed neutral fixtures must preserve the measured structural facts and identify their provenance; they cannot invent a qualification result. Production code has no recorder or runtime adapter-import endpoint.
 
@@ -36,7 +36,7 @@ Both `scripts/check_registry.py` and the APK audit validate the evidence. Curren
 
 ## Work still required
 
-The connection and current-profile session plumbing now exists, along with namespace, cancellation, durable acknowledgement, and guard fixes. It is not a completed integration. Own-action event attribution is still conservative; navigation, bounded multi-profile batches, visible scanning, qualified notification candidate/text extraction, and complete external-transition recovery/compensation still need measured implementation and testing.
+The connection and current-profile session plumbing now exists, along with namespace, cancellation, durable acknowledgement, and guard fixes. It is not a completed integration. Measured receiver/profile navigation and incoming candidate processing are implemented. Bounded multi-profile batches, visible scanning, incoming-text analysis, and complete external-transition recovery/compensation still need implementation and testing.
 
 Use the [completion plan](implementation-plan.md) and [acceptance ledger](acceptance-ledger.json) to track these independently. The full and companion acceptance numbers are distinct. Any wrong-person/allowed-number/unauthorized personal block, false success, report/delete/send side effect, receiver confusion, or permission bypass stops promotion.
 

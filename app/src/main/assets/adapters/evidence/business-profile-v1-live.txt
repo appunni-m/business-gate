@@ -23,5 +23,30 @@ TRACE 22: start block after name disabled: CHECKING_RECEIVING_ACCOUNT
 TRACE 23: disabling name reapplies a verified native block
 TRACE 24: visible Stop button revokes the live session before navigation
 TRACE 25: Stop does not replay delayed actions or undo the verified block
+TRACE 1: synthetic tests require isolated debug data
+TRACE 2: explicit native mutation test authorization
+TRACE 3: exact measured installation and environment
+TRACE 4: transaction callback
+TRACE 5: select measured installation
+TRACE 6: start real receiver navigation
+TRACE 7: receiver identity measured from own profile
+TRACE 8: transaction callback
+TRACE 9: live test preserves explicit exact-number overrides
+TRACE 10: business name save callback
+TRACE 11: business name save committed
+TRACE 12: start real business inspection and block: CHECKING_RECEIVING_ACCOUNT
+TRACE 13: real business block committed after positive profile verification
+TRACE 14: measured business name saved
+TRACE 15: business-name switch requires a visible review
+TRACE 16: native business-name switch preserves exact-number choice
+TRACE 17: name enable creates scoped unblock grant
+TRACE 18: start name-authorized real unblock: CHECKING_RECEIVING_ACCOUNT
+TRACE 19: real unblock consumes grant and clears owned block
+TRACE 20: business-name switch requires a visible review
+TRACE 21: native business-name switch preserves exact-number choice
+TRACE 22: start block after name disabled: CHECKING_RECEIVING_ACCOUNT
+TRACE 23: disabling name reapplies a verified native block
+TRACE 24: visible Stop button revokes the live session before navigation
+TRACE 25: Stop does not replay delayed actions or undo the verified block
 LIVE finalState=BLOCKED; sentMessages=0; receiverSource=own-profile; physicalQualification=false
 PASS 25 Android persistence, permission, recovery and native UI assertions; mode=live-business
