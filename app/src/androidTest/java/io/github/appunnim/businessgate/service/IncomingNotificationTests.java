@@ -89,8 +89,7 @@ public final class IncomingNotificationTests {
             var listenerField=GateNotificationListener.class.getDeclaredField("connected");listenerField.setAccessible(true);Object listener=listenerField.get(null);
             var claimField=GateNotificationListener.class.getDeclaredField("claim");claimField.setAccessible(true);
             Activity initiator=batch?test.startActivitySync(new Intent(context,io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK)):activity;
-            if(batch){until(initiator::hasWindowFocus);commit(done->((GateApplication)context.getApplicationContext()).senderFilter().configure(true,true,ok->done.run()));}
-            main(()->{
+            Runnable begin=()->{
                 check.accept(batch?GateAccessibilityService.requestCleanup(initiator):GateAccessibilityService.requestIncoming(id,true),batch?"foreground cleanup batch starts with its own Stop control: "+GateAccessibilityService.status():"visible incoming session starts from the foreground activity");
                 try{
                     active[0]=(GateNotificationListener.Claim)claimField.get(listener);
@@ -104,7 +103,17 @@ public final class IncomingNotificationTests {
                         var viewField=overlay.getClass().getDeclaredField("view");viewField.setAccessible(true);((android.widget.Button)viewField.get(overlay)).performClick();
                     }
                 }catch(ReflectiveOperationException error){throw new IllegalStateException(error);}
-            });
+            };
+            if(batch){
+                until(initiator::hasWindowFocus);Throwable[] failure={null};
+                // Start within the save callback's main-thread turn. Yielding back to the
+                // instrumentation thread lets the real automatic entry start first.
+                commit(done->((GateApplication)context.getApplicationContext()).senderFilter().configure(true,true,ok->{
+                    try{if(!ok)throw new AssertionError("Cleanup fixture consent was not saved");begin.run();}
+                    catch(Throwable error){failure[0]=error;}finally{done.run();}
+                }));
+                if(failure[0]!=null)throw new AssertionError("Cleanup fixture start failed: "+failure[0],failure[0]);
+            }else main(begin);
             if(batch){
                 var prior=active[0];
                 until(()->{try{return claimField.get(listener)!=null&&claimField.get(listener)!=prior;}catch(IllegalAccessException invalid){return false;}});
