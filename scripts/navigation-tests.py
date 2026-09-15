@@ -112,7 +112,10 @@ def run_matrix(run, api, read_mode):
             run('shell', 'am', 'force-stop', 'io.github.appunnim.businessgate.debug')
             report = run('shell', 'am', 'instrument', '-w', '-e', 'mode', 'interaction',
                          'io.github.appunnim.businessgate.debug.test/io.github.appunnim.businessgate.GateInstrumentation', timeout=180)
-            subprocess.run([sys.executable, 'scripts/assert_instrumentation.py', 'interaction'], input=report, text=True, env=env, check=True)
+            checked = subprocess.run([sys.executable, 'scripts/assert_instrumentation.py', 'interaction'], input=report, text=True, env=env)
+            if checked.returncode:
+                detail = next((line for line in report.splitlines() if 'FAIL' in line), report[-1600:])
+                raise RuntimeError(f'Owned interaction failed under {name} navigation: {detail[:1600]}')
             subprocess.run(['scripts/ui-layout-tests.sh'], env=env, timeout=600, check=True)
             evidence = {'navigation': name, 'status': 'passed', 'environment': environment(), 'reports': [], 'images': []}
             for mode in modes:

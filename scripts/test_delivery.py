@@ -260,6 +260,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(result.returncode,1)
         self.assertIn('::error title=Android all::FAIL synthetic 10%25',result.stdout)
 
+    def test_unterminated_report_keeps_annotations_on_their_own_line(self):
+        for report,kind,code in (('PASS 1 owned assertion; mode=all','notice',0),('FAIL synthetic assertion','error',1)):
+            with self.subTest(kind=kind):
+                result = subprocess.run([sys.executable,str(ROOT/'scripts/assert_instrumentation.py'),'all'],
+                                        input=report,env=dict(os.environ,GITHUB_ACTIONS='true'),text=True,capture_output=True)
+                self.assertEqual(result.returncode,code)
+                self.assertIn('\n::'+kind+' title=Android all::',result.stdout)
+
     def test_failed_performance_exposes_bounded_numeric_metrics(self):
         environment = dict(os.environ,GITHUB_ACTIONS='true')
         report = 'METRIC records=10000 query_p95_ms=101\nMETRIC private=not-numeric\nFAIL query target\n'
