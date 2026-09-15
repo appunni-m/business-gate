@@ -80,6 +80,7 @@ public final class IncomingNotificationTests {
         var resolver=context.getContentResolver();String key=android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES;
         String original=android.provider.Settings.Secure.getString(resolver,key),enabled=android.provider.Settings.Secure.getString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
         String component=new android.content.ComponentName(context,GateAccessibilityService.class).flattenToString();
+        Instrumentation.ActivityMonitor routeMonitor=null;
         automation.adoptShellPermissionIdentity(android.Manifest.permission.WRITE_SECURE_SETTINGS);
         try{
             java.util.List<String> services=new java.util.ArrayList<>();if(original!=null)for(String service:original.split(":"))if(!service.isEmpty()&&!service.equals(component))services.add(service);
@@ -89,15 +90,17 @@ public final class IncomingNotificationTests {
             var listenerField=GateNotificationListener.class.getDeclaredField("connected");listenerField.setAccessible(true);Object listener=listenerField.get(null);
             var claimField=GateNotificationListener.class.getDeclaredField("claim");claimField.setAccessible(true);
             Activity initiator=batch?test.startActivitySync(new Intent(context,io.github.appunnim.businessgate.ui.MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK)):activity;
+            if(batch)routeMonitor=test.addMonitor(io.github.appunnim.businessgate.ui.MainActivity.class.getName(),null,false);
             Runnable begin=()->{
                 check.accept(batch?GateAccessibilityService.requestCleanup(initiator):GateAccessibilityService.requestIncoming(id,true),batch?"foreground cleanup batch starts with its own Stop control: "+GateAccessibilityService.status():"visible incoming session starts from the foreground activity");
                 try{
                     active[0]=(GateNotificationListener.Claim)claimField.get(listener);
                     var serviceField=GateAccessibilityService.class.getDeclaredField("connected");serviceField.setAccessible(true);Object service=serviceField.get(null);
                     if(batch){
-                        // Only the batch scheduler is under test here. This is a synthetic host
-                        // completion, not evidence that any native business action succeeded.
-                        var finish=GateAccessibilityService.class.getDeclaredMethod("measuredFinished",String.class);finish.setAccessible(true);finish.invoke(service,"VERIFIED_FIXTURE_ONLY");
+                        // Stub native profile work while the real owned PendingIntent settles.
+                        // The separate batch handler, deadline and Stop control remain active.
+                        var handlerField=GateAccessibilityService.class.getDeclaredField("handler");handlerField.setAccessible(true);
+                        ((android.os.Handler)handlerField.get(service)).removeCallbacksAndMessages(null);
                     }else{
                         var overlayField=GateAccessibilityService.class.getDeclaredField("overlay");overlayField.setAccessible(true);Object overlay=overlayField.get(service);
                         var viewField=overlay.getClass().getDeclaredField("view");viewField.setAccessible(true);((android.widget.Button)viewField.get(overlay)).performClick();
@@ -115,8 +118,21 @@ public final class IncomingNotificationTests {
                 if(failure[0]!=null)throw new AssertionError("Cleanup fixture start failed: "+failure[0],failure[0]);
             }else main(begin);
             if(batch){
+                Activity routed=routeMonitor.waitForActivityWithTimeout(10000);
+                if(routed==null)throw new AssertionError("Owned cleanup PendingIntent did not open its fixture activity");
+                until(routed::hasWindowFocus);test.waitForIdleSync();
+                main(()->{
+                    try{
+                        // Only the scheduler is under test. Complete the synthetic host after
+                        // its navigation, as a real verified profile completion would do.
+                        var serviceField=GateAccessibilityService.class.getDeclaredField("connected");serviceField.setAccessible(true);
+                        var finish=GateAccessibilityService.class.getDeclaredMethod("measuredFinished",String.class);finish.setAccessible(true);
+                        finish.invoke(serviceField.get(null),"VERIFIED_FIXTURE_ONLY");
+                    }catch(ReflectiveOperationException invalid){throw new IllegalStateException(invalid);}
+                });
                 var prior=active[0];
-                until(()->{try{return claimField.get(listener)!=null&&claimField.get(listener)!=prior;}catch(IllegalAccessException invalid){return false;}});
+                try{until(()->{try{return claimField.get(listener)!=null&&claimField.get(listener)!=prior;}catch(IllegalAccessException invalid){return false;}});}
+                catch(AssertionError timeout){throw new AssertionError("Second cleanup route did not start: "+GateAccessibilityService.status()+", active="+GateAccessibilityService.cleanupActive(),timeout);}
                 main(()->{
                     try{
                         active[0]=(GateNotificationListener.Claim)claimField.get(listener);
@@ -130,6 +146,7 @@ public final class IncomingNotificationTests {
             check.accept(active[0]!=null&&!GateNotificationListener.valid(active[0])&&repository.disarmed(),"actual Stop button revokes the incoming claim and native authority");
             Thread.sleep(900);check.accept(GateAccessibilityService.status().equals("USER_STOP"),"delayed incoming navigation does not resume after Stop");
         }finally{
+            if(routeMonitor!=null)test.removeMonitor(routeMonitor);
             android.provider.Settings.Secure.putString(resolver,key,original);android.provider.Settings.Secure.putString(resolver,android.provider.Settings.Secure.ACCESSIBILITY_ENABLED,enabled);automation.dropShellPermissionIdentity();
         }
     }
