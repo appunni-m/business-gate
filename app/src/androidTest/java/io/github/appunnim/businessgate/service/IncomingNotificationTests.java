@@ -210,6 +210,7 @@ public final class IncomingNotificationTests {
             check.accept(java.util.Arrays.stream(manager.getActiveNotifications()).noneMatch(n->n.getId()==targetId),"selected framework notification removed");
             check.accept(java.util.Arrays.stream(manager.getActiveNotifications()).anyMatch(n->n.getId()==otherId),"unrelated framework notification retained");
             filterFlow(app,connectedField,activity);
+            suppliedRules(app);
             var revoked=postAndClaim();main(()->repository.setting("discovery",false));until(()->!repository.optionEnabled("discovery"));
             check.accept(!GateNotificationListener.valid(revoked),"discovery revocation immediately prevents action");
             main(()->check.accept(GateNotificationListener.pending().isEmpty(),"discovery revocation drops in-memory candidates"));main(activity::finish);
@@ -229,6 +230,26 @@ public final class IncomingNotificationTests {
             .setContentIntent(token(id,false)).setGroup("name-filter-fixture").build();
     }
     private boolean posted(int id){return java.util.Arrays.stream(manager.getActiveNotifications()).anyMatch(n->n.getId()==id);}
+    private void suppliedRules(GateApplication app)throws Exception{
+        var store=app.senderFilter();
+        check.accept(!store.suppliedNames().isEmpty(),"encoded supplied catalogue loads locally");
+        // Read the actual asset; do not duplicate supplied plaintext names in test source.
+        String name=new java.util.TreeSet<>(store.suppliedNames()).first();
+        check.accept(store.names().contains(name)&&!store.catalogue().containsKey(name)&&!store.current().learned().containsValue(name),"supplied rules remain distinct from observed public or learned business names");
+        commit(done->store.configure(true,false,ok->{check.accept(ok,"supplied rules use the existing explicit feature consent");done.run();}));
+        int matching=++next,personal=++next,group=++next;
+        manager.notify(personal,namedNotice(personal,"Personal rule fixture",false));
+        manager.notify(group,namedNotice(group,name,true));manager.notify(matching,namedNotice(matching,name,false));
+        until(()->!posted(matching)&&store.current().items().stream().anyMatch(i->i.name().equals(name)&&i.status().equals("HIDDEN_PENDING_PROFILE")));
+        check.accept(posted(personal)&&posted(group),"decoded supplied rule dismisses only its direct notice and preserves personal and group notices");
+        check.accept(store.current().items().stream().filter(i->i.name().equals(name)).allMatch(i->i.phone().isEmpty())&&!store.current().learned().containsValue(name),"a supplied name creates no verified number or business identity");
+        commit(done->repository.setBusinessNameEnabled(repository.businessNameScope(),name,true,result->{check.accept(result==GateRepository.SaveResult.SAVED,"supplied sender whitelist saved");done.run();}));
+        int permitted=++next;manager.notify(permitted,namedNotice(permitted,name,false));Thread.sleep(500);
+        check.accept(posted(permitted),"whitelist preserves a supplied sender notification");
+        commit(done->repository.setBusinessNameEnabled(repository.businessNameScope(),name,false,result->done.run()));
+        until(()->!posted(permitted));check.accept(!posted(permitted),"removing a supplied sender whitelist restores name filtering");
+        commit(done->store.configure(false,false,ok->done.run()));manager.cancelAll();
+    }
     private void filterFlow(GateApplication app,java.lang.reflect.Field field,Activity activity)throws Exception{
         manager.cancelAll();var currentClaim=GateNotificationListener.class.getDeclaredField("claim");currentClaim.setAccessible(true);
         main(()->{try{GateNotificationListener.release((GateNotificationListener.Claim)currentClaim.get(readField(field)));}catch(IllegalAccessException invalid){throw new IllegalStateException(invalid);}});

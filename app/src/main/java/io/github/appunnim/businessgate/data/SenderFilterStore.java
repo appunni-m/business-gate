@@ -25,14 +25,15 @@ public final class SenderFilterStore {
     private final Handler main=new Handler(Looper.getMainLooper());
     private final List<Runnable> listeners=new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Map<String,SenderCatalogue.Entry> catalogue;
+    private final Set<String> suppliedNames;
     private volatile State state=State.empty("");
     private long generation;
     private String dataIdentity="";
     private boolean optionPending;
     public SenderFilterStore(Context context,GateRepository repository){
-        this.repository=repository;Map<String,SenderCatalogue.Entry> loaded;
-        try{loaded=SenderCatalogue.load(context);}catch(RuntimeException invalid){loaded=Map.of();}
-        catalogue=loaded;
+        this.repository=repository;Map<String,SenderCatalogue.Entry> loaded;Set<String> supplied;
+        try{loaded=SenderCatalogue.load(context);supplied=SenderCatalogue.loadSupplied(context);}catch(RuntimeException invalid){loaded=Map.of();supplied=Set.of();}
+        catalogue=loaded;suppliedNames=supplied;
         helper=new SQLiteOpenHelper(context,"sender-filter.db",null,1){
             public void onCreate(SQLiteDatabase db){
                 db.execSQL("CREATE TABLE scope(id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0, cleanup INTEGER NOT NULL DEFAULT 0)");
@@ -47,7 +48,8 @@ public final class SenderFilterStore {
     public State current(){return state;}
     public boolean enabled(){return state.ready()&&state.scope().equals(scope())&&state.enabled()&&!optionPending&&repository.consented()&&repository.optionEnabled("discovery")&&repository.nameVisibilityPolicy()!=null&&!catalogue.isEmpty();}
     public Map<String,SenderCatalogue.Entry> catalogue(){return catalogue;}
-    public Set<String> names(){Set<String> names=new TreeSet<>(catalogue.keySet());if(state.scope().equals(scope()))names.addAll(state.learned().values());return Set.copyOf(names);}
+    public Set<String> suppliedNames(){return suppliedNames;}
+    public Set<String> names(){Set<String> names=new TreeSet<>(catalogue.keySet());names.addAll(suppliedNames);if(state.scope().equals(scope()))names.addAll(state.learned().values());return Set.copyOf(names);}
     public void addListener(Runnable listener){listeners.add(listener);}
     public void removeListener(Runnable listener){listeners.remove(listener);}
     private void changed(){for(Runnable listener:listeners)listener.run();}
