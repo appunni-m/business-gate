@@ -17,6 +17,8 @@ The [Android build and delivery workflow](../.github/workflows/android.yml) runs
 
 The publishing job uses GitHub's automatic token with `contents: write`. Verification uses read-only permissions and does not receive the signing secret. Pull requests, fork runs, non-main pushes, and non-main manual runs cannot publish. Checkout does not persist credentials. An unsuccessful verification or installation prevents publication. Build reports are retained for 14 days, signed Actions artifacts for 90 days, and versioned releases remain available until the owner removes them.
 
+SDK setup reuses the [runner image’s preinstalled command-line tools](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md#android), pinned to CLI 12.0 (build 11076708). It uses the runner’s existing SDK licenses and skips the setup action’s unrelated legacy package installation. The following steps still explicitly require Platform 36 and Build Tools 35.0.0; missing components or licenses fail the job.
+
 The target/compile baseline is deliberately API 36. Lint's `OldTargetApi` update advisory is excluded for both app and probe so a runner learning about a newer SDK does not silently change the supported build baseline. Other warnings remain errors. Moving to a newer target requires a separate behavior and qualification review; this development APK is not a claim of current store submission compliance.
 
 ## One-time signing setup
